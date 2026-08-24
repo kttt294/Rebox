@@ -1,8 +1,9 @@
-# REBOX — Luồng Backend chi tiết
+# REBOX - Luồng Backend chi tiết
 
 Đọc kèm `01-TECHNICAL-SPEC.md`. Mỗi luồng gồm: sequence, ranh giới transaction, idempotency, và **error path** (phần hay bị bỏ sót nhất và cũng là phần gây mất tiền).
 
 Quy ước ký hiệu:
+
 - `[TX]` = nằm trong một database transaction
 - `[OUTBOX]` = ghi vào bảng outbox trong cùng TX, worker xử lý sau
 - `[IDEM:key]` = thao tác idempotent theo khóa
@@ -34,8 +35,9 @@ sequenceDiagram
 ```
 
 **Ràng buộc:**
+
 - Ảnh CCCD là **dữ liệu cá nhân nhạy cảm**. Lưu bucket riêng, mã hóa, `retention_until = kyc_verified_at + 5 năm` (thời hiệu tranh chấp), audit mọi lượt truy cập.
-- Không lưu ảnh CCCD gốc sau khi verify nếu không bắt buộc — chỉ giữ `idNumber` mã hóa + kết quả verify + hash ảnh. Giảm bề mặt rủi ro rò rỉ.
+- Không lưu ảnh CCCD gốc sau khi verify nếu không bắt buộc - chỉ giữ `idNumber` mã hóa + kết quả verify + hash ảnh. Giảm bề mặt rủi ro rò rỉ.
 - eKYC fail 3 lần ⇒ chuyển duyệt tay, không cho retry vô hạn (chống dò).
 
 ### 1.2. Nạp ký quỹ
@@ -61,13 +63,13 @@ POST /seller/wallet/topup  {amount}  Idempotency-Key: <uuid>
 
 **Error path:**
 
-| Tình huống | Xử lý |
-|---|---|
-| Webhook đến 2 lần | `IDEM` key theo `psp_txn_id` ⇒ lần 2 no-op, vẫn trả 200 |
-| Webhook đến trước khi API trả về client | Không sao — nguồn sự thật là DB, client poll trạng thái |
-| Số tiền webhook ≠ số tiền intent | **Không tự động ghi có.** Tạo `manual_review_case`, cảnh báo ops. Đây là vector gian lận kinh điển |
-| PSP không gửi webhook | Job reconcile mỗi 15 phút: query PSP theo các intent PENDING >10 phút |
-| Webhook đến sau khi intent đã EXPIRED | Vẫn ghi có (tiền đã vào thật), nhưng gắn cờ `late_settlement` |
+| Tình huống                              | Xử lý                                                                                              |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Webhook đến 2 lần                       | `IDEM` key theo `psp_txn_id` ⇒ lần 2 no-op, vẫn trả 200                                            |
+| Webhook đến trước khi API trả về client | Không sao - nguồn sự thật là DB, client poll trạng thái                                            |
+| Số tiền webhook ≠ số tiền intent        | **Không tự động ghi có.** Tạo `manual_review_case`, cảnh báo ops. Đây là vector gian lận kinh điển |
+| PSP không gửi webhook                   | Job reconcile mỗi 15 phút: query PSP theo các intent PENDING >10 phút                              |
+| Webhook đến sau khi intent đã EXPIRED   | Vẫn ghi có (tiền đã vào thật), nhưng gắn cờ `late_settlement`                                      |
 
 ### 1.3. Rút ký quỹ
 
@@ -88,7 +90,7 @@ POST /seller/wallet/topup  {amount}  Idempotency-Key: <uuid>
 
 ## 2. Luồng đăng bán
 
-### 2.1. Ingest hàng hoàn — 4 nguồn
+### 2.1. Ingest hàng hoàn - 4 nguồn
 
 ```mermaid
 flowchart LR
@@ -101,28 +103,81 @@ flowchart LR
   F --> H["Tạo listing draft"]
 ```
 
-**Dedupe:** `source_tracking_hash = HMAC_SHA256(pepper, normalize(tracking_no))`. Unique index `(shop_id, source_tracking_hash)`. Quét trùng ⇒ trả về `return_item` đã có kèm trạng thái, **không tạo bản ghi mới** — nhân viên kho quét trùng là chuyện xảy ra hằng ngày.
+**Dedupe:** `source_tracking_hash = HMAC_SHA256(pepper, normalize(tracking_no))`. Unique index `(shop_id, source_tracking_hash)`. Quét trùng ⇒ trả về `return_item` đã có kèm trạng thái, **không tạo bản ghi mới** - nhân viên kho quét trùng là chuyện xảy ra hằng ngày.
 
 ### 2.2. Scan-to-list (luồng nhanh)
 
-```
-POST /seller/scan  {trackingNo, platformHint}
+**Mô hình truy cập: tra cứu theo yêu cầu, KHÔNG đồng bộ toàn bộ** (`01-SPEC` §7.1.1).
+REBOX chỉ đọc đúng đơn seller chủ động đưa ra bằng cách quét mã trên kiện hàng vật lý.
 
-1.  Chuẩn hóa mã (bỏ khoảng trắng, viết hoa, kiểm checksum theo prefix ĐVVC)
-2.  Tra return_items theo hash
+```
+POST /seller/scan  {scannedCode, codeType, platformHint}
+      codeType ∈ {ORDER_SN, TRACKING_NO, UNKNOWN}
+
+1.  Chuẩn hoá mã + nhận diện nguồn
+    - bỏ khoảng trắng, viết hoa
+    - đoán ĐVVC/sàn theo tiền tố và định dạng (SPX / GHN / GHTK / J&T / Ninja…)
+    - đoán codeType nếu client gửi UNKNOWN
+    ⚠ Heuristic này DỄ VỠ khi các bên đổi định dạng → tách thành bảng cấu hình,
+      có test theo mẫu thật, không hardcode rải rác
+
+2.  Tra return_items theo source_tracking_hash
     ├─ HIT   → trả dữ liệu đã có (≈50ms). KẾT THÚC.
     └─ MISS  → tiếp
-3.  Tra bảng csv_staging (dữ liệu seller đã import)
-    ├─ HIT   → tạo return_item từ dòng CSV, trả về
+
+3.  Tra cache đơn-đã-quét (TTL 30 ngày, chỉ chứa đơn seller đã từng đưa ra)
+    ├─ HIT   → tạo return_item từ cache. KẾT THÚC.
     └─ MISS  → tiếp
-4.  Nếu shop đã kết nối API sàn VÀ tính năng bật:
-      gọi Shopee/TikTok với timeout 8s, circuit breaker
-    ├─ OK    → tạo return_item + cache raw_payload
-    └─ FAIL  → tiếp
-5.  Trả form trống + trackingNo đã điền + gợi ý "chụp ảnh để AI điền giúp"
+
+4.  ĐƯỜNG C - tra csv_staging (seller đã import trước đó)
+    ├─ HIT   → tạo return_item từ dòng CSV. KẾT THÚC.
+    └─ MISS  → tiếp
+    ※ Đường này KHÔNG cần API, luôn hoạt động → giữ làm luồng chính của MVP (L7)
+
+5.  Nếu shop đã kết nối API sàn VÀ tính năng bật:
+
+    ĐƯỜNG A - codeType == ORDER_SN                    ← ưu tiên
+      get_order_detail(order_sn)                      1 lần gọi, tối thiểu hoá triệt để
+
+    ĐƯỜNG B - codeType == TRACKING_NO
+      b1. get_order_list(status=RETURNED, 60 ngày)
+          → CHỈ lấy cặp (order_sn, tracking_number)
+          → giữ trong cache ngắn hạn, KHÔNG ghi xuống DB
+      b2. đối chiếu trong bộ nhớ tìm đơn khớp
+      b3. CHỈ get_order_detail cho đúng đơn đó
+      ※ Giảm thiểu ở tầng LƯU TRỮ, không giảm được ở tầng ĐỌC - nêu rõ trong
+        chính sách, không che
+
+    Chung cho A và B:
+      - timeout 8s, circuit breaker, backoff
+      - lọc allowlist trường dữ liệu NGAY tại tầng ingest, trước khi ghi
+      - ghi audit_logs: shop nào, đọc đơn nào, lúc nào
+      ├─ OK    → tạo return_item + ghi cache (chỉ trường sản phẩm)
+      └─ FAIL  → tiếp
+
+6.  Trả form trống + mã đã điền sẵn + gợi ý "chụp ảnh để AI điền giúp"
 ```
 
-**Điểm thiết kế quan trọng:** bước 4 **không bao giờ chặn** trải nghiệm. Timeout 8s là quá lâu cho nhân viên kho đang quét liên tục — nên thực tế UI hiển thị form ngay ở 1,5s và **điền bù** khi API trả về (optimistic UI). Xem `03-FRONTEND-FLOWS` §2.2.
+**Bộ lọc allowlist - bắt buộc, chặn ở tầng ingest:**
+
+```
+CHO PHÉP :  item_name, sku, variant/model, item_images[],
+            original_price, category, weight, dimensions
+CHẶN     :  buyer_name, buyer_phone, buyer_address, buyer_user_id,
+            recipient_*, mọi trường định danh người mua gốc
+```
+
+Chặn tại tầng ingest chứ không lọc lúc hiển thị: dữ liệu không được phép **tồn tại** trong `raw_payload`, chứ không phải chỉ ẩn đi. Xem `05-PHAP-LY` §3.6.
+
+**Đường lùi khi quét thất bại** - tỷ lệ lỗi ở kho thật không nhỏ (nhãn rách, dán đè, ướt, mờ):
+
+```
+Barcode không đọc được  → OCR vùng text trên nhãn (on-device)
+OCR không ra            → nhập tay mã
+Không có mã             → đăng thủ công + AI gợi ý từ ảnh chụp
+```
+
+**Điểm thiết kế quan trọng:** bước 4 **không bao giờ chặn** trải nghiệm. Timeout 8s là quá lâu cho nhân viên kho đang quét liên tục - nên thực tế UI hiển thị form ngay ở 1,5s và **điền bù** khi API trả về (optimistic UI). Xem `03-FRONTEND-FLOWS` §2.2.
 
 ### 2.3. Publish listing
 
@@ -162,11 +217,11 @@ nếu wallet.available < hold_estimate(listing đắt nhất) → greedy hide (�
 
 Bảng `restricted_categories` với 3 mức:
 
-| Mức | Ví dụ | Xử lý |
-|---|---|---|
-| `BANNED` | thuốc, TPCN, vũ khí, chất cấm, động vật hoang dã, tiền tệ, hàng nhập lậu | Chặn cứng khi publish |
-| `MANUAL_REVIEW` | mỹ phẩm, thực phẩm, đồ chơi trẻ em, thiết bị điện, hàng hiệu | Bắt buộc admin duyệt + yêu cầu ảnh tem/nhãn |
-| `DISCLOSURE` | đồ điện tử đã qua sử dụng, quần áo đã mặc thử | Bắt buộc điền `condition_notes` chi tiết |
+| Mức             | Ví dụ                                                                    | Xử lý                                       |
+| --------------- | ------------------------------------------------------------------------ | ------------------------------------------- |
+| `BANNED`        | thuốc, TPCN, vũ khí, chất cấm, động vật hoang dã, tiền tệ, hàng nhập lậu | Chặn cứng khi publish                       |
+| `MANUAL_REVIEW` | mỹ phẩm, thực phẩm, đồ chơi trẻ em, thiết bị điện, hàng hiệu             | Bắt buộc admin duyệt + yêu cầu ảnh tem/nhãn |
+| `DISCLOSURE`    | đồ điện tử đã qua sử dụng, quần áo đã mặc thử                            | Bắt buộc điền `condition_notes` chi tiết    |
 
 Danh sách này do bộ phận Pháp lý duy trì, không phải Tech. Xem `05-PHAP-LY` §6.
 
@@ -187,7 +242,7 @@ function reevaluate(shopId):
         need = hold_estimate(L)
         if budget >= need:
             covered.append(L); budget -= need
-        # KHÔNG break — listing rẻ hơn phía sau vẫn có thể phủ được
+        # KHÔNG break - listing rẻ hơn phía sau vẫn có thể phủ được
 
     hide  = listings không nằm trong covered và đang ACTIVE
     show  = listings nằm trong covered và đang HIDDEN_BY_FUND
@@ -199,7 +254,7 @@ function reevaluate(shopId):
   [OUTBOX] thông báo seller nếu có thay đổi
 ```
 
-Lưu ý: đây chỉ là **hiển thị**, không phải hold thật. Hold thật xảy ra ở checkout. Mục đích là để buyer không nhìn thấy hàng mà shop không đủ tiền bảo đảm — tránh việc đơn bị hủy sau khi buyer đã trả tiền.
+Lưu ý: đây chỉ là **hiển thị**, không phải hold thật. Hold thật xảy ra ở checkout. Mục đích là để buyer không nhìn thấy hàng mà shop không đủ tiền bảo đảm - tránh việc đơn bị hủy sau khi buyer đã trả tiền.
 
 ---
 
@@ -220,7 +275,7 @@ sequenceDiagram
   alt lock fail
     API-->>B: 409 ITEM_BEING_PURCHASED
   end
-  API->>DB: SELECT listings FOR UPDATE (theo thứ tự ULID — tránh deadlock)
+  API->>DB: SELECT listings FOR UPDATE (theo thứ tự ULID - tránh deadlock)
   API->>API: kiểm tra tất cả status = ACTIVE
   API->>API: nhóm theo shop_id → tạo N sub_order
   loop mỗi sub_order
@@ -241,7 +296,7 @@ sequenceDiagram
 
 **Toàn bộ nằm trong MỘT transaction.** Nếu hold của sub-order thứ 2 thất bại, hold của sub-order thứ 1 phải rollback theo. Không có trạng thái nửa vời.
 
-**Vì sao hold trước khi thanh toán:** nếu hold sau khi buyer trả tiền và shop không đủ số dư, ta có tiền của buyer trong tài khoản shop nhưng không có bảo đảm — tình huống tệ nhất về cả nghiệp vụ lẫn pháp lý. Xem L2.
+**Vì sao hold trước khi thanh toán:** nếu hold sau khi buyer trả tiền và shop không đủ số dư, ta có tiền của buyer trong tài khoản shop nhưng không có bảo đảm - tình huống tệ nhất về cả nghiệp vụ lẫn pháp lý. Xem L2.
 
 ### 3.2. Thanh toán VietQR
 
@@ -251,7 +306,7 @@ POST /checkout/{orderId}/pay  {method: VIETQR}
 1. Với mỗi sub_order, sinh QR trỏ về TK NGÂN HÀNG CỦA SELLER
    addInfo = "RBX" + subOrderId  (mã đối soát duy nhất)
    amount  = sub_order.buyer_payable
-2. Trả về danh sách QR (nhiều seller = nhiều QR — cần nêu rõ trong UI)
+2. Trả về danh sách QR (nhiều seller = nhiều QR - cần nêu rõ trong UI)
 3. sub_order.status = AWAITING_PAYMENT
 4. Đặt job hết hạn tại T+15 phút
 
@@ -268,15 +323,15 @@ POST /webhooks/bank  {txnId, accountNo, amount, content, time}
 4. Nếu không khớp → bảng payment_unmatched, ops xử lý tay
 ```
 
-**Error path — quan trọng:**
+**Error path - quan trọng:**
 
-| Tình huống | Xử lý |
-|---|---|
-| Buyer chuyển thiếu tiền | Không confirm. Vào `payment_unmatched`. Thông báo buyer chuyển bù hoặc hoàn trả. **Không tự động hoàn** — tài khoản nhận là của seller, REBOX không rút được |
-| Buyer chuyển thừa | Confirm đơn, phần thừa vào `payment_unmatched` để ops hoàn tay |
-| Buyer chuyển sau khi hết hạn 15 phút | Hold đã release, listing có thể đã bán cho người khác. **Đây là rủi ro thật của mô hình.** Giảm thiểu: kéo dài TTL lên 30 phút, cảnh báo rõ trong UI, và giữ `RESERVED` thêm 10 phút ở chế độ grace nếu chưa có buyer khác |
-| Buyer quên nhập nội dung chuyển khoản | Vào `payment_unmatched`. Đối chiếu tay theo số tiền + thời gian + số tài khoản gửi |
-| Bank hub chết | Job polling sao kê mỗi 5 phút làm phương án dự phòng |
+| Tình huống                            | Xử lý                                                                                                                                                                                                                      |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Buyer chuyển thiếu tiền               | Không confirm. Vào `payment_unmatched`. Thông báo buyer chuyển bù hoặc hoàn trả. **Không tự động hoàn** - tài khoản nhận là của seller, REBOX không rút được                                                               |
+| Buyer chuyển thừa                     | Confirm đơn, phần thừa vào `payment_unmatched` để ops hoàn tay                                                                                                                                                             |
+| Buyer chuyển sau khi hết hạn 15 phút  | Hold đã release, listing có thể đã bán cho người khác. **Đây là rủi ro thật của mô hình.** Giảm thiểu: kéo dài TTL lên 30 phút, cảnh báo rõ trong UI, và giữ `RESERVED` thêm 10 phút ở chế độ grace nếu chưa có buyer khác |
+| Buyer quên nhập nội dung chuyển khoản | Vào `payment_unmatched`. Đối chiếu tay theo số tiền + thời gian + số tài khoản gửi                                                                                                                                         |
+| Bank hub chết                         | Job polling sao kê mỗi 5 phút làm phương án dự phòng                                                                                                                                                                       |
 
 **Đây là điểm yếu cấu trúc của mô hình "tiền đi thẳng về seller".** Cần nêu rõ với ban dự án: đổi lại tốc độ thu hồi vốn cho seller, REBOX mất khả năng kiểm soát tiền và phải chấp nhận một tỷ lệ đối soát tay nhất định (~2–5% giao dịch VietQR theo kinh nghiệm các hệ thống tương tự).
 
@@ -309,7 +364,7 @@ Trigger: sub_order → CONFIRMED, seller bấm "Xác nhận & In vận đơn"
 5. Trả về PDF/PNG nhãn vận đơn (khổ A6 hoặc 10x15 cho máy in nhiệt)
 ```
 
-**Chọn ĐVVC:** ở v1 chọn theo cấu hình shop + vùng giao. Không làm thuật toán tối ưu cước ở MVP — độ phức tạp cao, lợi ích thấp khi sản lượng còn nhỏ.
+**Chọn ĐVVC:** ở v1 chọn theo cấu hình shop + vùng giao. Không làm thuật toán tối ưu cước ở MVP - độ phức tạp cao, lợi ích thấp khi sản lượng còn nhỏ.
 
 ### 3.5. Webhook trạng thái vận chuyển
 
@@ -409,7 +464,7 @@ E. Đơn kẹt:
    → hàng đợi ops
 ```
 
-Mục D và E là lưới an toàn. Trong thực tế vận hành, job chết giữa chừng, webhook mất, và deploy sai luôn xảy ra — hệ thống tiền phải tự phát hiện và tự chữa.
+Mục D và E là lưới an toàn. Trong thực tế vận hành, job chết giữa chừng, webhook mất, và deploy sai luôn xảy ra - hệ thống tiền phải tự phát hiện và tự chữa.
 
 ---
 
@@ -422,7 +477,7 @@ POST /orders/{subOrderId}/disputes  {reasonCode, statement, claimedAmount}
 
 1. Kiểm tra: now() <= claim_deadline_at
    NẾU QUÁ HẠN: vẫn nhận hồ sơ nhưng gắn cờ LATE_CLAIM, đi thẳng ADMIN_REVIEW,
-   và KHÔNG được auto-approve. (Không từ chối tiếp nhận — xem L5)
+   và KHÔNG được auto-approve. (Không từ chối tiếp nhận - xem L5)
 2. Kiểm tra chưa có dispute đang mở cho sub_order này
 3. [TX]
      - tạo dispute status = EVIDENCE_PENDING, sla_deadline = now + 48h
@@ -436,9 +491,16 @@ POST /orders/{subOrderId}/disputes  {reasonCode, statement, claimedAmount}
 ### 5.2. Upload chứng cứ (chain of custody)
 
 ```
+0. GHI ĐỒNG Ý TRƯỚC KHI MỞ CAMERA  ← bắt buộc, xem 05-PHAP-LY §3.4.5
+   POST /disputes/{id}/consent {noticeVersion, noticeSha256, purposes[]}
+   [TX] ghi consent_records (văn bản đã hiển thị, từng ô đã tick, IP, thiết bị)
+   → trả consentId
+   Buyer từ chối: KHÔNG chặn khiếu nại. Hồ sơ đi thẳng ADMIN_REVIEW (L5)
+
 1. Client yêu cầu presigned multipart URL:
-   POST /disputes/{id}/evidence/init {kind, sizeBytes, durationMs, captureMeta}
+   POST /disputes/{id}/evidence/init {kind, sizeBytes, durationMs, captureMeta, consentId}
    → server kiểm tra: size <= 200MB, duration <= 180s, kind hợp lệ
+   → server kiểm tra consentId hợp lệ, thuộc đúng dispute, chưa rút lại
    → trả uploadId + phần presigned URLs
 
 2. Client upload trực tiếp lên object storage (không qua API server)
@@ -447,12 +509,33 @@ POST /orders/{subOrderId}/disputes  {reasonCode, statement, claimedAmount}
    [TX]
      - server tự tính SHA-256 từ object storage (KHÔNG tin client)
      - đối chiếu với clientSha256; lệch → từ chối
-     - ghi dispute_evidences với retention_until
+     - ghi dispute_evidences với consent_id + retention_until (đóng vụ việc + 90 ngày)
      - đặt Object Lock (compliance mode) đến retention_until
      - [OUTBOX] job ai.triage
 ```
 
+**Sinh bản khử nhận dạng cho seller** - chạy trong job `ai.triage`, sau bước chọn keyframe:
+
+```
+4. Với 6-10 keyframe AI đã chọn:
+     - phát hiện khuôn mặt → làm mờ TẤT CẢ khuôn mặt (không chỉ người lạ:
+       không phân biệt được đâu là buyer, đâu là người thân)
+     - đóng watermark mã vụ việc
+     - ghi evidence_derivatives(kind=KEYFRAME_REDACTED, visible_to='SELLER',
+       redaction={faces_blurred, method, model_version},
+       retention_until = đóng vụ việc + 3 năm)
+
+5. Nếu khâu che mặt THẤT BẠI hoặc độ tin cậy thấp:
+     - KHÔNG sinh bản cho seller
+     - đánh dấu dispute.needs_manual_redaction = true
+     - admin chọn khung hình thủ công trước khi seller xem được
+     - TUYỆT ĐỐI KHÔNG fallback về video gốc
+```
+
+Bản gốc chỉ admin cấp phân xử truy cập được, presigned URL 5 phút, **mọi lượt xem ghi `audit_logs`** kèm danh tính người xem. Seller không có bất kỳ đường nào chạm tới `dispute_evidences.storage_key`.
+
 **captureMeta bắt buộc có** (thu thập từ app, dùng để chấm điểm chứ không dùng để chặn):
+
 ```json
 {
   "capturedInApp": true,
@@ -465,7 +548,7 @@ POST /orders/{subOrderId}/disputes  {reasonCode, statement, claimedAmount}
 }
 ```
 
-**Nguyên tắc:** cho phép cả upload từ thư viện ảnh, nhưng `capturedInApp: false` làm giảm `integrity_score` và **loại khỏi diện auto-approve**. Chặn cứng upload từ thư viện là không hợp lý — người dùng có thể quay bằng app camera mặc định, và một số máy Android quay trong app bị lỗi.
+**Nguyên tắc:** cho phép cả upload từ thư viện ảnh, nhưng `capturedInApp: false` làm giảm `integrity_score` và **loại khỏi diện auto-approve**. Chặn cứng upload từ thư viện là không hợp lý - người dùng có thể quay bằng app camera mặc định, và một số máy Android quay trong app bị lỗi.
 
 ### 5.3. AI Triage
 
@@ -498,12 +581,12 @@ sequenceDiagram
 
 **Xử lý lỗi AI service:**
 
-| Lỗi | Xử lý |
-|---|---|
-| AI service không phản hồi | Retry 3 lần backoff; vẫn fail ⇒ `ADMIN_REVIEW` (fail-safe về phía con người, không phải về phía từ chối) |
-| Video hỏng/không decode được | `ADMIN_REVIEW` + ghi lý do; **không** kết luận buyer gian lận |
-| VLM trả JSON sai định dạng | Retry với prompt sửa lỗi; 2 lần fail ⇒ bỏ qua thành phần damage, `ADMIN_REVIEW` |
-| Chi phí VLM vượt ngân sách ngày | Circuit breaker ⇒ toàn bộ chuyển `ADMIN_REVIEW`, cảnh báo ops |
+| Lỗi                             | Xử lý                                                                                                    |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| AI service không phản hồi       | Retry 3 lần backoff; vẫn fail ⇒ `ADMIN_REVIEW` (fail-safe về phía con người, không phải về phía từ chối) |
+| Video hỏng/không decode được    | `ADMIN_REVIEW` + ghi lý do; **không** kết luận buyer gian lận                                            |
+| VLM trả JSON sai định dạng      | Retry với prompt sửa lỗi; 2 lần fail ⇒ bỏ qua thành phần damage, `ADMIN_REVIEW`                          |
+| Chi phí VLM vượt ngân sách ngày | Circuit breaker ⇒ toàn bộ chuyển `ADMIN_REVIEW`, cảnh báo ops                                            |
 
 ### 5.4. Admin phân xử
 
@@ -556,6 +639,7 @@ COMMIT
 ```
 
 **Chi tiền cho buyer:**
+
 ```
 Job payout.buyer_refund
   - Buyer trả VietQR → hoàn về đúng tài khoản đã chuyển đến (lấy từ webhook bank)
@@ -575,7 +659,7 @@ POST /disputes/{id}/appeal  {reason, additionalEvidence[]}
 - Bắt buộc chuyển cho admin cấp cao hơn (khác người đã xử lý lần 1)
 - Không đi qua AI triage lần 2
 - Quyết định lần 2 là quyết định cuối cùng trong hệ thống REBOX
-  (không loại trừ quyền khởi kiện của người tiêu dùng — phải ghi rõ trong thông báo)
+  (không loại trừ quyền khởi kiện của người tiêu dùng - phải ghi rõ trong thông báo)
 ```
 
 ---
@@ -624,16 +708,16 @@ Sau 8 lần: status = FAILED, tắt endpoint sau 20 lần FAILED liên tiếp
 
 ## 7. Ma trận idempotency (tra cứu nhanh)
 
-| Thao tác | Khóa idempotency | Nguồn khóa |
-|---|---|---|
-| Nạp ký quỹ | `topup:{psp_txn_id}` | PSP |
-| Rút ký quỹ | `withdraw:{withdrawal_id}` | REBOX |
-| Checkout init | `checkout:{client_uuid}` | Client gửi lên |
-| Xác nhận thanh toán | `bankwh:{bank_txn_id}` | Bank hub |
-| Webhook ĐVVC | `carrier:{code}:{tracking}:{status}:{event_time}` | ĐVVC |
-| Settle sub-order | `settle:{sub_order_id}` | REBOX |
-| Cộng điểm | `loyalty:{sub_order_id}` | REBOX |
-| Xử lý tranh chấp | `resolve:{dispute_id}` | REBOX |
-| Chi hoàn tiền | `refund:{dispute_id}` | REBOX |
+| Thao tác            | Khóa idempotency                                  | Nguồn khóa     |
+| ------------------- | ------------------------------------------------- | -------------- |
+| Nạp ký quỹ          | `topup:{psp_txn_id}`                              | PSP            |
+| Rút ký quỹ          | `withdraw:{withdrawal_id}`                        | REBOX          |
+| Checkout init       | `checkout:{client_uuid}`                          | Client gửi lên |
+| Xác nhận thanh toán | `bankwh:{bank_txn_id}`                            | Bank hub       |
+| Webhook ĐVVC        | `carrier:{code}:{tracking}:{status}:{event_time}` | ĐVVC           |
+| Settle sub-order    | `settle:{sub_order_id}`                           | REBOX          |
+| Cộng điểm           | `loyalty:{sub_order_id}`                          | REBOX          |
+| Xử lý tranh chấp    | `resolve:{dispute_id}`                            | REBOX          |
+| Chi hoàn tiền       | `refund:{dispute_id}`                             | REBOX          |
 
 **Quy tắc:** mọi handler nhận sự kiện từ bên ngoài phải lưu khóa **trước** khi xử lý, trong cùng transaction với thay đổi nghiệp vụ. Lưu sau khi xử lý là race condition kinh điển.
