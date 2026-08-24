@@ -1,0 +1,26 @@
+# Tài liệu nguồn và prototype — giữ ở máy, không đẩy lên repo public
+REBOX.docx
+REBOX-UI/
+*.docx
+
+# Hệ điều hành / IDE
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
+
+# Phụ thuộc & build (cho giai đoạn code sau này)
+node_modules/
+dist/
+build/
+.next/
+.turbo/
+coverage/
+
+# Môi trường & bí mật
+.env
+.env.*
+!.env.example
+*.pem
+*.key
