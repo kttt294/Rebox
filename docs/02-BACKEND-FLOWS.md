@@ -223,7 +223,7 @@ Bảng `restricted_categories` với 3 mức:
 | `MANUAL_REVIEW` | mỹ phẩm, thực phẩm, đồ chơi trẻ em, thiết bị điện, hàng hiệu             | Bắt buộc admin duyệt + yêu cầu ảnh tem/nhãn |
 | `DISCLOSURE`    | đồ điện tử đã qua sử dụng, quần áo đã mặc thử                            | Bắt buộc điền `condition_notes` chi tiết    |
 
-Danh sách này do bộ phận Pháp lý duy trì, không phải Tech. Xem `05-PHAP-LY` §6.
+**Danh mục đầy đủ ở `06-DANH-MUC-HANG-CAM.md`.** Do Pháp lý sở hữu và duy trì, không phải Tech.
 
 ### 2.5. Greedy hide khi thiếu ký quỹ
 

@@ -4,9 +4,11 @@ Sàn giao dịch TMĐT B2B2C chuyên thanh lý hàng hoàn (itemized liquidation
 
 Repo này hiện chứa **tài liệu thiết kế hệ thống**. Mã nguồn sẽ được bổ sung theo lộ trình trong kế hoạch triển khai.
 
-## Tài liệu
+## Bắt đầu từ đâu
 
-Đọc theo thứ tự:
+👉 **[docs/DEV-START-HERE.md](docs/DEV-START-HERE.md)** — lộ trình đọc, các quyết định đã chốt, và 7 yêu cầu pháp lý ảnh hưởng trực tiếp đến code. Đọc file này trước, đừng đọc tuần tự cả bộ.
+
+## Tài liệu
 
 | #   | File                                                       | Nội dung                                                                                                      |
 | --- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
@@ -16,6 +18,7 @@ Repo này hiện chứa **tài liệu thiết kế hệ thống**. Mã nguồn s
 | 03  | [Luồng Frontend](docs/03-FRONTEND-FLOWS.md)                | Màn hình Buyer / Seller / Admin, state, API, edge case                                                        |
 | 04  | [Kế hoạch triển khai](docs/04-IMPLEMENTATION-PLAN.md)      | Lộ trình theo sprint, tiêu chí nghiệm thu, hạ tầng & chi phí, phân công                                       |
 | 05  | [Pháp lý Việt Nam](docs/05-PHAP-LY-VIET-NAM.md)            | Giấy phép, thuế, dữ liệu cá nhân, bảo vệ người tiêu dùng, hàng hóa cấm                                        |
+| 06  | [Danh mục hàng cấm](docs/06-DANH-MUC-HANG-CAM.md)          | Ba mức kiểm soát BANNED / MANUAL_REVIEW / DISCLOSURE, quy trình xử lý xâm phạm SHTT                           |
 
 ## Ba vấn đề cần xử lý sớm nhất
 
