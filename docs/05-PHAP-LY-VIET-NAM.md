@@ -346,6 +346,16 @@ Sàn bán **hàng đã qua sử dụng / hàng hoàn** ⇒ nghĩa vụ mô tả 
 - Badge "MỚI 99% - ĐƠN HOÀN" trong prototype: chỉ được dùng khi đúng thực tế. **Không được đặt mặc định** cho mọi listing tạo từ luồng quét mã
 - Cấm hành vi cung cấp thông tin sai lệch, gây nhầm lẫn
 
+#### 5.3.1. 🔴 Giá tham chiếu ảo trong luồng đăng bán thủ công
+
+Với listing tạo từ quét mã hoặc CSV, `original_price` lấy từ dữ liệu sàn - **đối chiếu được**. Với listing đăng thủ công, seller tự gõ **cả hai** con số `original_price` và `price`. REBOX không có cách nào kiểm chứng con số gốc đó.
+
+Nếu vẫn hiển thị giá gốc gạch ngang kèm % giảm cho trường hợp này, REBOX đang xuất bản một **giá tham chiếu không có căn cứ** ra cho người tiêu dùng - hành vi cung cấp thông tin gây nhầm lẫn về giá. Khác với các vi phạm khác trong tài liệu này vốn do hành vi của seller, ở đây **trách nhiệm thuộc về REBOX** với tư cách bên xuất bản thông tin, vì chính nền tảng in ra màn hình mức giảm giá không kiểm chứng được.
+
+Trần "giá bán tối đa 90% giá gốc" mà tài liệu gốc và `hosodangky.docx` mô tả cũng vô hiệu trong trường hợp này: seller chỉ cần khai giá gốc cao hơn thực tế để mức giảm luôn hiển thị "hợp lệ" trong khi giá bán thực chất không hề rẻ.
+
+**Bắt buộc:** phân biệt nguồn gốc giá bằng cột `price_source` (`01-SPEC` §4.2.1) và **không hiển thị** `original_price`, `discount_pct`, hay trần 90% cho listing có `price_source = SELLER_DECLARED`. Chỉ hiển thị `price`. Thực thi ở tầng response serializer của API, không phải quy ước ở giao diện - để không phụ thuộc vào việc từng client (web, mobile, đối tác Public API) có tuân thủ đúng hay không.
+
 ### 5.4. Cam kết quảng bá phải chính xác
 
 | Câu trong tài liệu/UI                               | Vấn đề                                          | Sửa                                                      |

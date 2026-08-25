@@ -339,7 +339,8 @@ CREATE TABLE listings (
   condition_notes      TEXT NOT NULL,   -- mô tả trung thực khuyết điểm - bắt buộc
   price                BIGINT NOT NULL,
   original_price       BIGINT,
-  price_cap            BIGINT,          -- 0.9 * original_price nếu tạo từ scan
+  price_cap            BIGINT,          -- 0.9 * original_price, chỉ ép khi price_source đã đối chiếu
+  price_source         TEXT NOT NULL,   -- VERIFIED_PLATFORM | VERIFIED_CSV | SELLER_DECLARED, xem §4.2.1
   weight_gram          INT NOT NULL,
   dim_cm               JSONB,           -- {l,w,h} - cần cho tính cước
   images               JSONB NOT NULL,  -- [{key, w, h, phash}]
@@ -354,6 +355,22 @@ CREATE TABLE listings (
 CREATE INDEX idx_listing_active ON listings(shop_id, price DESC)
   WHERE status = 'ACTIVE';
 CREATE INDEX idx_listing_search ON listings USING GIN(search_tsv);
+
+#### 4.2.1. `price_source` — vì sao cần tách nguồn gốc giá
+
+Trần 90% chỉ có ý nghĩa khi `original_price` đến từ dữ liệu đã đối chiếu được (API sàn hoặc CSV do seller tự xuất, đối chiếu chéo với sản phẩm cùng SKU đã có trên hệ thống). Với listing tạo hoàn toàn thủ công, seller tự gõ cả `original_price` lẫn `price` — REBOX không có cách nào kiểm chứng con số gốc đó, nên ép trần 90% lên nó chỉ là ảo giác kiểm soát: seller có thể khai giá gốc cao hơn thực tế để mức giảm luôn "hợp lệ" mà giá bán thực chất không hề rẻ.
+
+Nghiêm trọng hơn: hiển thị `original_price` gạch ngang kèm % giảm cho một con số REBOX không kiểm chứng là đưa ra **giá tham chiếu không có căn cứ** — hành vi cung cấp thông tin gây nhầm lẫn cho người tiêu dùng, và trách nhiệm thuộc về REBOX với tư cách bên xuất bản, không thuộc về seller.
+
+**Quy tắc bắt buộc, thực thi ở tầng API (không chỉ ở UI):**
+
+| `price_source` | Sinh ra khi | `price_cap` | Trả về cho client |
+|---|---|---|---|
+| `VERIFIED_PLATFORM` | Listing tạo từ scan có đối chiếu API sàn thành công | `0.9 × original_price`, ép cứng bằng `CHECK` | `original_price`, `discount_pct`, nhãn "Giá gốc đối chiếu từ {sàn}" |
+| `VERIFIED_CSV` | Listing tạo từ dòng CSV seller tự xuất | `0.9 × original_price` | như trên, nhãn "Giá gốc đối chiếu từ dữ liệu người bán" |
+| `SELLER_DECLARED` | Listing tạo hoàn toàn thủ công, không có `return_item_id` liên kết | `NULL` — không ép | **chỉ `price`**. API không trả `original_price`, không trả `discount_pct`, dù seller có nhập |
+
+Endpoint public (`GET /listings/{id}`, danh sách tìm kiếm) **không serialize** `original_price` khi `price_source = SELLER_DECLARED`, kể cả khi cột đó có giá trị trong DB. Đây là quy tắc ở tầng response serializer, không phải quy ước ở frontend — tránh trường hợp một client khác (web, mobile, hoặc đối tác Public API) vô tình hiển thị con số chưa kiểm chứng.
 
 -- ========== KHO HÀNG HOÀN ==========
 CREATE TABLE return_items (

@@ -103,6 +103,19 @@ MMKV / localStorage    → persist giỏ hàng, nháp đăng bán, token
 
 **Khu vực quảng bá:** listing đã mua gói 20.000đ/tuần hiển thị ở khu vực gợi ý trang chủ, **bắt buộc gắn nhãn "Tài trợ"** (yêu cầu của Luật BVQLNTD 2023 và Luật Quảng cáo - xem `05-PHAP-LY` §8). Thứ tự trong khu vực này random như tài liệu mô tả.
 
+**Quy tắc hiển thị giá theo `price_source` (`01-SPEC` §4.2.1) - áp dụng ở MỌI nơi có giá, không chỉ trang chi tiết:**
+
+```
+price_source = VERIFIED_PLATFORM / VERIFIED_CSV   →  price_source = SELLER_DECLARED
+┌───────────────────────────┐                        ┌───────────────────────────┐
+│ 225.000đ  2̶5̶0̶.̶0̶0̶0̶đ̶ -10%   │                        │ 225.000đ                  │
+│ ✓ Giá gốc đối chiếu Shopee│                        │ (không gạch ngang,        │
+└───────────────────────────┘                        │  không %, không nhãn)     │
+                                                       └───────────────────────────┘
+```
+
+Card sản phẩm ở trang chủ, kết quả tìm kiếm, và trang chi tiết đều đọc `original_price` + `discount_pct` từ response - **không tự tính** `% giảm` ở client dù có sẵn cả hai con số trong payload, vì API đã **không trả** `original_price` khi `price_source = SELLER_DECLARED` (xem `01-SPEC` §4.2.1). Nếu field đó vắng mặt, UI chỉ render `price`, tuyệt đối không fallback tự so sánh hay tự bịa % giảm.
+
 ### 1.2. Chi tiết sản phẩm
 
 Khối quan trọng nhất là **"Cam kết của REBOX"** (prototype đã có):
