@@ -2,7 +2,9 @@
 
 > **Miễn trừ:** đây là bản rà soát kỹ thuật do người thiết kế hệ thống lập ra để nhận diện nghĩa vụ pháp lý cần đưa vào sản phẩm. **Không phải ý kiến tư vấn pháp luật.** Mô hình REBOX chạm vào ba lĩnh vực có điều kiện (sàn TMĐT, trung gian thanh toán, xử lý dữ liệu cá nhân nhạy cảm), nên **bắt buộc phải có luật sư/công ty luật rà soát trước khi vận hành thật**.
 >
-> **Lưu ý về thời điểm:** các văn bản dẫn chiếu dưới đây phải được **kiểm tra lại hiệu lực tại thời điểm triển khai**. Pháp luật TMĐT, thanh toán và dữ liệu cá nhân của Việt Nam đang trong giai đoạn thay đổi nhanh (một Luật Thương mại điện tử riêng đã được đưa vào chương trình xây dựng pháp luật; Luật Bảo vệ dữ liệu cá nhân mới thay thế Nghị định 13/2023). Giao cho Legal Officer rà soát định kỳ hằng quý.
+> **Mốc kiểm tra: 25/08/2026.** Luật Bảo vệ dữ liệu cá nhân 91/2025/QH15 và Nghị định 356/2025/NĐ-CP đã có hiệu lực từ 01/01/2026; Nghị định 13/2023/NĐ-CP đã hết hiệu lực. Luật Thương mại điện tử 122/2025/QH15 đã có hiệu lực từ 01/07/2026. Nghị định 330/2026/NĐ-CP về xử phạt trong an ninh mạng và bảo vệ dữ liệu cá nhân có hiệu lực từ 19/08/2026. Vì vậy các phân tích cũ dựa trên Nghị định 52/2013, 85/2021 hoặc 13/2023 chỉ là lịch sử và phải được Legal remap sang khung hiện hành trước production.
+>
+> Tài liệu này đặt **legal gate** cho kiến trúc; [`07-ARCHITECTURE-DECISIONS.md`](07-ARCHITECTURE-DECISIONS.md) là nguồn canonical cho quyết định kỹ thuật. Không suy ngược từ việc dùng Supabase/PSP/WORM rằng hệ thống đã tuân thủ pháp luật.
 
 ---
 
@@ -13,15 +15,15 @@
 | 1  | **Ví ký quỹ + hoàn tiền cho buyer = hoạt động trung gian thanh toán có điều kiện**                                                                      | 🔴 Nghiêm trọng | **Có**                                                    |
 | 2  | Đăng ký sàn TMĐT với Bộ Công Thương                                                                                                                              | 🔴 Nghiêm trọng | **Có**                                                    |
 | 3  | Điều khoản "mất quyền khiếu nại nếu video sai quy tắc" có nguy cơ vô hiệu                                                                                     | 🔴 Nghiêm trọng | **Có** (phải sửa UI + T&C)                              |
-| 4  | Video khui hộp chứa hình ảnh/giọng nói ⇒ dữ liệu cá nhân, có thể là dữ liệu nhạy cảm                                                                     | 🔴 Nghiêm trọng | **Có** (phải có consent + DPIA)                         |
+| 4  | Video khui hộp chứa hình ảnh/giọng nói ⇒ dữ liệu cá nhân, có thể là dữ liệu nhạy cảm                                                                     | 🔴 Nghiêm trọng | **Có** (phải chốt căn cứ xử lý, notice/record và hồ sơ tác động) |
 | 4b | **Người thứ ba trong video khui hộp** (người thân, trẻ em) - buyer không có thẩm quyền đồng ý thay, mà video lại được đưa cho người bán xem | 🔴 Nghiêm trọng | **Có** (không đưa video gốc cho seller - xem §3.4.3) |
 | 5  | Nghĩa vụ khấu trừ, nộp thuế thay người bán của sàn TMĐT                                                                                                        | 🟠 Cao            | Không, nhưng phải xong trước khi có doanh thu              |
 | 6  | Lộ mã vận đơn ⇒ rò rỉ dữ liệu người mua trên sàn khác (L4)                                                                                                  | 🟠 Cao            | **Có** (sửa thiết kế)                                  |
 | 7  | Hàng giả, hàng cấm, hàng đã qua sử dụng có điều kiện                                                                                                          | 🟠 Cao            | Không, nhưng phải có quy trình từ ngày đầu              |
 | 8  | Quyết định tự động bằng AI ảnh hưởng quyền lợi                                                                                                                 | 🟠 Cao            | **Có** (phải có người quyết định + kháng nghị)   |
-| 9  | Chương trình điểm thưởng/voucher = khuyến mại, phải thông báo/đăng ký                                                                                       | 🟡 Trung bình    | Không                                                           |
+| 9  | Chương trình điểm thưởng/voucher = khuyến mại, phải thông báo/đăng ký                                                                                       | 🟡 Trung bình    | Không; loyalty/voucher đã hoãn khỏi GĐ1                          |
 | 10 | Nhãn "Tài trợ" cho listing quảng bá trả phí                                                                                                                         | 🟡 Trung bình    | Không                                                           |
-| 11 | Lưu trú dữ liệu tại Việt Nam                                                                                                                                         | 🟡 Trung bình    | Không                                                           |
+| 11 | Lưu trữ/chuyển dữ liệu qua hạ tầng Singapore cần đánh giá áp dụng                                                                      | 🟠 Cao            | **Có** với production cloud                                     |
 | 12 | Sở hữu trí tuệ nội bộ — mã nguồn đang thuộc cá nhân; "góp vốn bằng công sức" không hợp lệ theo Luật Doanh nghiệp                                                                                                              | 🟠 Cao            | Không, nhưng càng để lâu càng khó gỡ                    |
 
 ---
@@ -32,9 +34,9 @@
 
 REBOX cho phép người bán thứ ba mở gian hàng, đăng bán và giao dịch trên nền tảng ⇒ là **sàn giao dịch thương mại điện tử**, thuộc nhóm _website/ứng dụng cung cấp dịch vụ TMĐT_.
 
-**Hệ quả:** phải làm thủ tục **ĐĂNG KÝ** (không phải chỉ "thông báo" như website bán hàng tự doanh) tại Cổng thông tin quản lý hoạt động TMĐT (`online.gov.vn`) - theo Nghị định 52/2013/NĐ-CP (sửa đổi bởi Nghị định 85/2021/NĐ-CP).
+**Hệ quả kỹ thuật:** REBOX phải coi hồ sơ/điều kiện vận hành nền tảng là gate trước khi mở public. Quy trình cụ thể phải được Legal cập nhật theo Luật Thương mại điện tử 122/2025/QH15 và văn bản thi hành; không tiếp tục dùng checklist Nghị định 52/2013/85/2021 như kết luận hiện hành.
 
-Vì có **cả web app và mobile app**, cần đăng ký cho **cả hai** - ứng dụng di động là đối tượng đăng ký riêng.
+GĐ1 chỉ ra mắt web. Nếu app mobile GĐ3 được triển khai, Legal phải đánh giá và hoàn thành nghĩa vụ riêng áp dụng cho app trước khi phát hành.
 
 ### 1.2. Điều kiện tiên quyết
 
@@ -49,7 +51,7 @@ Vì có **cả web app và mobile app**, cần đăng ký cho **cả hai** - ứ
 
 | Tài liệu                                                                 | Nội dung bắt buộc                                                                                                                                                                                                    | Ảnh hưởng lên sản phẩm                                                                                                                                           |
 | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Quy chế hoạt động sàn**                                       | Quyền/nghĩa vụ các bên; quy trình giao dịch;**quy trình giải quyết tranh chấp**; biện pháp xử lý vi phạm; chính sách bảo vệ thông tin cá nhân; quy trình kiểm tra, giám sát hàng hóa | Phải có trang công khai, có phiên bản và ngày hiệu lực. Người dùng**phải đồng ý** khi đăng ký                                                |
+| **Quy chế hoạt động sàn**                                       | Quyền/nghĩa vụ các bên; quy trình giao dịch;**quy trình giải quyết tranh chấp**; biện pháp xử lý vi phạm; chính sách bảo vệ thông tin cá nhân; quy trình kiểm tra, giám sát hàng hóa | Phải có trang công khai, version/hash/body bất biến và ngày hiệu lực; lưu acceptance theo đúng user/version/time/audit khi đăng ký hoặc khi Legal yêu cầu chấp nhận lại |
 | **Mẫu hợp đồng/điều kiện giao dịch chung với người bán** | Điều khoản ký quỹ, khấu trừ phí, khóa kho, xử lý tranh chấp                                                                                                                                                 | Toàn bộ cơ chế ký quỹ và auto-lock**phải có căn cứ trong văn bản này**, nếu không việc trừ tiền và khóa kho là hành vi không có cơ sở |
 | **Đề án cung cấp dịch vụ**                                     | Mô hình tổ chức, phân định trách nhiệm sàn ↔ người bán                                                                                                                                                    |                                                                                                                                                                        |
 | Giấy chứng nhận ĐKKD                                                   |                                                                                                                                                                                                                         |                                                                                                                                                                        |
@@ -58,7 +60,7 @@ Vì có **cả web app và mobile app**, cần đăng ký cho **cả hai** - ứ
 
 | Nghĩa vụ                                                        | Hiện thực trong hệ thống                                                                        |
 | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| **Xác thực danh tính người bán**                      | eKYC bắt buộc -`shops.kyc_status` phải `VERIFIED` mới được publish. Đã có ở Sprint 1 |
+| **Xác thực danh tính người bán**                      | `shops.kyc_status` phải `VERIFIED` mới được publish. Sprint 1 dùng trạng thái fake/seed để kiểm thử gate; tích hợp provider eKYC thật thuộc Sprint 2 và chỉ bật sau privacy/provider gate |
 | Công khai thông tin người bán trên trang sản phẩm         | Tên, trạng thái xác thực, địa chỉ kho -`03-FE` §1.2                                      |
 | Cơ chế tiếp nhận & giải quyết khiếu nại                   | Module Dispute + kênh CSKH - Sprint 6, 7                                                           |
 | Biện pháp ngăn chặn hàng giả, hàng cấm                    | Kiểm duyệt listing + danh mục cấm -`02-FLOWS` §2.4                                           |
@@ -115,8 +117,8 @@ Ngoài ra, mock UI ghi _"96% về Shop / 4% phí tạm thu"_ (M2). Nếu triển
 
 ### 2.5. Nghĩa vụ đi kèm nếu chạm vào dòng tiền
 
-- **Phòng chống rửa tiền** (Luật Phòng, chống rửa tiền 2022): nhận biết khách hàng, lưu hồ sơ, báo cáo giao dịch đáng ngờ và giao dịch giá trị lớn. Ngay cả khi hợp tác với đơn vị được cấp phép, REBOX vẫn cần quy trình nội bộ và người phụ trách.
-- Hệ thống cần: cờ giao dịch bất thường, ngưỡng cảnh báo, chức năng đóng băng tài khoản, xuất hồ sơ khách hàng.
+- A10/Legal phải xác định **chủ thể báo cáo** và nghĩa vụ của từng bên theo Luật Phòng, chống rửa tiền 2022. PSP/ngân hàng thực hiện nghĩa vụ pháp định của họ khi họ là đối tượng báo cáo; REBOX chỉ thực hiện nghĩa vụ pháp định trực tiếp áp dụng cho mình và phần hỗ trợ/monitoring đã cam kết trong hợp đồng, không tự tuyên bố thay PSP báo cáo mọi giao dịch.
+- Hệ thống chuẩn bị capability theo phân công đã duyệt: cờ bất thường, ngưỡng cấu hình có version, freeze/review, xuất hồ sơ và audit. Không hardcode ngưỡng “giao dịch lớn” trước khi Legal/PSP mapping vai trò.
 
 ---
 
@@ -124,9 +126,7 @@ Ngoài ra, mock UI ghi _"96% về Shop / 4% phí tạm thu"_ (M2). Nếu triển
 
 ### 3.1. Khung pháp lý
 
-Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân, và **Luật Bảo vệ dữ liệu cá nhân** (được Quốc hội thông qua năm 2025, hiệu lực từ 01/01/2026) nâng cấp toàn bộ khung này lên tầm luật với chế tài nặng hơn.
-
-**Legal Officer phải rà soát bản hợp nhất có hiệu lực tại thời điểm triển khai** - đây là lĩnh vực thay đổi nhanh nhất.
+Baseline hiện hành của tài liệu là **Luật Bảo vệ dữ liệu cá nhân 91/2025/QH15** và **Nghị định 356/2025/NĐ-CP**, cùng có hiệu lực từ 01/01/2026; chế tài hiện hành còn có **Nghị định 330/2026/NĐ-CP** từ 19/08/2026. Nghị định 13/2023/NĐ-CP đã hết hiệu lực; mọi mapping điều khoản cũ phải được Legal làm lại trước production.
 
 ### 3.2. REBOX xử lý những loại dữ liệu nào
 
@@ -138,20 +138,24 @@ Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân, và **Luậ
 | **Video khui hộp** - có thể chứa khuôn mặt, giọng nói, hình ảnh nhà riêng, người thân | **Có thể là nhạy cảm**             | 🔴 Cao             |
 | Lịch sử mua hàng, hành vi                                                                              | Cơ bản                                      | Trung bình        |
 | **Mã vận đơn đơn hoàn** - chứa dữ liệu của người mua trên sàn khác                   | Cơ bản,**của bên thứ ba**          | 🔴 Cao (xem §3.6) |
+| Raw bank/PSP/carrier event, sender/account/reference ngoài REBOX                    | Có thể chứa dữ liệu tài chính của bên thứ ba | 🔴 Cao; chỉ ingest allowlist tối thiểu, không lưu nguyên sao kê |
 
 ### 3.3. Nghĩa vụ và cách hiện thực
 
 | Nghĩa vụ                                                                   | Hiện thực                                                                                                                                                                           |
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Sự đồng ý** rõ ràng, tách theo từng mục đích              | Bảng`consents`: mỗi bản ghi gồm mục đích, phiên bản chính sách, thời điểm, IP, thiết bị. **Không dùng một checkbox chung cho tất cả**                    |
-| Đồng ý riêng cho dữ liệu nhạy cảm                                    | Màn hình riêng cho eKYC và cho video khiếu nại, có giải thích rõ mục đích                                                                                                |
+| Căn cứ xử lý/notice/consent theo từng mục đích do Legal duyệt | `processing_records` lưu notice đã render; `processing_purpose_events` append-only lưu từng purpose/căn cứ/quyết định và withdrawal. **Không dùng một checkbox chung; im lặng không phải đồng ý.** NĐ 330/2026 Điều 43 đặt rủi ro xử phạt cụ thể cho việc không tách mục đích hoặc không giữ được nhật ký/chứng cứ đồng ý |
+| Luồng riêng cho dữ liệu nhạy cảm                                      | Màn hình riêng cho eKYC và video khiếu nại; Legal chốt trường hợp là `NOTICE_ACK` hay `CONSENT` trước khi viết copy production                                           |
 | **Thông báo xử lý dữ liệu** trước khi thu thập                | Trang Chính sách bảo mật + thông báo ngắn tại điểm thu thập                                                                                                                |
-| **Hồ sơ đánh giá tác động xử lý dữ liệu cá nhân (DPIA)** | Lập và nộp cho cơ quan chuyên trách (Bộ Công an); cập nhật khi thay đổi cách xử lý.**Việc dùng AI phân tích video bắt buộc phải nêu trong hồ sơ này** |
+| **Hồ sơ đánh giá tác động xử lý dữ liệu cá nhân** | Lập/cập nhật theo khung 2026 và quy trình Legal xác nhận. Nếu bật AI GĐ3, phải cập nhật data flow, provider và mục đích trước khi xử lý thật |
 | Đánh giá tác động chuyển dữ liệu ra nước ngoài                   | Cần nếu dùng cloud/AI API đặt ngoài Việt Nam (§4)                                                                                                                             |
 | **Quyền của chủ thể dữ liệu**                                    | Trong ứng dụng: xem, sửa, xuất dữ liệu, rút lại đồng ý, yêu cầu xóa, phản đối xử lý tự động                                                                     |
-| Thời hạn lưu trữ                                                         | Cột`retention_until` trên mọi bảng chứa dữ liệu cá nhân + job xóa tự động                                                                                              |
+| Workflow thực thi quyền | `privacy_requests` có step-up auth, SLA/config version, inventory, exception/hold, receipt và audit; trả rõ phần đã xử lý, phần phải giữ và độ trễ purge backup |
+| Thời hạn lưu trữ                                                         | Registry versioned theo data class/purpose/start event/action; mỗi workflow delete/anonymize/pseudonymize phải test. Chỉ evidence/KYC cần per-record `retention_until`; ledger/audit áp policy và hold phù hợp, không xóa row máy móc |
 | Thông báo vi phạm                                                         | Quy trình xử lý sự cố rò rỉ; thông báo cơ quan trong thời hạn luật định                                                                                                |
 | Chỉ định người/bộ phận phụ trách BVDLCN                             | Legal Officer kiêm nhiệm ở GĐ1                                                                                                                                                    |
+
+Không mặc định dựa vào miễn trừ dành cho startup/SME: REBOX dự kiến trực tiếp xử lý eKYC/sinh trắc, tài khoản và evidence nhạy cảm. Legal phải kiểm tra điều kiện loại trừ miễn trừ và lập hồ sơ tác động/chuyển dữ liệu đầy đủ nếu thuộc diện áp dụng trước khi có dữ liệu thật.
 
 ### 3.4. Video khui hộp - điểm nóng nhất
 
@@ -161,17 +165,17 @@ Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân, và **Luậ
 
 Buyer chỉ nộp video khi **chính họ** muốn khiếu nại. Đó là hành động tự nguyện, và đây là một lập luận hay được nêu ra để cho rằng REBOX không cần làm gì thêm. **Lập luận này sai.**
 
-Tính tự nguyện chỉ là **một trong nhiều điều kiện** để sự đồng ý có giá trị. Theo Nghị định 13/2023, sự đồng ý còn phải:
+Tính tự nguyện chỉ là **một trong nhiều điều kiện** để sự đồng ý có giá trị. Thiết kế giữ checklist bảo thủ dưới đây; Legal phải map từng dòng sang Luật 91/2025 và Nghị định 356/2025 trước khi duyệt nội dung production:
 
 | Điều kiện                                                                                            | Hành vi "bấm nút tải lên" có thoả không?                                                                                       |
 | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | Tự nguyện                                                                                             | ✅ Có                                                                                                                                 |
-| **Cụ thể cho từng mục đích** - không gộp nhiều mục đích                               | ❌ Không. Buyer nghĩ mình "gửi bằng chứng", không nghĩ mình đồng ý cho AI phân tích khuôn mặt và cho người bán xem |
+| **Cụ thể cho từng mục đích** - không gộp nhiều mục đích                               | ❌ Không. Buyer nghĩ mình "gửi bằng chứng", có thể không biết admin xử lý và người bán xem derivative |
 | **Được thông tin đầy đủ** - dữ liệu gì, ai xử lý, ai xem, giữ bao lâu, quyền gì  | ❌ Không, trừ khi có màn hình nói rõ                                                                                            |
 | **Chứng minh được** - lưu ở định dạng in/sao chép/kiểm chứng được                  | ❌ Không, trừ khi ghi lại bản ghi đồng ý                                                                                        |
 | **Với dữ liệu nhạy cảm: phải nói rõ đó là dữ liệu nhạy cảm** trước khi thu thập | ❌ Không                                                                                                                              |
 
-Quan trọng hơn: **dù sự đồng ý có hợp lệ, nó không xoá bỏ các nghĩa vụ còn lại** - thông báo, giới hạn mục đích, bảo mật, giới hạn thời hạn lưu, đáp ứng quyền của chủ thể dữ liệu. Sự đồng ý là cánh cửa để bắt đầu xử lý, không phải giấy miễn trừ.
+Quan trọng hơn: **nếu sự đồng ý là căn cứ được Legal chọn**, sự đồng ý hợp lệ vẫn không xoá bỏ các nghĩa vụ còn lại - thông báo, giới hạn mục đích, bảo mật, giới hạn thời hạn lưu và đáp ứng quyền của chủ thể dữ liệu. Nó không phải giấy miễn trừ.
 
 #### 3.4.2. Bẫy thứ hai: sự đồng ý bị điều kiện hoá
 
@@ -190,12 +194,12 @@ Không xoá bỏ được hoàn toàn, nhưng giảm mạnh bằng thiết kế:
 | Biện pháp                                                                                                                          | Hiệu quả                                                          | Bắt buộc? |
 | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- | ----------- |
 | Cảnh báo trong màn hình hướng dẫn quay                                                                                        | Trung bình - chuyển một phần trách nhiệm, không xoá rủi ro | Có         |
-| **Không đưa video gốc cho seller.** Seller chỉ xem báo cáo AI + 6–10 khung hình đã chọn, đã làm mờ khuôn mặt | **Cao - khuyến nghị mạnh nhất**                           | Có         |
-| Tự động làm mờ toàn bộ khuôn mặt trong mọi bản chia sẻ                                                                   | Cao                                                                 | Có         |
+| **Không đưa video gốc cho seller.** Seller chỉ xem tóm tắt vụ việc + 6–10 khung hình đã chọn, đã làm mờ khuôn mặt | **Cao - khuyến nghị mạnh nhất**                           | Có         |
+| Làm mờ toàn bộ khuôn mặt trong mọi bản chia sẻ; GĐ1 có bước admin duyệt thủ công                                          | Cao                                                                 | Có         |
 | Chỉ admin cấp phân xử xem được bản gốc, mỗi lượt xem ghi audit                                                           | Cao                                                                 | Có         |
 | Giới hạn thời lượng 90 giây                                                                                                    | Trung bình - giảm lượng dữ liệu thừa thu thập               | Có         |
 
-Biện pháp thứ hai đáng làm nhất. Seller cần biết **hàng có bị hỏng không**, không cần xem phòng khách nhà buyer. Báo cáo AI kèm khung hình đã che mặt là đủ để seller thực hiện quyền phản hồi khiếu nại, mà cắt được gần hết rủi ro dữ liệu bên thứ ba.
+Biện pháp thứ hai đáng làm nhất. Seller cần biết **hàng có bị hỏng không**, không cần xem phòng khách nhà buyer. Ở GĐ1, tóm tắt và khung hình đã che mặt được admin duyệt thủ công; AI không phải điều kiện để thực hiện kiểm soát này.
 
 Hiện thực kỹ thuật: tách `dispute_evidences` thành **bản gốc** và **bản dẫn xuất đã khử nhận dạng** - xem `01-SPEC` §4.2.
 
@@ -203,23 +207,23 @@ Hiện thực kỹ thuật: tách `dispute_evidences` thành **bản gốc** và
 
 Sự đồng ý **rút lại được**. Kịch bản xấu: buyer nộp video → được hoàn tiền → rút lại đồng ý và yêu cầu xoá. Lúc đó REBOX phải xoá chứng cứ của một quyết định đã chuyển tiền, và mất khả năng tự bảo vệ nếu seller khởi kiện.
 
-**Cấu trúc căn cứ hai lớp:**
+**Giả thuyết cấu trúc căn cứ hai lớp để Legal thẩm định:**
 
 | Lớp                     | Phạm vi                                                                                                              | Căn cứ                                                                                                                                                                                        |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Lớp lõi**      | Lưu, phân tích để phân xử, giữ làm hồ sơ vụ việc                                                         | _Thực hiện nghĩa vụ theo hợp đồng_ giữa buyer và REBOX - nêu rõ trong Quy chế sàn và Chính sách bảo mật. **Không rút lại được** vì không dựa trên đồng ý |
+| **Lớp lõi**      | Lưu, phân tích để phân xử, giữ làm hồ sơ vụ việc                                                         | Căn cứ phù hợp theo khung 2026, có thể liên quan thực hiện nghĩa vụ theo hợp đồng; **chưa được tài liệu này kết luận** |
 | **Lớp đồng ý** | Yếu tố sinh trắc học (khuôn mặt, giọng nói) + mọi mục đích phụ (huấn luyện AI, cải thiện sản phẩm) | Sự đồng ý riêng, tách bạch, mặc định tắt, rút lại được, từ chối không ảnh hưởng quyền khiếu nại                                                                        |
 
-⚠️ **Điểm phải hỏi luật sư, không tự quyết:** danh mục trường hợp được xử lý dữ liệu **không cần sự đồng ý** trong Nghị định 13/2023 hẹp hơn thông lệ quốc tế, và cách diễn đạt về căn cứ hợp đồng có chỗ chưa rõ ràng. Hướng phân tách hai lớp là hướng đáng đưa ra bàn với luật sư, **không phải kết luận đã chắc chắn**.
+⚠️ **Điểm phải hỏi luật sư, không tự quyết:** cách áp dụng các căn cứ xử lý theo Luật 91/2025/NĐ 356/2025 cho evidence tranh chấp chưa được tài liệu này kết luận. Hướng phân tách hai lớp là giả thuyết thiết kế để Legal đánh giá, **không phải kết luận đã chắc chắn**.
 
 #### 3.4.5. Yêu cầu triển khai
 
 | Yêu cầu                      | Cách làm                                                                                                                                                                 |
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Màn hình đồng ý riêng    | Hiện**trước khi bắt đầu quay**, không phải sau khi đã quay xong. Đặc tả tại `03-FRONTEND` §5.2                                                      |
-| Tách ô đồng ý             | Ô "xử lý khiếu nại" và ô "huấn luyện AI" tách riêng; ô thứ hai**mặc định tắt**, từ chối không ảnh hưởng quyền lợi                           |
-| Đồng ý theo từng vụ việc | Không phải một lần khi đăng ký tài khoản. Mỗi khiếu nại là một bối cảnh riêng                                                                             |
-| Ghi bằng chứng đồng ý     | Bảng`consent_records`: phiên bản văn bản, hash nội dung đã hiển thị, thời điểm, IP, thiết bị, từng ô đã tick (`01-SPEC` §4.2)                      |
+| Màn hình notice/lựa chọn riêng | Hiện **trước khi mở camera/file picker**, không phải sau khi đã tạo dữ liệu. Đặc tả tại `03-FRONTEND` §1.6                                             |
+| Không gộp mục đích phụ         | GĐ1 không xin dùng evidence để huấn luyện AI. Nếu GĐ3 có mục đích này, phải có bản ghi tự nguyện tách biệt, mặc định tắt                              |
+| Ghi nhận theo từng vụ việc     | Không phải một lần khi đăng ký tài khoản. Mỗi khiếu nại là một bối cảnh riêng; từ chối video không làm mất quyền mở khiếu nại                         |
+| Ghi bằng chứng xử lý           | `processing_records` + timeline append-only `processing_purpose_events`; withdrawal là event mới, không cập nhật mất lịch sử (`01-SPEC` §4.2) |
 | Công khai người nhận       | **Phải nói rõ người bán sẽ được xem.** Đây là thông tin ảnh hưởng trực tiếp đến quyết định của buyer và cũng là thứ hay bị giấu nhất |
 | Giới hạn mục đích         | Chỉ xử lý khiếu nại. Không marketing, không đưa vào tập huấn luyện nếu thiếu đồng ý riêng                                                               |
 | Kiểm soát truy cập          | Presigned URL 5 phút;**mọi lượt xem bản gốc ghi audit** kèm danh tính người xem                                                                            |
@@ -231,15 +235,17 @@ Có mâu thuẫn thật giữa **giảm thiểu dữ liệu** (xoá càng sớm 
 
 | Dữ liệu                                                                         | Thời hạn                                       | Lý do                                                                                  |
 | --------------------------------------------------------------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| **Video gốc**                                                              | 90 ngày sau khi đóng vụ việc                | Khối lượng lớn, nhạy cảm nhất, chứa dữ liệu bên thứ ba                      |
-| **Khung hình đã khử nhận dạng + báo cáo AI + biên bản phân xử** | 3 năm sau khi đóng vụ việc                  | Ít nhạy cảm, dung lượng nhỏ, đủ để tự bảo vệ trong thời hiệu khởi kiện |
+| **Video gốc**                                                              | Mốc mục tiêu 90 ngày sau `case.final_closed_at`; thực tế không trước khi Object Lock/legal hold hết | Khối lượng lớn, nhạy cảm nhất, chứa dữ liệu bên thứ ba |
+| **Khung hình đã khử nhận dạng + tóm tắt kỹ thuật + biên bản phân xử** | Mốc mục tiêu 3 năm sau cùng mốc đóng case; subject to hold/lock | Ít nhạy cảm, dung lượng nhỏ; thời hạn cuối cùng phải được Legal duyệt |
 | Vụ việc có kháng nghị / khiếu kiện / yêu cầu của cơ quan nhà nước   | Giữ bản gốc tới khi kết thúc + thời hiệu | Nghĩa vụ bảo toàn chứng cứ                                                        |
 
 Thiết kế này giải quyết được cả hai phía: xoá phần rủi ro cao sớm, giữ phần cần thiết để tự bảo vệ.
 
-**Mâu thuẫn với Object Lock:** Object Lock chế độ compliance (`01-SPEC` §9.2) làm file **không xoá được** cho tới hết thời hạn khoá, xung đột với quyền yêu cầu xoá dữ liệu. **Giải pháp:** đặt thời hạn Object Lock **bằng đúng** thời hạn lưu đã công bố ở bảng trên, và nêu rõ trong Chính sách bảo mật rằng chứng cứ tranh chấp được giữ tới hết thời hạn đó vì lý do giải quyết tranh chấp - một căn cứ xử lý độc lập với sự đồng ý.
+**Mâu thuẫn với Object Lock:** chế độ compliance làm file **không xoá được** cho tới hết thời hạn khoá, có thể xung đột với yêu cầu xoá. Tại ingest chưa thể biết `closed_at`, nên hệ thống đặt `object_lock_until` tạm theo horizon tối thiểu do Legal duyệt. Watchdog phải gia hạn trước safety window khi vụ việc chưa đóng hoặc hold chưa release vật lý; claims chốt `final_closed_at` khi appeal/remediation kết thúc, không đợi litigation/regulator hold. Thời điểm xóa thực tế là mốc muộn hơn giữa retention target, lock và `preserve_until`; nhiều hold có thể chồng nhau, `PENDING_RELEASE/FAILED` vẫn chặn xóa. Chỉ physical-release sau hold cuối và provider reconcile. Xóa bytes phải lưu receipt/trạng thái nhưng giữ metadata/hash/chain theo policy. Không được công bố “xóa đúng ngày” nếu khóa bất biến khiến file tồn tại lâu hơn.
 
-### 3.5. Xử lý tự động bằng AI
+### 3.5. Xử lý tự động bằng AI — legal gate GĐ3
+
+AI không nằm trong GĐ1. Phần này chỉ là điều kiện phải đáp ứng nếu A15 được mở lại.
 
 Việc AI tự động quyết định hoàn tiền/từ chối là **ra quyết định tự động ảnh hưởng đến quyền và lợi ích** của người dùng.
 
@@ -264,6 +270,8 @@ Tài liệu gốc đề xuất **dùng mã vận đơn làm ID sản phẩm côn
 4. **Không đồng bộ toàn bộ đơn hàng của shop** - chỉ đọc theo yêu cầu, xem §3.6.1
 
 #### 3.6.1. Giảm thiểu dữ liệu trong tích hợp API sàn
+
+Live API sàn là GĐ3. Các yêu cầu dưới đây là gate cho tương lai, không phải chức năng MVP.
 
 Thiết kế truy cập API đã đổi từ _đồng bộ nền toàn bộ đơn hoàn_ sang _tra cứu theo từng đơn khi seller quét mã trên kiện hàng vật lý_ (`01-SPEC` §7.1.1). Đây là một biện pháp **giảm thiểu dữ liệu** theo đúng nghĩa: REBOX chỉ xử lý dữ liệu của những đơn mà seller chủ động đưa ra, thay vì sao chép cơ sở dữ liệu đơn hàng của shop.
 
@@ -294,18 +302,25 @@ Tự giới hạn không phải hình thức: **giảm thiểu dữ liệu là n
 
 ## 4. An ninh mạng và lưu trú dữ liệu
 
-| Nghĩa vụ                                                                         | Căn cứ                                                          | Hiện thực                                                                                                                                                                                                             |
-| ---------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Lưu trữ dữ liệu người dùng Việt Nam tại Việt Nam**               | Luật An ninh mạng 2018; Nghị định 53/2022/NĐ-CP             | Ưu tiên cloud trong nước (VNG Cloud, Viettel IDC, FPT Cloud, CMC). Nếu dùng nhà cung cấp nước ngoài, phải rà soát nghĩa vụ áp dụng và có đánh giá tác động chuyển dữ liệu ra nước ngoài |
-| **Phân loại và bảo đảm an toàn hệ thống thông tin theo cấp độ** | Luật An toàn thông tin mạng 2015; Nghị định 85/2016/NĐ-CP | Sàn TMĐT xử lý dữ liệu cá nhân và thanh toán thường thuộc**cấp độ 2–3**. Phải lập hồ sơ đề xuất cấp độ và trình phê duyệt, sau đó triển khai đúng phương án bảo vệ       |
-| Lưu nhật ký hệ thống                                                          | Nghị định 53/2022                                              | `audit_logs` + log hạ tầng, thời hạn theo quy định                                                                                                                                                              |
-| Quản lý nội dung do người dùng tạo                                          | Nghị định 147/2024/NĐ-CP                                      | Áp dụng khi có đánh giá, bình luận: xác thực tài khoản bằng SĐT, gỡ nội dung vi phạm theo thời hạn quy định                                                                                        |
+Khung an ninh mạng đã thay đổi với Luật An ninh mạng 116/2025/QH15 có hiệu lực từ 01/07/2026. Tài liệu này không kết luận blanket rằng mọi dữ liệu của REBOX bắt buộc đặt tại Việt Nam; Legal phải xác định nghĩa vụ theo loại dịch vụ, loại dữ liệu, yêu cầu của cơ quan có thẩm quyền và data flow thực tế.
 
-**Ảnh hưởng lên kiến trúc:** dùng Claude API cho AI Triage nghĩa là **gửi keyframe video ra nước ngoài để xử lý**. Việc này cần:
+| Gate | Hiện thực kiến trúc |
+|---|---|
+| Supabase Singapore | Trước A14, dev/staging chỉ dùng synthetic/anonymized fixture; cấm production dump, CCCD/eKYC, evidence, payment và dữ liệu cá nhân thật. Mọi test dùng dữ liệu thật phải qua cùng data inventory, DPA/subprocessor, transfer review và Legal gate như production |
+| Evidence | Supabase Storage không phải kho chứng cứ. Chọn provider WORM/Object Lock riêng; contract phải bao phủ region, encryption, access log, retention, legal hold và deletion |
+| Hệ thống thông tin theo cấp độ | Legal/Security xác định cấp độ và hồ sơ theo khung hiện hành; không tự khẳng định “cấp 2–3” chỉ từ loại sản phẩm |
+| Nhật ký | `audit_logs` + log hạ tầng, có retention/access policy và không ghi secret/token/evidence payload |
+| Nội dung người dùng | Có quy trình tiếp nhận/gỡ nội dung và bảo toàn audit theo nghĩa vụ hiện hành trước khi bật review/comment public |
 
-- Nêu trong DPIA và trong đánh giá tác động chuyển dữ liệu ra nước ngoài
+**A14 phải là hồ sơ vận hành, không chỉ một checkbox:** inventory bao phủ Supabase, WORM, eKYC, PSP/bank hub, carrier, log/observability, backup, CDN và AI tương lai; mỗi data flow có owner, provider/subprocessor, region, data class/purpose, legal basis, `first_processing_at`, `first_transfer_at`, deadline do Legal xác nhận, ngày nộp và receipt. Legal phải kiểm tra mốc nộp theo Luật 91/2025/NĐ 356/2025 — bao gồm việc xác nhận mốc 60 ngày có áp dụng cho từng hồ sơ hay không — và tạo trigger cập nhật khi đổi provider, purpose, loại dữ liệu hoặc quốc gia nhận.
+
+Backup cũng là một data class có retention/access/region riêng. Deletion/anonymization tombstone và active hold phải được lưu ngoài snapshot được restore; sau restore phải replay và verify trước khi mở access. Evidence mirror/copy không được có protection yếu hơn bản WORM gốc.
+
+**Nếu bật AI GĐ3:** gửi keyframe/evidence tới bất kỳ AI provider bên ngoài nào có thể tạo thêm luồng chuyển/xử lý dữ liệu. Trước khi bật phải:
+
+- Cập nhật hồ sơ đánh giá tác động và đánh giá chuyển dữ liệu tương ứng
 - Công khai trong Chính sách bảo mật
-- Cân nhắc **làm mờ khuôn mặt trước khi gửi** - giảm mạnh rủi ro pháp lý và gần như không ảnh hưởng độ chính xác nhận diện hư hỏng sản phẩm. **Khuyến nghị làm việc này ngay từ đầu.**
+- Khử nhận dạng trước khi gửi nếu mục đích/eval cho phép; không dùng bản gốc mặc định
 
 ---
 
@@ -331,7 +346,7 @@ Căn cứ: **Luật Bảo vệ quyền lợi người tiêu dùng 2023** (hiệu
 | Công khai quy trình tiếp nhận, giải quyết khiếu nại                        | Trang riêng + hiển thị trong luồng khiếu nại                                        |
 | Công khai đầu mối liên hệ, phương thức liên lạc                         | Footer + trang Liên hệ + trong ứng dụng                                               |
 | **Chỉ rõ tiêu chí xác định thứ tự ưu tiên hiển thị sản phẩm** | Trang "Cách REBOX sắp xếp sản phẩm" - nêu rõ tiêu chí và cả yếu tố trả phí |
-| **Phân biệt rõ nội dung quảng cáo/tài trợ**                          | Nhãn "Tài trợ" cho listing mua gói 20.000đ/tuần - bắt buộc                        |
+| **Phân biệt rõ nội dung quảng cáo/tài trợ**                          | Chỉ áp dụng nếu feature quảng bá trả phí A15 được bật; lúc đó nhãn "Tài trợ" là bắt buộc trước lần hiển thị đầu tiên |
 | Lưu trữ và cung cấp thông tin người bán khi người tiêu dùng yêu cầu  | Chức năng trong Admin                                                                   |
 | Cho phép người tiêu dùng phản hồi, đánh giá                              | Module review (có thể để GĐ3)                                                        |
 
@@ -375,7 +390,7 @@ Hai vấn đề dễ bị gộp làm một khi đọc nhanh, nhưng cần tách 
 
 | Câu trong tài liệu/UI                               | Vấn đề                                          | Sửa                                                      |
 | ------------------------------------------------------ | -------------------------------------------------- | --------------------------------------------------------- |
-| "Tự động hoàn tiền trong**10 giây**"       | Không đạt được trong thực tế (M7)          | "Xử lý tự động, thường trong vài phút"           |
+| "Tự động hoàn tiền trong**10 giây**"       | GĐ1 không có auto-refund và payout còn bị A10 chặn | Bỏ claim thời gian ở GĐ1; GĐ3 chỉ công bố SLO sau legal/eval/provider gate và số liệu thật |
 | "Độ chính xác AI**99.8%**"                   | Không có phương pháp đo được kiểm chứng | Bỏ khỏi giao diện production                           |
 | "Hoàn trả**100%** tiền nếu khác xa mô tả" | Cần nêu rõ điều kiện                         | Giữ, nhưng link tới điều kiện đầy đủ ngay cạnh |
 | "Cắt giảm**100%** chi phí nhân sự"          | Nói quá                                          | Diễn đạt lại theo hướng định lượng thực tế    |
@@ -475,7 +490,7 @@ Các chương trình như "tích 15 điểm đổi voucher freeship 15.000đ" ma
 | Thực hiện đúng thể lệ đã công bố               | Không được đơn phương thay đổi bất lợi cho người đã tích điểm                                                                                                     |
 | Báo cáo kết quả                                      | Theo quy định của hình thức khuyến mại tương ứng                                                                                                                           |
 
-**Ảnh hưởng lên hệ thống:** điểm thưởng đã tích là **nghĩa vụ đã phát sinh**. Không được xóa điểm hay đổi tỷ lệ quy đổi có hiệu lực hồi tố. Cơ chế `system_configs` có `effective_from` (`01-SPEC` §4.3) phục vụ đúng việc này.
+**Nếu A15 được mở lại:** điểm thưởng đã tích sẽ là **nghĩa vụ đã phát sinh**. Feature phải bổ sung ledger riêng và cấu hình có `effective_from`; không xóa điểm hoặc đổi tỷ lệ hồi tố. GĐ1 chưa có bảng/config loyalty.
 
 ### 8.2. Gói quảng bá sản phẩm
 
@@ -514,7 +529,7 @@ Vì cơ chế cho phép REBOX **đơn phương trừ tiền và khóa toàn bộ
 - Điều kiện khóa/mở kho, **thời hạn thông báo trước**
 - Quy trình khiếu nại khi người bán không đồng ý với khoản khấu trừ
 - Điều kiện, thủ tục và thời hạn hoàn trả ký quỹ khi chấm dứt hợp tác
-- Xử lý khi tài khoản bị âm
+- Xử lý `SHOP_DEBT` khi nghĩa vụ vượt hold; số dư materialized không được âm
 
 **Nguyên tắc:** điều khoản cho phép một bên tùy ý định đoạt tài sản của bên kia mà không có thông báo, không có cơ chế phản đối, dễ bị coi là không công bằng. Phải có: **thông báo trước + quyền giải trình + thời hạn cụ thể**.
 
@@ -572,14 +587,16 @@ Không mở cho người dùng ngoài khi còn ô chưa tích.
 ### Bắt buộc (chặn ra mắt)
 
 - [ ] Pháp nhân đã thành lập, ngành nghề phù hợp
-- [ ] **Hồ sơ đăng ký sàn TMĐT đã được xác nhận** (web + app)
+- [ ] Nghĩa vụ/hồ sơ nền tảng TMĐT theo Luật 122/2025 đã được Legal hoàn tất cho web; app GĐ3 có gate riêng
 - [ ] **Đã chốt phương án dòng tiền hợp pháp và có ý kiến luật sư bằng văn bản** (§2)
 - [ ] Quy chế hoạt động sàn đã công khai, có ngày hiệu lực
 - [ ] Điều khoản sử dụng + Chính sách bảo mật + Chính sách giải quyết tranh chấp đã công khai
 - [ ] **Đã bỏ điều khoản "mất quyền khiếu nại"** khỏi cả UI và văn bản (§5.1)
 - [ ] Hợp đồng người bán có căn cứ đầy đủ cho ký quỹ và khóa kho (§9.2)
-- [ ] Hồ sơ DPIA đã lập và nộp
-- [ ] Cơ chế thu thập đồng ý tách theo mục đích đã hoạt động
+- [ ] Hồ sơ đánh giá tác động xử lý/chuyển dữ liệu theo khung 2026 đã được Legal hoàn tất
+- [ ] Căn cứ xử lý, notice và consent theo từng mục đích đã được Legal duyệt; `processing_records`/`processing_purpose_events` lưu đủ timeline chứng minh
+- [ ] Supabase Singapore đã qua DPA/subprocessor/data-transfer review và có production go/no-go bằng văn bản
+- [ ] Provider evidence WORM đã được chốt; retention/Object Lock/deletion/legal hold đã được kiểm thử
 - [ ] **ID công khai không phải mã vận đơn** (§3.6)
 - [ ] eKYC người bán bắt buộc trước khi được đăng bán
 - [ ] Danh mục hàng cấm/hạn chế đã cấu hình và chặn được
@@ -592,8 +609,8 @@ Không mở cho người dùng ngoài khi còn ô chưa tích.
 - [ ] Đã xin ý kiến cơ quan thuế về nghĩa vụ khấu trừ nộp thay (§7.2)
 - [ ] Đã tích hợp hóa đơn điện tử
 - [ ] Kế toán hạch toán tách bạch ký quỹ và doanh thu (§7.4)
-- [ ] Đã thông báo/đăng ký chương trình khuyến mại nếu thuộc diện (§8.1)
-- [ ] Nhãn "Tài trợ" đã hoạt động cho listing trả phí (§8.2)
+- [ ] Nếu bật loyalty/voucher: đã thông báo/đăng ký chương trình khuyến mại nếu thuộc diện (§8.1)
+- [ ] Nếu bật quảng bá trả phí: nhãn "Tài trợ" hoạt động trước lần hiển thị đầu tiên (§8.2)
 
 ### Trong 3 tháng đầu vận hành
 
@@ -602,7 +619,7 @@ Không mở cho người dùng ngoài khi còn ô chưa tích.
 - [ ] Quy trình xử lý sự cố rò rỉ dữ liệu, có diễn tập
 - [ ] Thỏa thuận sáng lập và chuyển giao quyền SHTT đã ký đủ 3 thành viên sáng lập và mọi cộng tác viên (§9.3)
 - [ ] Đã nộp đơn đăng ký nhãn hiệu
-- [ ] Job xóa dữ liệu theo `retention_until` đã chạy và được kiểm chứng
+- [ ] Job xóa dữ liệu đã kiểm chứng cả `retention_until`, đúng object version, Object Lock và legal hold; watchdog không để lock hết khi vụ còn mở
 
 ---
 
@@ -613,3 +630,16 @@ Không mở cho người dùng ngoài khi còn ô chưa tích.
 | 1 | **Đặt lịch tư vấn với luật sư chuyên về fintech/TMĐT, mang theo §2 của tài liệu này** | Nếu mô hình ví ký quỹ phải thay đổi, nó thay đổi cả kiến trúc và cả mô hình kinh doanh. Biết sớm rẻ hơn biết muộn rất nhiều |
 | 2 | **Khởi động thành lập pháp nhân**                                                              | Chặn hồ sơ đăng ký sàn, mà hồ sơ đăng ký sàn là đường găng dài nhất                                                               |
 | 3 | **Ký thỏa thuận sáng lập + chuyển giao quyền SHTT giữa 3 thành viên**                       | Càng nhiều công sức bỏ ra mà chưa có văn bản, càng khó thỏa thuận sau này                                                               |
+
+---
+
+## 12. Nguồn chính thức đã kiểm tra ngày 25/08/2026
+
+- [Luật Bảo vệ dữ liệu cá nhân 91/2025/QH15](https://vanban.chinhphu.vn/?classid=1&docid=214590&pageid=27160&typegroup=) — hiệu lực 01/01/2026.
+- [Nghị định 356/2025/NĐ-CP](https://vanban.chinhphu.vn/?classid=1&docid=216387&orggroupid=2&pageid=27160) — hiệu lực 01/01/2026; Nghị định 13/2023/NĐ-CP hết hiệu lực.
+- [Nghị định 330/2026/NĐ-CP](https://vanban.chinhphu.vn/?classid=1&docid=219266&pageid=27160) — ban hành và hiệu lực 19/08/2026; Điều 43 có chế tài liên quan đồng ý theo từng mục đích và khả năng chứng minh/ghi nhật ký sự đồng ý.
+- [Luật Thương mại điện tử 122/2025/QH15](https://vanban.chinhphu.vn/?docid=216503&pageid=27160) — hiệu lực 01/07/2026.
+- [Luật An ninh mạng 116/2025/QH15](https://vanban.chinhphu.vn/?docid=216499&pageid=27160) — hiệu lực 01/07/2026.
+- [Luật Phòng, chống rửa tiền 14/2022/QH15](https://vanban.chinhphu.vn/?classid=1&docid=207710&orggroupid=1&pageid=27160) — dùng để Legal xác định đúng đối tượng báo cáo và phân công nghĩa vụ với PSP/ngân hàng.
+
+Các nguồn trên chỉ xác nhận văn bản và ngày hiệu lực. Mapping nghĩa vụ cụ thể của REBOX vẫn cần luật sư chịu trách nhiệm rà soát.

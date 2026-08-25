@@ -1,6 +1,6 @@
 # Đọc cái này trước — dành cho đội phát triển
 
-Bộ tài liệu có 6 file, khoảng 3.500 dòng. **Đừng đọc hết.** File này chỉ ra cần đọc gì, lúc nào.
+Bộ tài liệu được đánh số từ `00` đến `08`, cộng `CODEBASE.md`. **Đừng đọc hết ngay.** File này chỉ ra cần đọc gì, lúc nào.
 
 Thời gian đọc ngày đầu: **khoảng 40 phút.** Phần còn lại đọc theo sprint.
 
@@ -8,15 +8,16 @@ Thời gian đọc ngày đầu: **khoảng 40 phút.** Phần còn lại đọc
 
 ## 1. Ngày đầu tiên — bắt buộc, 40 phút
 
-Đọc đúng ba thứ này, theo thứ tự:
+Đọc đúng bốn thứ này, theo thứ tự:
 
 | # | Đọc gì | Vì sao |
 |---|---|---|
 | 1 | `README.md` | Biết dự án là gì trong 3 phút |
-| 2 | **`00-TONG-QUAN` §1 và §2** | Tóm tắt mô hình + 9 mâu thuẫn và 10 lỗ hổng trong tài liệu gốc. **Đây là phần quan trọng nhất của cả bộ tài liệu** |
-| 3 | **`04-IMPLEMENTATION-PLAN` §1, §2, §3** | Đội hình, phạm vi đã cắt, lộ trình. Biết mình không phải làm gì cũng quan trọng như biết phải làm gì |
+| 2 | **`07-ARCHITECTURE-DECISIONS`** | Nguồn chuẩn cho stack, Supabase, phạm vi MVP và các quyết định đã hòa giải |
+| 3 | **`CODEBASE.md`** | Cấu trúc monorepo thực tế đang có trong workspace |
+| 4 | **`04-IMPLEMENTATION-PLAN` §1, §2, §3** | Đội hình, phạm vi đã cắt, lộ trình. Biết mình không phải làm gì cũng quan trọng như biết phải làm gì |
 
-Chưa cần đụng tới 01, 02, 03, 05, 06.
+`00-TONG-QUAN` là lịch sử audit và lý do đằng sau quyết định; đọc sau `07` khi cần truy nguyên. Chưa cần đụng tới 01, 02, 03, 05, 06 trong ngày đầu.
 
 ---
 
@@ -26,14 +27,16 @@ Không cần tra lại trong tài liệu, dùng bảng này:
 
 | Mã | Nội dung | Chốt |
 |---|---|---|
-| Q1 | Công thức hold | `hàng + ship buyer + hoa hồng + dự phòng ship`. Dự phòng: **22k** nếu món < 50k, **45k** nếu ≥ 50k |
-| Q2 | Ký quỹ | Nạp tự do, **tối thiểu 100.000đ**, không ràng buộc bội số. Năng lực bán suy ra từ số dư |
-| Q3 | Escrow | **Không phân tầng.** Mọi seller nhận tiền ngay. Vẫn giữ cột `deposit_tier` trong schema để mở đường sau này |
-| Q4 | API sàn | Code thật ở MVP, không mock. Nguồn CSV chạy song song và là đường chính khi chưa có credentials |
+| Q1 | Công thức hold | `hàng + ship buyer + hoa hồng + 45.000đ dự phòng ship`. Mức 22.000đ bị loại vì không đủ cho hoàn hai chặng |
+| Q2 | Ký quỹ | Shop kích hoạt khi số dư đã settle đạt **100.000đ**; không tier, không công thức AOV động. Năng lực bán suy ra từ số dư |
+| Q3 | Dòng tiền hàng | Không escrow tiền hàng. Mỗi checkout chỉ một seller; production chỉ dùng phương án dòng tiền được Legal/PSP phê duyệt |
+| Q4 | API sàn | MVP dùng nhập tay + CSV + scan local. Shopee/TikTok live API hoãn tới GĐ3 sau partner approval/ToS review |
 | Q5 | Hàng cấm | Xem `06-DANH-MUC-HANG-CAM.md` |
-| Q6 | Thanh toán | **PayOS** — còn 5 câu chưa có đáp án, xem §5 dưới |
+| Q6 | Thanh toán | **Chưa chốt vendor.** PayOS chỉ là ứng viên; production bị chặn tới khi Legal/PSP xác nhận bằng văn bản |
 | Q7 | Ngưỡng hư hỏng | **30%** |
-| Q8 | Lưu video | Gốc **90 ngày**, ảnh đã che mặt + biên bản **3 năm** |
+| Q8 | Video | Tối đa **90 giây**; policy target hiện tại tính từ `case.final_closed_at` là **90 ngày** cho original và **3 năm** cho derivative/biên bản; phải snapshot version Legal duyệt, Object Lock/legal hold có thể kéo dài |
+| Q9 | Supabase | PostgreSQL + Auth; NestJS sở hữu mutation nghiệp vụ; Realtime chỉ báo refetch; evidence không dùng Supabase Storage |
+| Q10 | Async | PostgreSQL transactional outbox; chưa dùng Redis/BullMQ ở MVP |
 
 ---
 
@@ -43,14 +46,14 @@ Không cần tra lại trong tài liệu, dùng bảng này:
 
 | Sprint | Đọc | Bỏ qua phần còn lại |
 |---|---|---|
-| **1** — Nền tảng | `01` **§2.3 (tái sử dụng cho mobile), §2.5 (3 quy tắc monorepo), §2.6 (cảnh báo)**, §4 (data model), §9 (NFR) | |
-| **2** — Catalog & kho hoàn | `01` §7.1 · `02` §2 · `03` §2, §3 · `06` §7 | `06` §2–6 là việc của Pháp lý |
+| **1** — Nền tảng + vertical slice | `07` §4–§8 · `01` §2, §4, §9 · `CODEBASE.md` | Không dựng mobile/AI/Redis |
+| **2** — Catalog & kho hoàn | `00` §L4, §L7 · `01` §4.2.1, §6.2 · `02` §2 · `03` §2, §3 · `06` §7 | Live API sàn ở `01` §7.1 là target GĐ3; `06` §2–6 do Pháp lý sở hữu |
 | **3** — Ví & sổ cái ⭐ | `01` §5 (**đọc kỹ**) · `02` §1, §4 · `00` §L1, §L2, §L3 | |
 | **4** — Thanh toán | `01` §7.3 · `02` §3 | |
 | **5** — Vận chuyển | `01` §7.2 · `02` §3.4, §3.5 | |
-| **6** — Tranh chấp | `01` §8 · `02` §5 · `03` §1.6, §2.6 · `05` §3.4 | |
-| **7** — Admin | `03` §4 | |
-| **8** — Public API | `01` §7.4 · `02` §6 | |
+| **6** — Tranh chấp manual + Admin | `01` §4.2, §6.3, §9.2 · `02` §5 (bỏ §5.3 AI) · `03` §1.6, §2.6, §4 · `05` §3.4 | `01` §8 và AI UI là GĐ3 |
+| **7** — Notice, retention, thông báo, trang pháp lý | `02` §5.2 · `03` §1.6 · `04` Sprint 7 · `05` §3.4.5–§3.4.6 | Không thêm loyalty/AI |
+| **8** — Làm cứng/pilot | `01` §9 · `04` §11 · `05` §10 | Public API ERP hoãn tới khi có nhu cầu thật |
 
 **Sprint 3 là sprint quan trọng nhất.** Sổ cái sai thì không sửa được bằng bản vá. Đọc `01` §5 đến khi hiểu rõ bút toán kép trước khi viết dòng đầu tiên.
 
@@ -62,12 +65,12 @@ Không cần tra lại trong tài liệu, dùng bảng này:
 
 | # | Yêu cầu | Ảnh hưởng | Chi tiết |
 |---|---|---|---|
-| 1 | **AI không được tự động từ chối khiếu nại** | State machine tranh chấp chỉ có 2 nhánh: `AUTO_APPROVE` hoặc `ESCALATE`. Không có `AUTO_REJECT` | `00` §L6 |
-| 2 | **Video không phải điều kiện tiên quyết** để khiếu nại | Thiếu video vẫn nhận hồ sơ, chuyển `ADMIN_REVIEW`, chỉ không được auto-approve | `00` §L5 |
+| 1 | **GĐ1 mọi quyết định tranh chấp do người xử lý** | Nếu AI GĐ3 được bật, chỉ có `AUTO_APPROVE` hoặc `ESCALATE`, tuyệt đối không `AUTO_REJECT` | `00` §L6 |
+| 2 | **Video không phải điều kiện tiên quyết** để khiếu nại | Thiếu video vẫn nhận hồ sơ và chuyển `ADMIN_REVIEW`; AI GĐ3 không được auto-approve hồ sơ này | `00` §L5 |
 | 3 | **Mã vận đơn không bao giờ ra API công khai** | ID công khai là ULID. `source_tracking_enc` mã hoá tầng ứng dụng | `00` §L4 |
 | 4 | **Seller không bao giờ xem video gốc** | Chỉ xem `evidence_derivatives` đã che mặt + che nhãn vận đơn. Khử nhận dạng lỗi thì **không hiển thị gì**, không fallback về bản gốc | `05` §3.4.3 |
-| 5 | **Ghi bằng chứng đồng ý trước khi mở camera** | `consent_records` là khoá ngoại bắt buộc của `dispute_evidences` | `05` §3.4.5 |
-| 6 | **Xoá dữ liệu theo `retention_until`** | Job xoá tự động phải chạy và phải kiểm chứng được | `05` §3.4.6 |
+| 5 | **Ghi processing record trước camera/file picker** | Client chỉ gửi notice artifact + decision; server resolve basis/type, tạo record cho interaction và append event theo stable purpose chain; evidence tham chiếu header | `05` §3.4.5 |
+| 6 | **Retention theo data class/case** | Policy versioned + workflow delete/anonymize phải test; evidence target đúng object version và không xóa trước Object Lock/legal hold | `05` §3.4.6 |
 | 7 | **Phí tính theo cấu hình tại thời điểm đặt hàng** | Snapshot config vào `sub_orders.fee_snapshot` lúc checkout, không đọc config hiện hành lúc settle | `02` §4.1 |
 
 Bảy điều này nên đưa thẳng vào checklist review code, không phải đọc một lần rồi quên.
@@ -78,8 +81,10 @@ Bảy điều này nên đưa thẳng vào checklist review code, không phải 
 
 | Việc | Ai lo | Trong lúc chờ thì làm gì |
 |---|---|---|
-| Đăng ký partner Shopee / TikTok | Trưởng dự án | Code adapter theo tài liệu API chính thức, dùng fixture. Ưu tiên luồng CSV |
-| PayOS có chi hộ được không? Có đọc được tài khoản seller không? Giấy phép thế nào? Phí bao nhiêu? | Trưởng dự án + Pháp lý | Code sau interface `PaymentProvider`. **Không để lời gọi PayOS lọt vào domain code** |
+| Đăng ký partner Shopee / TikTok | Trưởng dự án | MVP không phụ thuộc việc này; dùng manual/CSV, chỉ mở live adapter ở GĐ3 |
+| PSP nào đáp ứng custody/top-up/payout/refund/withdrawal/webhook/AML/KYC và giấy phép phù hợp? | Trưởng dự án + Pháp lý | Giữ `PaymentProvider` và fake adapter cho test. **Không chạy tiền thật, không ghi cứng PayOS** |
+| Provider evidence có versioning + Object Lock compliance + region phù hợp | Tech + Pháp lý | Chỉ làm metadata/local adapter; không dùng Supabase Storage cho evidence production |
+| Supabase Singapore có được dùng dữ liệu thật/production không? | Tech + Pháp lý | Trước A14, dev/staging chỉ dùng synthetic/anonymized fixture; mọi dữ liệu thật cần DPA/subprocessor/data-transfer review và Legal go/no-go |
 | Khảo sát nhãn kiện hàng thật (việc 1.0) | Dev 2 + Pháp lý | Chặn thiết kế luồng quét. Làm sớm, một buổi chiều là xong |
 | Đăng ký sàn TMĐT | Pháp lý | Không chặn code, nhưng chặn ngày mở bán |
 
@@ -92,10 +97,12 @@ Bảy điều này nên đưa thẳng vào checklist review code, không phải 
 | `00-TONG-QUAN` | ✅ toàn bộ | ✅ §2 |
 | `01-TECHNICAL-SPEC` | ✅ theo sprint | — |
 | `02-BACKEND-FLOWS` | ✅ theo sprint | — |
-| `03-FRONTEND-FLOWS` | ✅ theo sprint | §1.6 (màn hình đồng ý) |
+| `03-FRONTEND-FLOWS` | ✅ theo sprint | §1.6 (notice/lựa chọn evidence) |
 | `04-IMPLEMENTATION-PLAN` | ✅ §1–3 | ✅ §4 (Giai đoạn 0 — đường găng dài nhất nằm ở đây) |
-| `05-PHAP-LY` | ❌ chỉ đọc §4 của file này | ✅ **sở hữu toàn bộ** |
+| `05-PHAP-LY` | §3.4 khi làm evidence · §4 khi làm hạ tầng · §10 trước pilot | ✅ **sở hữu toàn bộ** |
 | `06-DANH-MUC-HANG-CAM` | §7 (cơ chế thực thi) | ✅ **sở hữu**, phải trả lời 5 câu ở §8 |
+| `07-ARCHITECTURE-DECISIONS` | ✅ **đọc trước khi code** | ✅ các mục gắn legal gate |
+| `08-DOCUMENTATION-CHANGELOG` | Khi cần truy vết thay đổi | Khi cần truy vết thay đổi |
 
 ---
 
@@ -121,4 +128,13 @@ Web làm trước, mobile làm ở GĐ3. **Tầng giao diện luôn phải viế
 
 Ba quy tắc này là **lint rule trong CI**, không phải thỏa thuận miệng. Chi tiết: `01-SPEC` §2.5.
 
-Dùng **Tailwind**, không dùng CSS Modules hay styled-components — NativeWind cho phép dùng lại đúng class name đó trên React Native. Đây là mắt xích duy nhất trong tầng UI mang sang được.
+Dùng Tailwind cho web và có thể dùng NativeWind khi làm mobile, nhưng **không cam kết component hay class name web chạy nguyên xi trên React Native**. Chỉ `ui-tokens`, schema, API client và logic thuần là tài sản dùng chung được bảo đảm.
+
+---
+
+## 9. Bốn guardrail Supabase
+
+1. Frontend chỉ gọi Supabase trực tiếp cho Auth và các projection đọc được phê duyệt; mutation nghiệp vụ đi qua NestJS.
+2. Secret key/`service_role` và database credential chỉ nằm ở API/worker.
+3. RLS + grant là defense-in-depth; authorization ownership/membership vẫn phải có trong NestJS và truy vấn.
+4. Supabase Realtime chỉ báo client refetch API; không dùng event Realtime để xác nhận payment, order, wallet, hold hoặc dispute.

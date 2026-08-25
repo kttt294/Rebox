@@ -2,9 +2,9 @@
 
 > **Miễn trừ:** đây là bản rà soát do người thiết kế hệ thống lập ra để đưa vào sản phẩm dưới dạng bộ lọc kiểm duyệt. **Không phải ý kiến tư vấn pháp luật.** Thành viên phụ trách Pháp lý phải rà soát và ký duyệt trước khi đưa vào vận hành, và kiểm tra lại hiệu lực văn bản tại thời điểm triển khai.
 >
-> Đây là **tài liệu sống**. Rà soát định kỳ hằng quý và mỗi khi có văn bản pháp luật mới.
+> Đây là **tài liệu sống**. Rà soát định kỳ hằng quý và mỗi khi có văn bản pháp luật mới. Kiến trúc kiểm duyệt tuân theo [`07-ARCHITECTURE-DECISIONS.md`](07-ARCHITECTURE-DECISIONS.md); nội dung danh mục chỉ có hiệu lực production sau khi Legal ký duyệt phiên bản.
 
-Căn cứ nghĩa vụ: Nghị định 52/2013/NĐ-CP (sửa đổi bởi Nghị định 85/2021/NĐ-CP) buộc sàn giao dịch TMĐT phải có **cơ chế kiểm tra, giám sát** để bảo đảm không bán hàng hóa thuộc diện cấm kinh doanh, và phải **gỡ bỏ** khi phát hiện hoặc khi nhận được yêu cầu từ cơ quan có thẩm quyền.
+Mốc kiểm tra tài liệu là 25/08/2026. Luật Thương mại điện tử 122/2025/QH15 đã có hiệu lực từ 01/07/2026; Legal phải remap các nghĩa vụ từng dựa trên Nghị định 52/2013/85/2021 sang khung hiện hành. Về sản phẩm, REBOX vẫn giữ policy an toàn: có **cơ chế kiểm tra, giám sát**, chặn danh mục không được phép và gỡ khi có quyết định hợp lệ.
 
 ---
 
@@ -116,13 +116,13 @@ Bắt buộc chọn một, không cho nhập tự do:
 | `FAIR` | Khá | Lỗi ngoại hình rõ, vẫn dùng tốt |
 | `DEFECT` | Có lỗi | Lỗi chức năng — **bắt buộc mô tả cụ thể lỗi gì** |
 
-> ⚠️ **Ràng buộc sản phẩm quan trọng:** chỉ hàng bom, tức hàng bị từ chối nhận và chưa từng mở, mới được chọn `NEW_SEALED` và đăng từ dữ liệu quét mà không cần ảnh thật. Mọi trường hợp còn lại **bắt buộc có ảnh chụp thực tế**. Dùng ảnh studio của hàng mới để bán hàng khách đã trả là mô tả sai sự thật. Xem `00-TONG-QUAN` §L7.
+> ⚠️ **Ràng buộc sản phẩm quan trọng:** chỉ hàng bom, tức hàng bị từ chối nhận và chưa từng mở, mới được chọn `NEW_SEALED` và đăng từ dữ liệu quét mà không cần ảnh thật. Mọi trường hợp còn lại **bắt buộc có ảnh chụp thực tế**. Dùng ảnh studio của hàng mới để bán hàng khách đã trả là mô tả sai sự thật. Xem `05-PHAP-LY` §5.3 và `01-TECHNICAL-SPEC` §4.2.1.
 
 ---
 
 ## 5. Quy trình xử lý xâm phạm sở hữu trí tuệ
 
-Bắt buộc có theo Nghị định 85/2021 và Luật Sở hữu trí tuệ.
+Đây là quy trình bắt buộc theo policy REBOX và nghĩa vụ SHTT; Legal phải remap căn cứ nền tảng TMĐT sang Luật 122/2025 và văn bản thi hành hiện hành trước production, không tiếp tục viện dẫn Nghị định 85/2021 như baseline hiện hành.
 
 ```
 1. Kênh tiếp nhận công khai:  ip-report@rebox.vn  + biểu mẫu trên web
@@ -134,7 +134,7 @@ Bắt buộc có theo Nghị định 85/2021 và Luật Sở hữu trí tuệ.
 6. Ba lần vi phạm có căn cứ  → khóa gian hàng
 ```
 
-Mọi bước ghi `audit_logs`. Lưu hồ sơ tối thiểu 3 năm để đối chiếu khi có tranh chấp hoặc thanh tra.
+Mọi bước ghi `audit_logs`. Policy đề xuất là giữ hồ sơ cần thiết 3 năm từ `ip_case.closed_at`, nhưng Legal phải duyệt data class, start event và action delete/anonymize cụ thể. Vụ đang khiếu kiện/yêu cầu cơ quan nhà nước dùng legal hold có lý do/audit; không giữ vô hạn theo mặc định.
 
 ---
 
@@ -163,11 +163,11 @@ Hàng hoàn **phát sinh trong nước** từ đơn đã giao cho người tiêu
 |---|---|
 | **Chặn tại nguồn** | Danh mục `BANNED` không xuất hiện trong danh sách chọn khi đăng bán |
 | **Lọc từ khóa** | Đối chiếu `title` + `description` với `keywords[]`; có xử lý dấu tiếng Việt và biến thể lách từ (`th.uốc`, `thuoc`) |
-| **Phân loại bằng mô hình** | Classifier chạy nền ở bước `listing.moderate`, gắn cờ nghi ngờ |
-| **Đối chiếu ảnh** | Phát hiện ảnh trùng lặp, ảnh chụp màn hình sàn khác |
+| **Rule + duyệt tay ở GĐ1** | `listing.moderate` dùng category/keyword/contact/metadata rule xác định; trường hợp nhạy cảm hoặc không chắc chắn vào hàng đợi admin. Classifier chỉ được thêm ở GĐ3 sau eval/legal gate |
+| **Đối chiếu ảnh GĐ1** | Exact hash/phash + metadata rule để gắn cờ ảnh trùng; suy luận ảnh chụp màn hình bằng model chỉ thuộc GĐ3 |
 | **Hậu kiểm** | Quét định kỳ toàn bộ listing `ACTIVE` khi danh mục cấm được cập nhật |
 | **Kênh báo cáo** | Nút "Báo cáo sản phẩm" trên mọi trang chi tiết, cho cả người mua và bên thứ ba |
-| **Chế tài** | Vi phạm lần 1 gỡ bài + cảnh báo; lần 2 hạn chế đăng bán 7 ngày; lần 3 khóa gian hàng, giữ ký quỹ để xử lý nghĩa vụ còn lại |
+| **Chế tài** | Vi phạm lần 1 gỡ bài + cảnh báo; lần 2 hạn chế đăng bán 7 ngày; lần 3 khóa gian hàng. Chỉ khóa đúng số tiền cho nghĩa vụ đã document, có thời hạn/review; phần dư hoàn qua flow A10, không tịch thu toàn bộ cọc như hình phạt |
 
 Toàn bộ chế tài phải được **ghi trong Quy chế hoạt động sàn và Hợp đồng người bán** trước khi áp dụng. Không có căn cứ văn bản thì việc khóa gian hàng và giữ ký quỹ là hành vi không có cơ sở — xem `05-PHAP-LY` §1.3.
 

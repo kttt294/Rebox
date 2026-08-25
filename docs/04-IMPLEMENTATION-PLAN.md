@@ -1,6 +1,6 @@
 # REBOX - Kế hoạch triển khai
 
-Xây dựng theo mô hình Lean Startup như tài liệu gốc định hướng, với một điều chỉnh quan trọng: **phạm vi trong tài liệu vượt xa năng lực của đội 3 người (2 lập trình viên + 1 pháp lý) trong 6 tháng**. Kế hoạch này cắt phạm vi để có sản phẩm chạy thật, thay vì có một sản phẩm đầy đủ tính năng nhưng không kịp ra mắt.
+Xây dựng theo mô hình Lean Startup như tài liệu gốc định hướng, với một điều chỉnh quan trọng: **phạm vi trong tài liệu vượt xa năng lực của đội 3 người (2 lập trình viên + 1 pháp lý) trong 6 tháng**. Kế hoạch này cắt phạm vi để có sản phẩm chạy thật. Mọi quyết định kiến trúc và phạm vi trong kế hoạch này tuân theo [`07-ARCHITECTURE-DECISIONS.md`](07-ARCHITECTURE-DECISIONS.md).
 
 ---
 
@@ -60,15 +60,15 @@ Thứ tự ưu tiên: **full-stack dev** trước, **marketing** sau. Ba hình t
 | **Con người trước, AI sau**  | GĐ1 admin xử lý 100% tranh chấp thủ công. Ở 500 đơn/tháng với ~3% khiếu nại = 15 vụ/tháng - một người xử lý thừa sức. AI chỉ đáng làm khi đạt ~2.000 đơn/tháng. |
 | **CSV trước, API sàn sau**   | Import CSV là 3 ngày công. Tích hợp Shopee Open API là 3–4 tuần cộng rủi ro không được duyệt (L7).                                                              |
 | **Đúng tiền trước, đẹp sau** | Ví ký quỹ và sổ cái phải hoàn thiện từ ngày đầu. Sai sót ở đây không sửa được bằng bản vá.                                                                      |
-| **Mua thay vì tự xây**       | eKYC, cổng thanh toán, gửi SMS/ZNS, phát hiện video giả - dùng dịch vụ có sẵn.                                                                                  |
+| **Mua thay vì tự xây**       | eKYC, cổng thanh toán và gửi SMS/ZNS dùng dịch vụ có sẵn sau provider gate. Phát hiện video giả chỉ xem xét cùng AI GĐ3.                                       |
 
 ---
 
 ## 3. Lộ trình theo giai đoạn
 
 ```
-GĐ 0  T1        Nền móng & pháp lý          ← chạy song song, không chặn code
-GĐ 1  T1–T4     MVP giao dịch được          ← mục tiêu: 1 đơn hàng thật từ đầu đến cuối
+GĐ 0  T1        Nền móng & pháp lý          ← không chặn Sprint 1; chặn slice phụ thuộc và production
+GĐ 1  T1–T4     MVP end-to-end              ← fake/sandbox; tiền thật chỉ sau toàn bộ gate
 GĐ 2  T5–T6     Thử nghiệm 100 shop Hà Nội  ← đúng mục tiêu tài liệu gốc
 GĐ 3  T7–T9     Tự động hóa & mở rộng       ← AI triage, app mobile, API sàn
 GĐ 4  T10–T12   Thương mại hóa              ← mở rộng địa bàn, public API ERP
@@ -92,6 +92,9 @@ Những việc này **không viết code nhưng chặn ngày ra mắt**. Bắt �
 | 0.8  | Chốt danh mục hàng cấm/hạn chế                                                                      | Pháp lý                | 1 tuần                  | Đầu vào Sprint 2                                                                                                |
 | 0.9  | Hồ sơ đề xuất cấp độ an toàn hệ thống thông tin                                                     | Pháp lý + Tech         | 3 tuần                  | Xem `05-PHAP-LY` §4                                                                                             |
 | 0.10 | Hồ sơ đánh giá tác động xử lý dữ liệu cá nhân                                                       | Pháp lý                | 2 tuần                  | Nộp Bộ Công an. Xem `05-PHAP-LY` §3                                                                             |
+| 0.11 | Đánh giá Supabase Singapore, DPA/chuyển dữ liệu và quyết định real-data/production go/no-go          | Pháp lý + Tech         | 1–2 tuần                | Trước A14, dev/staging chỉ dùng synthetic/anonymized fixture; không đưa dữ liệu thật lên                         |
+| 0.12 | Chốt nhà cung cấp kho evidence có WORM/Object Lock và quy trình xóa                                  | Tech + Pháp lý         | 2–4 tuần                | Blocker của Sprint 6; Supabase Storage không đáp ứng WORM A12                                                    |
+| 0.13 | Chốt tax/accounting model, hóa đơn điện tử và nghĩa vụ khấu trừ theo A10                             | Kế toán + Legal + Tech | 2–4 tuần                | Chặn doanh thu thật; xác định commission gross/net, VAT/tax payable, báo cáo và provider hóa đơn                |
 
 **Rủi ro đường găng:** mục 0.5 và 0.6 có thể mất 2–3 tháng. Nếu bắt đầu ở tháng 4 thì sản phẩm xong nhưng không được phép mở. **Bắt đầu ngay tuần 1.**
 
@@ -99,24 +102,26 @@ Những việc này **không viết code nhưng chặn ngày ra mắt**. Bắt �
 
 ## 5. Giai đoạn 1 - MVP (Tháng 1–4, 8 sprint × 2 tuần)
 
-Mục tiêu: **một đơn hàng thật, từ đăng bán đến hoàn tất đối soát, có thu phí, có xử lý được khiếu nại.**
+Mục tiêu: **một luồng đơn hàng end-to-end từ đăng bán đến đối soát/khiếu nại bằng fake hoặc sandbox**. Chỉ chạy tiền thật khi A10, A12, A14 và legal launch gate đều đã đóng.
 
-### Sprint 1 - Nền tảng kỹ thuật
+### Sprint 1 - Vertical slice đầu tiên
 
 > ⚠️ **Sprint 1 dài 3 tuần thay vì 2**, vì tuần đầu dành cho việc làm quen công nghệ. NestJS có decorator, dependency injection, module system - mất khoảng 1 tuần nếu chưa từng dùng. **Đừng vừa học vừa code module ví.** Nếu cả hai dev đã quen NestJS + Next.js thì bỏ tuần này, quay lại 2 tuần.
 >
 > Tuần học: dựng thử một CRUD nhỏ có transaction + test, không phải đọc tài liệu suông.
 
-| Việc                                                           | Nghiệm thu                                                |
-| -------------------------------------------------------------- | --------------------------------------------------------- |
-| **🔬 Khảo sát nhãn vật lý trên kiện hàng hoàn** - xem bên dưới | Bảng liệt kê trường dữ liệu in trên nhãn, theo từng nguồn |
-| **Dựng `packages/shared`, `core`, `api-client` ngay từ đầu**   | 3 package tồn tại và có ít nhất 1 hàm thật trong mỗi cái  |
-| **Lint rule chặn vi phạm ranh giới package**                   | CI fail khi component gọi `fetch` trực tiếp hoặc `packages/` import từ `apps/web` |
-| Monorepo, CI/CD, môi trường dev/staging/prod                   | Push lên `main` tự động deploy staging                    |
-| Schema DB + migration (toàn bộ bảng ở `01-SPEC` §4)            | `pnpm db:migrate` chạy sạch từ đầu                        |
-| Auth: đăng ký/đăng nhập OTP, JWT, refresh xoay vòng, RBAC      | Test tự động cho 3 vai trò                                |
-| Layout Next.js + design system                                 | Trang chủ, đăng nhập, layout seller/buyer                 |
-| Observability: log có cấu trúc, trace, health check            | Xem được trace một request đầy đủ trên Grafana            |
+| Việc                                                                                       | Nghiệm thu                                                                        |
+| ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| **🔬 Khảo sát nhãn vật lý trên kiện hàng hoàn** - xem bên dưới                             | Bảng liệt kê trường dữ liệu in trên nhãn, theo từng nguồn                         |
+| Kiểm tra skeleton monorepo; cấu hình CI, dev/staging và migration policy                    | Workspace chạy thống nhất; migration dựng lại DB sạch ở môi trường mới            |
+| Supabase Auth adapter + NestJS JWT/JWKS guard                                                | Login bằng Supabase; API nhận đúng actor, không tự lưu password/refresh token      |
+| Schema tối thiểu cho `profile → shop → membership → listing`                               | Migration chỉ tạo phần cần cho slice; `shop_memberships` có test capability       |
+| RLS/grant baseline; service-role secret chỉ ở server                                        | Client không ghi trực tiếp bảng listing/order/funds; policy có test âm             |
+| Vertical slice `Auth → shop profile/membership → manual listing → public listing detail`    | Dùng trạng thái eKYC fake/seed: VERIFIED publish được, PENDING bị chặn; người khác xem được trang public |
+| Khung PostgreSQL outbox + worker claim bằng `SKIP LOCKED`                                   | Một event mẫu được ghi cùng transaction, xử lý idempotent; không cần Redis/BullMQ  |
+| Layout web responsive + log có cấu trúc/health check                                        | Buyer/Seller context hoạt động; truy vết được request của slice                    |
+
+Không tạo đủ mọi bảng hoặc abstraction ngay Sprint 1. `packages/shared`, `core`, `api-client`, `ui-tokens` và adapter chỉ nhận code khi vertical slice có consumer thật; implementation nghiệp vụ dùng chung nằm trong `packages/backend`.
 
 #### 🔬 Việc 1.0 - Khảo sát nhãn vật lý (chặn thiết kế, làm trước tiên)
 
@@ -154,65 +159,77 @@ Mục tiêu: **một đơn hàng thật, từ đăng bán đến hoàn tất đ�
 | Danh mục + danh sách cấm/hạn chế                          | Chặn được sản phẩm thuộc danh mục cấm           |
 | Tìm kiếm PG FTS tiếng Việt (`unaccent` + `pg_trgm`)       | Tìm "vay lua" ra "Váy lụa"                      |
 | Trang chi tiết sản phẩm SSR                               | Lighthouse SEO ≥ 90                             |
+| eKYC integration: notice/record, provider session trực tiếp, webhook idempotent, trạng thái/manual review | Seller bên ngoài chỉ publish sau `VERIFIED`; không đưa CCCD/selfie base64 qua API; retention theo Legal |
+
+MVP chỉ đọc dữ liệu nhập tay/local/CSV. Nhánh Shopee/TikTok live API bị tắt đến GĐ3; không dựng adapter production để chờ credential.
 
 ### Sprint 3 - Ví ký quỹ & Sổ cái ⭐ sprint quan trọng nhất
 
 | Việc                                               | Nghiệm thu                                              |
 | -------------------------------------------------- | ------------------------------------------------------- |
-| Sổ cái kép, bảng account, ràng buộc `SUM = 0`      | Property test: 10.000 giao dịch ngẫu nhiên, sổ luôn cân |
+| Sổ cái kép `ledger_transactions` + `ledger_postings` | Property test: 10.000 giao dịch ngẫu nhiên, từng transaction và từng account đối soát cân |
 | Hold: create / release / capture / partial capture | Test đồng thời 50 luồng, không sai số dư                |
-| Fee Engine + **bảng golden test ở `01-SPEC` §5.4** | 8/8 dòng bảng test pass                                 |
+| Fee/hold policy + **bảng golden test A08**          | 8/8 dòng canonical pass, reserve cố định 45.000đ, UI không tự tính |
 | Idempotency middleware                             | Gửi lại cùng key 100 lần ⇒ 1 bút toán                   |
 | Greedy hide + tính coverage                        | Số dư tụt ⇒ ẩn đúng listing, nạp vào ⇒ hiện lại đúng    |
 | Job đối soát sổ cái hằng giờ                       | Cố tình chèn lệch ⇒ alert kích hoạt                     |
-| Màn hình đối soát cho seller                       | 3 khối tách bạch theo `03-FE` §2.5                      |
+| Màn hình đối soát cho seller                       | Tách available/order-locked/withdrawal-pending/unmatched-reserve/debt; không cộng bucket bị chặn vào khả dụng |
+| Debt/top-up và unmatched reserve                   | Top-up trả debt trước; property test reserve create/release/capture không âm/không lệch |
 
 **Không sang Sprint 4 khi chưa qua toàn bộ mục trên.** Đây là phần duy nhất trong hệ thống mà lỗi gây mất tiền thật và không sửa được bằng hotfix.
 
+Không dùng một `CHECK` thông thường để khẳng định tổng nhiều dòng posting bằng 0. Cân sổ được bảo vệ qua một interface ghi sổ duy nhất, transaction database, constraint phù hợp/deferred validation, property test và reconciliation job.
+
 ### Sprint 4 - Thanh toán
+
+Sprint này đang **BLOCKED bởi A10**. Trước khi PSP được duyệt bằng văn bản, chỉ được làm contract, fake adapter, sandbox và reconciliation test; không bật tiền thật ngoài production pilot đã được phê duyệt.
 
 | Việc                                                    | Nghiệm thu                                                    |
 | ------------------------------------------------------- | ------------------------------------------------------------- |
-| Interface `PaymentProvider` + adapter PSP đã chốt ở 0.6 | Đổi provider chỉ cần sửa 1 file cấu hình                      |
-| Nạp ký quỹ qua PSP + webhook                            | Nạp thật 10.000đ ở sandbox, ví tăng đúng                      |
-| Sinh VietQR động về tài khoản seller                    | Quét QR bằng app ngân hàng thật, thấy đúng số tiền + nội dung |
-| Webhook biến động số dư + đối chiếu tự động             | Chuyển tiền thật ⇒ đơn tự chuyển CONFIRMED trong <10s         |
-| Bảng `payment_unmatched` + màn hình ops xử lý tay       | Chuyển thiếu 1.000đ ⇒ vào hàng đợi, không tự confirm          |
-| Rút ký quỹ + kiểm soát rủi ro                           | Đổi TK ngân hàng ⇒ khóa rút 72h                               |
+| Interface `PaymentProvider` + contract test             | Fake/sandbox test PSP_CUSTODIAL và SELLER_DIRECT theo scenario; production chỉ bật mode được A10 duyệt |
+| Nạp ký quỹ qua PSP + webhook sau gate A10               | Nạp 100.000đ ở sandbox, webhook lặp không cộng ví hai lần      |
+| Sinh VietQR qua sandbox/fake provider                    | Payload có đúng tài khoản/số tiền/nội dung theo contract; chưa yêu cầu app ngân hàng thật |
+| Webhook biến động số dư + đối chiếu tự động             | Chỉ CREDIT FINAL/SETTLED đúng account/currency/amount/ref/TTL ⇒ CONFIRMED; same-ID/different-hash bị P0 |
+| `payment_unmatched` workflow + maker/checker             | Thiếu/thừa/muộn ⇒ proposal hash, maker≠checker; expired order không hồi sinh; reserve/withdrawal block đúng A10 |
+| Rút ký quỹ + kiểm soát rủi ro sau gate A10              | Stable payout key; `PENDING→SETTLED|TERMINAL_FAILED|UNKNOWN/RECONCILING`; UNKNOWN không release; cooldown 72h |
 
 ### Sprint 5 - Đơn hàng & Vận chuyển
 
 | Việc                                     | Nghiệm thu                                                         |
 | ---------------------------------------- | ------------------------------------------------------------------ |
-| Giỏ hàng tách theo shop                  | Giỏ 2 shop ⇒ 2 sub-order, phí ship tính riêng                      |
-| Checkout init + reservation lock + hold  | 2 tab cùng mua 1 món ⇒ 1 thành công, 1 nhận `ITEM_BEING_PURCHASED` |
+| Giỏ nhóm theo shop; checkout đúng một shop | Giỏ 2 shop vẫn giữ 2 nhóm; request lẫn shop nhận 422; mỗi checkout tạo đúng 1 sub-order |
+| Checkout init + reservation/hold TTL 30 phút | 2 tab cùng mua 1 món ⇒ 1 thành công, 1 nhận `ITEM_BEING_PURCHASED` |
 | State machine sub-order đầy đủ           | Chuyển trạng thái sai bị từ chối, có test                          |
 | Adapter GHN + GHTK: quote, create, label | In được nhãn vận đơn thật khổ 10×15                                |
 | Webhook trạng thái + job polling bù      | Tắt webhook ⇒ polling vẫn cập nhật trong 30 phút                   |
-| Job settle + cộng điểm thưởng            | Đơn giao xong 72h ⇒ tự trừ phí, cộng điểm đúng bậc                 |
+| COD/carrier settlement contract           | Snapshot gross/fee/deduction/net/beneficiary; test gross-vs-net không double charge |
+| Job settle từ PostgreSQL outbox           | Chỉ settle VIETQR CONFIRMED/COD_REMITTED, dùng snapshot và không release khi case/remittance mở |
 
 ### Sprint 6 - Khiếu nại (xử lý thủ công)
 
 | Việc                                                        | Nghiệm thu                                               |
 | ----------------------------------------------------------- | -------------------------------------------------------- |
 | Mở khiếu nại + state machine dispute                        | Quá hạn vẫn nhận, gắn cờ `LATE_CLAIM`                    |
-| Upload video: presigned multipart, hash, Object Lock        | Video 100MB upload xong, sửa file trong bucket ⇒ bị chặn |
-| Quay video trong app (web: `MediaRecorder`) + màn hướng dẫn | Quay 60s trên Chrome Android, upload nền thành công      |
+| Upload evidence tới fake/provider WORM sau gate A12, version + hash + Object Lock | Original/derivative target đúng version; retention watchdog/lifecycle test pass |
+| Quay video web (`MediaRecorder`) + màn hướng dẫn            | Quay tối đa 90s; upload tiếp tục khi tab mở, retry an toàn |
 | Màn phân xử cho admin (chưa có AI)                          | Admin xử lý trọn 1 vụ, lý do bắt buộc ≥30 ký tự          |
-| Thực thi hoàn tiền + trừ phí ship seller                    | Ledger đúng theo `02-FLOWS` §5.5, hold dư release đúng   |
-| Chi hoàn tiền cho buyer qua PSP                             | Buyer nhận được tiền, ghi `REFUND_PAID`                  |
-| Kháng nghị                                                  | Kháng nghị chuyển đúng cấp cao hơn                       |
+| Thực thi refund theo fault/funder/return/cost                | Seller/carrier/platform không debit nhầm; WAITING_RETURN/COST giữ hold; partial không return/over-refund |
+| Hai execution mode refund bằng fake/sandbox                 | PSP: stable key + UNKNOWN reconcile; seller-direct: action/proof/overdue; chỉ báo paid sau PAID/VERIFIED |
+| Kháng nghị/case closure                                      | APPEAL_WINDOW giữ hold; final_closed_at chỉ sau appeal/remediation, legal hold độc lập |
 
-### Sprint 7 - Loyalty, thông báo, trang pháp lý
+### Sprint 7 - Thông báo, retention và trang pháp lý
 
 | Việc                                                                                   | Nghiệm thu                                               |
 | -------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| Điểm lũy tiến + chống tách đơn                                                         | Tách 3 đơn 40k cùng địa chỉ/shop/24h ⇒ gộp điểm, gắn cờ  |
-| Voucher freeship 15 điểm                                                               | Đổi voucher, áp dụng đúng đơn <100k                      |
 | Thông báo: push web, email, ZNS                                                        | 12 loại thông báo theo bảng sự kiện                      |
-| **Trang Quy chế sàn, Chính sách bảo mật, Giải quyết tranh chấp, Điều khoản người bán** | Nội dung do Pháp lý duyệt, có phiên bản và ngày hiệu lực |
-| Kênh CSKH: form ticket + hotline                                                       | Nghĩa vụ theo Nghị định 85/2021                          |
-| Bảng đồng ý xử lý dữ liệu cá nhân (consent)                                            | Ghi nhận đồng ý theo từng mục đích, rút lại được         |
+| **Trang Quy chế sàn, Chính sách bảo mật, Giải quyết tranh chấp, Điều khoản người bán** | Artifact version/hash/body bất biến + acceptance đúng user/version/time khi áp dụng |
+| Kênh CSKH: form ticket + hotline                                                       | Nội dung/quy trình theo Legal và khung TMĐT hiện hành    |
+| Processing record theo căn cứ Legal duyệt                                              | Client chỉ gửi artifact+decision; server resolve basis/type, append stable chain và withdrawal interaction mới |
+| Retention/lifecycle evidence                                                           | Policy/version snapshot; multi-hold/provider reconcile; staging purge; bytes delete state+receipt; legal hold không dịch case close |
+| Quyền chủ thể dữ liệu                                                                  | `privacy_request` có step-up, SLA, export/delete exception/receipt và backup tombstone |
+| Tax/reporting/hóa đơn tối thiểu                                                        | Commission gross/net + tax version snapshot; báo cáo seller/fee và sandbox provider hóa đơn pass trước doanh thu thật |
+
+Loyalty/voucher thuộc A15 và không nằm trong GĐ1.
 
 ### Sprint 8 - Làm cứng & chạy thử nội bộ
 
@@ -220,15 +237,15 @@ Mục tiêu: **một đơn hàng thật, từ đăng bán đến hoàn tất đ�
 | ----------------------------------------------- | ------------------------------------------------- |
 | Rà soát bảo mật: OWASP Top 10, IDOR, rate limit | Không còn phát hiện mức High                      |
 | Kiểm thử tải: 200 CCU, 50 checkout đồng thời    | p95 trong ngưỡng `01-SPEC` §9.1                   |
-| Backup + **diễn tập phục hồi**                  | Restore thành công từ backup lên môi trường sạch  |
+| Supabase PITR/logical backup + evidence backup, **diễn tập phục hồi** | Restore trong boundary; replay deletion/anonymization tombstone + active holds trước mở access; ghi RPO/RTO thực đo |
 | Runbook vận hành + trực sự cố                   | Tài liệu 10 sự cố thường gặp và cách xử lý        |
-| **Chạy thử end-to-end với tiền thật**           | 20 đơn thật giữa các thành viên, sổ cái khớp 100% |
+| Chạy thử end-to-end nội bộ                        | 20 đơn fake/sandbox, sổ cái khớp 100%; pilot tiền thật chỉ là bước conditional sau toàn bộ gate |
 
 ---
 
 ## 6. Giai đoạn 2 - Thử nghiệm 100 shop (Tháng 5–6)
 
-Bám đúng mục tiêu tài liệu gốc: 100 chủ shop đầu tiên tại Hà Nội.
+Bám mục tiêu tài liệu gốc: 100 chủ shop đầu tiên tại Hà Nội. **Không onboard người dùng hoặc giao dịch thật** trước khi A10, A12, A14 và checklist `05` §10 đều đã đóng; nếu gate chưa xong, mốc này lùi thay vì dùng workaround dòng tiền/dữ liệu.
 
 | Tuần  | Trọng tâm                                                                |
 | ----- | ------------------------------------------------------------------------ |
@@ -261,10 +278,9 @@ Chỉ làm khi GĐ2 đạt chỉ số. Thứ tự ưu tiên:
 | ------- | -------------------------------- | ---------------- | -------------------------------------------------------- |
 | 1       | **App mobile (React Native)**    | 8                | Khi >30% truy cập từ điện thoại và web app là điểm nghẽn |
 | 2       | **AI Triage tầng 1**             | 6                | Khi >50 khiếu nại/tháng (dưới mức này xử lý tay rẻ hơn)  |
-| 3       | **Phân tích hàng hoàn theo SKU** | 3                | Ngay - đây là tính năng giữ chân seller mạnh nhất        |
+| 3       | **Phân tích hàng hoàn theo SKU** | 3                | Khi dữ liệu đủ sạch và seller xác nhận nhu cầu báo cáo   |
 | 4       | **Tích hợp Shopee Open API**     | 4 + rủi ro duyệt | Sau khi có pháp nhân và lượng shop đủ để thuyết phục     |
-| 5       | **Public API + webhook ERP**     | 4                | Khi có ≥5 shop dùng KiotViet/Sapo yêu cầu                |
-| 6       | Gói quảng bá sản phẩm 20k/tuần   | 2                | Khi lượng truy cập buyer đủ để vị trí có giá trị         |
+| 5       | Gói quảng bá sản phẩm 20k/tuần   | 2                | Khi traffic đủ giá trị và Legal duyệt nhãn quảng cáo     |
 
 **Về AI Triage - lộ trình 3 bước, không làm một lần:**
 
@@ -288,54 +304,36 @@ Không bao giờ bật AI tự quyết trước khi có ít nhất **200 vụ đ
 
 ## 8. Giai đoạn 4 - Thương mại hóa (Tháng 10–12)
 
-Mở rộng địa bàn (TP.HCM, Đà Nẵng), tối ưu chi phí vận chuyển theo vùng, chương trình giới thiệu shop, tối ưu SEO, xây dựng báo cáo tài chính cho vòng gọi vốn.
+Mở rộng địa bàn (TP.HCM, Đà Nẵng), tối ưu chi phí vận chuyển theo vùng, chương trình giới thiệu shop, tối ưu SEO, xây dựng báo cáo tài chính cho vòng gọi vốn. Public API + webhook ERP thuộc GĐ4 và chỉ mở khi có ít nhất 5 shop thật yêu cầu theo A15.
 
 ---
 
 ## 9. Hạ tầng & chi phí
 
-### 9.1. Giai đoạn 1 (Tháng 1–6)
+Các con số giá cũ cho VPS/PostgreSQL/Redis/R2 đã bị loại vì không còn đúng topology và có thể thay đổi theo thời điểm. Không dùng chúng để tính runway hoặc hòa vốn.
 
-| Hạng mục           | Cấu hình                                                  | VNĐ/tháng      |
-| ------------------ | --------------------------------------------------------- | -------------- |
-| VPS ứng dụng       | 4 vCPU / 8GB / 100GB SSD (VNG Cloud hoặc Vultr Singapore) | 900.000        |
-| PostgreSQL managed | 2 vCPU / 4GB / 50GB + backup tự động                      | 700.000        |
-| Redis              | 1GB                                                       | 200.000        |
-| Object storage     | Cloudflare R2, 100GB + egress 0đ                          | 100.000        |
-| CDN + WAF          | Cloudflare Pro                                            | 500.000        |
-| Tên miền + SSL     | .vn + .com                                                | 100.000        |
-| SMS OTP            | ~2.000 tin × 350đ                                         | 700.000        |
-| eKYC               | ~150 lượt × 3.000đ                                        | 450.000        |
-| Giám sát, lỗi      | Grafana Cloud + Sentry free tier                          | 0              |
-| **Tổng**           |                                                           | **~3.650.000** |
+### 9.1. Topology cần lấy báo giá
 
-**So với dự toán trong tài liệu:** Bảng 6.1 ghi "Thuê hạ tầng Cloud và CSDL: 12.000.000 cho 6 tháng" = 2.000.000/tháng. Con số thực tế cao hơn khoảng 1,8 lần, chủ yếu do SMS OTP và eKYC - hai khoản chưa xuất hiện trong dự toán gốc nhưng **bắt buộc phải có** (eKYC là nghĩa vụ xác thực người bán theo Nghị định 85/2021).
+| Hạng mục | Phạm vi canonical | Cách lập ngân sách |
+|---|---|---|
+| Supabase | PostgreSQL + Auth + catalog media, Singapore | Báo giá theo plan, database size, MAU, egress và PITR; production cần gate A14 |
+| Web/API/Worker hosting | Ba runtime GĐ1 trong `apps/` | Lấy báo giá theo môi trường, CPU/RAM, build phút và egress; chưa chốt vendor |
+| Evidence WORM | Video gốc + derivative/report | Chỉ tính sau khi provider A12 được chốt; gồm storage, request, egress, Object Lock và deletion workflow |
+| Payment/PSP | Top-up, payout/refund, webhook/reconciliation | Vendor/fee đang BLOCKED A10; không đưa số giả định vào financial model |
+| eKYC | Session, verification, webhook | Lấy báo giá theo số seller onboard và retry rate |
+| Email/SMS/ZNS | OTP nếu cấu hình và thông báo vận hành | Tách fixed fee, per-message và failover; Supabase Auth không loại bỏ mọi chi phí gửi tin |
+| Observability | Logs, traces, errors, alerting | Tính theo retention và event volume; xác định quota dev/staging/prod |
+| Domain/WAF | Domain, TLS, edge protection | Báo giá hằng năm và theo traffic |
 
-**Đề nghị điều chỉnh FC1: 20.000.000 → 30.000.000 VNĐ.**
+MVP không có chi phí Redis/BullMQ. Supabase Storage chỉ dùng catalog/media thông thường; evidence gốc đi sang provider WORM riêng.
 
-### 9.2. Giai đoạn 2–3 (Tháng 7–12, ở mức ~2.000 đơn/tháng)
+### 9.2. Quy tắc cập nhật ngân sách
 
-| Hạng mục                                                    | VNĐ/tháng      |
-| ----------------------------------------------------------- | -------------- |
-| Hạ tầng cơ bản (như trên, nâng cấp)                         | 5.000.000      |
-| Lưu trữ video khiếu nại (~60 video/tháng × 60MB, giữ 2 năm) | 300.000        |
-| AI: VLM inference (~60 vụ × 10 keyframe)                    | 500.000        |
-| SMS/ZNS                                                     | 1.500.000      |
-| eKYC                                                        | 900.000        |
-| **Tổng**                                                    | **~8.200.000** |
-
-Cao hơn con số 5.000.000/tháng trong Bảng 6.3. Điều này **đẩy điểm hòa vốn từ 500 lên khoảng 820 đơn/tháng** (≈27 đơn/ngày) với lợi nhuận đóng góp 10.000đ/đơn. Cần cập nhật lại phần 6.2 của tài liệu gốc.
-
-### 9.3. Chi phí chưa có trong dự toán gốc
-
-| Hạng mục                                         | Ước tính                | Ghi chú                                                    |
-| ------------------------------------------------ | ----------------------- | ---------------------------------------------------------- |
-| Thành lập doanh nghiệp                           | 3.000.000               | Một lần                                                    |
-| Tư vấn pháp lý (soạn quy chế, hợp đồng, rà soát) | 15.000.000 – 40.000.000 | **Không cắt được.** Rủi ro pháp lý của mô hình này rất cao |
-| Đăng ký nhãn hiệu                                | 3.000.000               | Một lần                                                    |
-| Phí cổng thanh toán / PSP                        | theo giao dịch          | Phụ thuộc đối tác đã chốt                                  |
-| Tài khoản Apple Developer + Google Play          | 3.000.000/năm           | Khi làm app mobile ở GĐ3                                   |
-| Bảo hiểm trách nhiệm (nếu có)                    | -                       | Cân nhắc khi quy mô lớn                                    |
+1. Lấy ít nhất một báo giá thực cho mỗi dòng trước production pilot và ghi ngày, tiền tệ, thuế, quota.
+2. Lập ba kịch bản theo MAU/order/evidence: pilot, base và stress; không suy điểm hòa vốn từ một số chi phí chưa có nguồn.
+3. Tách chi phí một lần (pháp nhân, pháp lý, nhãn hiệu) khỏi recurring infrastructure.
+4. Retention policy hiện có target từ `case.final_closed_at`: original 90 ngày, derivative/biên bản 3 năm; snapshot version Legal duyệt, thời điểm xóa thực tế không trước Object Lock/legal hold/preserve-until. Không hardcode hoặc giả định giữ toàn bộ video hai năm.
+5. AI và app-store fee chỉ đưa vào ngân sách GĐ3 sau gate A15.
 
 ---
 
@@ -366,9 +364,11 @@ Một hạng mục chỉ được coi là xong khi thỏa **toàn bộ**:
 - [ ] Có log có cấu trúc và metric cho đường đi chính
 - [ ] Endpoint chạm tiền hoặc dữ liệu ngoài đều idempotent
 - [ ] Đã kiểm tra phân quyền (không chỉ ở controller mà cả ở tầng truy vấn)
-- [ ] Dữ liệu cá nhân được mã hóa và có `retention_until`
+- [ ] Bảng được expose qua Supabase Data API có RLS/grant tối thiểu và policy test; bảng tài chính không expose
+- [ ] Mỗi data class/purpose có retention policy versioned + workflow delete/anonymize/pseudonymize đã test; evidence/KYC có per-record override và legal/obligation hold. Evidence WORM chỉ chốt retention sau khi case đóng
 - [ ] Đã cập nhật OpenAPI spec
 - [ ] QA đã kiểm thử trên staging
+- [ ] Migration chạy sạch và thay đổi dữ liệu quan trọng đã có cách backup/restore được diễn tập; restore replay tombstone/hold trước khi mở access
 - [ ] Text hiển thị cho người dùng đã qua Pháp lý nếu liên quan quyền/nghĩa vụ
 
 ---
@@ -378,10 +378,10 @@ Một hạng mục chỉ được coi là xong khi thỏa **toàn bộ**:
 | #   | Rủi ro                                                     | Xác suất   | Tác động               | Phương án                                                                                                                       |
 | --- | ---------------------------------------------------------- | ---------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | P1  | Hồ sơ đăng ký sàn chậm/bị từ chối                          | Trung bình | **Chặn ra mắt**        | Nộp ngay tháng 1; thuê tư vấn có kinh nghiệm hồ sơ sàn                                                                          |
-| P2  | Không tìm được đối tác thanh toán chấp nhận mô hình ký quỹ | Trung bình | **Chặn ra mắt**        | Phương án B: ký quỹ bằng chuyển khoản trực tiếp + đối soát tay ở GĐ2 (chấp nhận được ở 100 shop)                                |
+| P2  | Không tìm được đối tác thanh toán chấp nhận mô hình ký quỹ | Trung bình | **Chặn ra mắt**        | Giữ production payment tắt; chỉ demo/sandbox và xem lại mô hình kinh doanh với Legal, không tự chuyển sang luồng tiền chưa duyệt |
 | P3  | Technical Lead bận thi/ốm/nghỉ                             | **Cao**    | Trượt tiến độ          | Đệm 20% thời gian; tài liệu hóa; chuẩn bị phương án thuê freelancer 1–2 tháng                                                   |
-| P4  | Shopee/TikTok từ chối cấp API                              | Trung bình | Mất tính năng lõi      | Đã có Plan B từ đầu (L7): CSV + OCR là luồng chính                                                                              |
-| P5  | Seller không chấp nhận ký quỹ                              | **Cao**    | Chặn mô hình           | Kiểm chứng bằng phỏng vấn 20 shop **trước Sprint 3**. Có phương án: ký quỹ 0đ cho 10 shop đầu, REBOX chịu rủi ro để lấy dữ liệu |
+| P4  | Shopee/TikTok từ chối cấp API                              | Trung bình | Mất feature tăng tốc GĐ3 | Manual + CSV + local scan là luồng lõi độc lập; không ảnh hưởng MVP                                                            |
+| P5  | Seller không chấp nhận ký quỹ                              | **Cao**    | Chặn mô hình           | Kiểm chứng bằng phỏng vấn 20 shop **trước Sprint 3**; nếu thất bại phải đổi policy/mô hình qua ADR mới, không âm thầm bỏ ký quỹ |
 | P6  | Buyer không chịu quay video                                | Trung bình | Tranh chấp khó xử      | Không bắt buộc (L5); dùng ưu đãi (xử lý nhanh hơn) thay vì ép buộc                                                              |
 | P7  | Sai lệch sổ cái sau khi lên production                     | Thấp       | **Rất nghiêm trọng**   | Đối soát hằng giờ + tự động chặn rút tiền khi lệch + backup mọi bút toán                                                        |
 | P8  | Bị lợi dụng bán hàng giả/hàng cấm                          | Trung bình | **Rủi ro pháp lý cao** | Kiểm duyệt trước với danh mục nhạy cảm + kênh tiếp nhận khiếu nại SHTT + gỡ trong 24h                                           |
@@ -390,13 +390,15 @@ Một hạng mục chỉ được coi là xong khi thỏa **toàn bộ**:
 
 ## 13. Việc cần làm ngay trong 2 tuần tới
 
-| #   | Việc                                                        | Ai               | Vì sao gấp                                                                                       |
-| --- | ----------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------ |
-| 1   | Trả lời 8 câu hỏi ở `00-TONG-QUAN` §3                       | Ban dự án        | Chặn thiết kế chi tiết                                                                           |
-| 2   | Khởi động thành lập pháp nhân                               | Trưởng dự án     | Đường găng dài nhất                                                                              |
-| 3   | Liên hệ 3 PSP để hỏi về mô hình ký quỹ                      | Business + Legal | Blocker Sprint 4, mất 4–6 tuần                                                                   |
-| 4   | Phỏng vấn 20 chủ shop về việc chấp nhận ký quỹ              | Research + BD    | Nếu họ từ chối thì phải đổi mô hình trước khi code                                               |
-| 5   | Dựng repo + CI + schema DB                                  | Tech Lead        | Sprint 1                                                                                         |
-| 6   | Lập danh mục hàng cấm/hạn chế bản đầu                       | Legal            | Đầu vào Sprint 2                                                                                 |
-| 7   | Quyết định chọn phương án A/B/C ở §1                        | Ban dự án        | Quyết định toàn bộ kế hoạch                                                                      |
-| 8   | **Xin 20–30 kiện hàng hoàn thật, khảo sát nhãn** (việc 1.0) | BD + Tech Lead   | Rẻ và nhanh, nhưng **quyết định kiến trúc tính năng chủ lực**. Làm sớm để Sprint 2 không code mù |
+Tài liệu quyết định và skeleton monorepo đã có. Hai tuần tiếp theo tập trung vào các blocker thật và chuẩn bị vertical slice; chưa mở rộng thêm codebase.
+
+| #   | Việc | Ai | Đầu ra |
+|---|---|---|---|
+| 1 | Khởi động pháp nhân/hồ sơ sàn và thỏa thuận SHTT | Trưởng dự án + Legal | Owner, deadline và bộ hồ sơ theo GĐ0 |
+| 2 | Liên hệ PSP về đúng mô hình ký quỹ/refund/payout | Business + Legal | Trả lời bằng văn bản cho đủ gate A10 |
+| 3 | Đánh giá Supabase Singapore cho production | Legal + Tech | DPA/data-flow, rủi ro chuyển dữ liệu và quyết định go/no-go A14 |
+| 4 | Lấy báo giá/PoC provider evidence WORM | Tech + Legal | Xác nhận Object Lock, retention, delete, audit và chi phí A12 |
+| 5 | Phỏng vấn 20 shop về activation 100.000đ và hold cố định | Research + BD | Dữ liệu chấp nhận/từ chối; không đổi policy nếu chưa có ADR mới |
+| 6 | Chốt danh mục hàng cấm/hạn chế bản đầu | Legal | Bảng policy dùng cho Sprint 2 |
+| 7 | Xin 20–30 kiện hàng hoàn thật, khảo sát nhãn | BD + Tech | Bộ ảnh/test matrix cho manual/CSV/scan |
+| 8 | Chuẩn bị backlog Sprint 1 theo vertical slice | Hai dev | Acceptance test từ Auth đến public listing, migration/RLS/outbox checklist |

@@ -1,8 +1,10 @@
 # REBOX - Tổng quan thiết kế hệ thống & Rà soát tài liệu gốc
 
-> Nguồn: `REBOX.docx` (bản mô tả dự án) + 7 sơ đồ prototype trong `REBOX-UI/`.
+> Nguồn lịch sử: `REBOX.docx` (bản mô tả dự án) + prototype trong `docs/REBOX-UI/`.
+>
+> Trạng thái: các mâu thuẫn kỹ thuật trong file này đã được hòa giải tại `07-ARCHITECTURE-DECISIONS.md`. File `07` là nguồn canonical nếu nội dung lịch sử dưới đây khác quyết định hiện hành.
 
-Bộ tài liệu gồm 6 file, đọc theo thứ tự:
+Bộ tài liệu chính được đánh số từ `00` đến `08`:
 
 | File                           | Nội dung                                                                                         |
 | ------------------------------ | ------------------------------------------------------------------------------------------------ |
@@ -12,6 +14,9 @@ Bộ tài liệu gồm 6 file, đọc theo thứ tự:
 | `03-FRONTEND-FLOWS.md`         | Luồng frontend chi tiết: màn hình, state, API call, edge case cho Mobile / Web / Admin           |
 | `04-IMPLEMENTATION-PLAN.md`    | Kế hoạch triển khai theo sprint, phân rã công việc, tiêu chí nghiệm thu, hạ tầng & chi phí       |
 | `05-PHAP-LY-VIET-NAM.md`       | Rà soát pháp lý Việt Nam: giấy phép, thuế, dữ liệu cá nhân, bảo vệ NTD, hàng hóa cấm             |
+| `06-DANH-MUC-HANG-CAM.md`      | Chính sách BANNED / MANUAL_REVIEW / DISCLOSURE                                                   |
+| `07-ARCHITECTURE-DECISIONS.md` | **Nguồn chuẩn:** stack, Supabase, phạm vi MVP và quyết định đã chốt                               |
+| `08-DOCUMENTATION-CHANGELOG.md` | Nhật ký hòa giải và thay đổi bộ tài liệu                                                         |
 
 ---
 
@@ -25,13 +30,13 @@ REBOX là **sàn giao dịch TMĐT B2B2C chuyên thanh lý hàng hoàn** (itemiz
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | **Seller** (chủ shop / tổng kho TMĐT) | Có hàng hoàn từ Shopee/TikTok Shop. Quét mã vận đơn → tự động tạo listing (tồn kho = 1). Nộp ký quỹ, chịu khấu trừ phí sàn 20%. |
 | **Buyer** (người tiêu dùng)           | Săn hàng thanh lý giá rẻ. Thanh toán VietQR hoặc COD. Quay video khui hộp làm chứng cứ khiếu nại.                               |
-| **Admin REBOX**                       | Vận hành AI Triage, phân xử tranh chấp tầng 2, cấu hình ngưỡng rủi ro, kiểm duyệt nội dung.                                     |
+| **Admin REBOX**                       | GĐ1 phân xử tranh chấp thủ công, vận hành rủi ro và kiểm duyệt nội dung; AI Triage chỉ là target GĐ3.                           |
 
 **Ba trụ cột công nghệ tạo khác biệt:**
 
-1. **Scan-to-list** - quét mã vận đơn → gọi API Shopee/TikTok → autofill listing trong ~2 giây, tồn kho luôn = 1.
-2. **Escrow Wallet + Fund Lock** - ký quỹ, đóng băng theo giá trị đơn, khấu trừ phí real-time, tự động ẩn listing khi số dư không đủ.
-3. **AI Triage tranh chấp** - quét video khui hộp, chấm điểm rủi ro, tự động hoàn tiền nếu điểm ≥ ngưỡng, còn lại đẩy cho Admin.
+1. **Scan-to-list** - MVP quét mã → tìm trong dữ liệu local/CSV → autofill hoặc mở form nhập tay; live API sàn là GĐ3. Tồn kho luôn = 1.
+2. **Deposit Wallet + Fund Hold** - ký quỹ, đóng băng theo giá trị đơn, chỉ ghi nhận phí khi đơn hoàn tất, tự động ẩn listing khi số dư không đủ. Đây không phải escrow tiền hàng.
+3. **Claims có chain of custody** - GĐ1 tiếp nhận evidence và phân xử thủ công; AI Triage/auto-approve chỉ được cân nhắc ở GĐ3 sau eval và legal gate.
 
 **Dòng tiền đặc thù (khác biệt lớn nhất so với Shopee):** tiền bán hàng đi **thẳng** từ người mua về tài khoản ngân hàng của shop (VietQR động), hoặc từ ĐVVC về shop (COD 24–48h). Tiền **không** nằm lại tài khoản REBOX. REBOX thu phí bằng cách **trừ vào ví ký quỹ** của seller.
 
@@ -39,19 +44,19 @@ REBOX là **sàn giao dịch TMĐT B2B2C chuyên thanh lý hàng hoàn** (itemiz
 
 ## 2. Mâu thuẫn và lỗ hổng trong tài liệu gốc
 
-> Phần quan trọng nhất của file này. Mỗi mục cần một **quyết định chính thức** trước khi code.
+> Phần này lưu lại vấn đề từ tài liệu gốc và kết luận hiện hành. Chi tiết/rationale đầy đủ nằm ở `07-ARCHITECTURE-DECISIONS.md`.
 
 ### 2.1. Mâu thuẫn số liệu giữa các phần
 
-| #   | Chỉ số                          | Nơi A                                                                               | Nơi B                                                                                             | Đề xuất chốt                                                                                                                                                                                                                                                                 |
+| #   | Chỉ số                          | Nơi A                                                                               | Nơi B                                                                                             | Kết luận canonical                                                                                                                                                                                                                                                            |
 | --- | ------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| M1  | **Ký quỹ tối thiểu**            | "MÔ TẢ NHANH":**2.000.000đ**                                                        | Mục 3.2b:**100.000đ**                                                                             | Dùng**ký quỹ động phân hạng** (xem L3). Không hardcode một con số.                                                                                                                                                                                                           |
+| M1  | **Ký quỹ tối thiểu**            | "MÔ TẢ NHANH": **2.000.000đ**                                                       | Mục 3.2b: **100.000đ**                                                                            | **100.000đ để kích hoạt shop; không tier, không công thức AOV động ở MVP.** Giá trị nằm trong config có hiệu lực theo thời gian.                                                                                                                                              |
 | M2  | **Phân dòng tiền online**       | Mục 3.3a: "**100%** giá trị đơn chuyển thẳng vào TK shop"                           | UI mock buyer: "**96%** về Shop / **4%** phí tạm thu"                                             | Chốt**100% về shop**, phí thu qua ví ký quỹ. Sửa UI mock. Nếu chọn 96/4 thì REBOX **đang giữ tiền người khác** → kích hoạt nghĩa vụ giấy phép trung gian thanh toán (xem `05-PHAP-LY` §2).                                                                                   |
-| M3  | **Ngưỡng hư hỏng để hoàn tiền** | Mục 3.2c: "**>40%**"                                                                | UI mock buyer: "khác trên**30%**"                                                                 | Chốt 1 con số duy nhất, đưa vào bảng`system_config` chỉnh được runtime. Đề xuất **30%** (thân thiện NTD, giảm rủi ro pháp lý).                                                                                                                                               |
+| M3  | **Ngưỡng hư hỏng để hoàn tiền** | Mục 3.2c: "**>40%**"                                                                | UI mock buyer: "khác trên **30%**"                                                               | Chốt mặc định **30%**, lưu trong `system_configs`; snapshot giá trị áp dụng vào vụ việc.                                                                                                                                                                                      |
 | M4  | **Đơn/ngày tại điểm hòa vốn**   | Mục 6.2: "500 đơn/tháng ⇒**19–17 đơn/ngày**"                                        | 500 / 30 =**16,7**                                                                                | Sửa thành ~17 đơn/ngày.                                                                                                                                                                                                                                                      |
-| M5  | **Chi phí cố định GĐ2**         | Bảng tóm tắt: FC2 =**90.000.000**/6 tháng                                           | Mục 6.1: 5.000.000/tháng ⇒**30.000.000**/6 tháng                                                  | Chênh 60 triệu. Bảng 6.5 dùng FC = 5tr/tháng, nên 30tr là con số nhất quán với phần tính hòa vốn. Cần rà lại.                                                                                                                                                                |
+| M5  | **Chi phí cố định GĐ2**         | Bảng tóm tắt: FC2 = **90.000.000**/6 tháng                                          | Mục 6.1: 5.000.000/tháng ⇒ **30.000.000**/6 tháng                                                 | Hai con số cũ đều **retired** sau khi chuyển sang Supabase. Lập lại bảng giá từ quotation tại thời điểm mua; không dùng chúng làm ngân sách phê duyệt.                                                                                                                        |
 | M6  | **Giá trần xả kho**             | Không nêu trong text                                                                | UI mock seller: "**Giá trần xả kho (90%)**"                                                       | Bổ sung vào spec:`max_price = 0,9 × original_price` khi listing tạo từ luồng scan. Phải nêu trong Quy chế sàn. Thiết kế đầy đủ (kể cả vì sao trần này KHÔNG áp dụng cho listing đăng thủ công) ở `01-SPEC` §4.2.1 và `05-PHAP-LY` §5.3.1.                                                                                                                                                               |
-| M7  | **Thời gian hoàn tiền tự động** | "trong vòng**10 giây**"                                                             | Thực tế upload + transcode + inference mất**30s – 5 phút**                                        | Đổi cam kết thành "xử lý tự động, thường dưới 5 phút". Cam kết 10 giây là**rủi ro quảng cáo gây nhầm lẫn**.                                                                                                                                                                  |
+| M7  | **Thời gian hoàn tiền tự động** | "trong vòng**10 giây**"                                                             | GĐ1 phân xử và refund thủ công/async; A10 còn chặn payout thật                                    | GĐ1 bỏ hoàn toàn cam kết tự động/thời gian. GĐ3 chỉ công bố SLO sau khi AI, PSP và dữ liệu vận hành thật đã qua gate/đo lường.                                                                                                                                                 |
 | M8  | **Ngưỡng auto-refund của AI**   | UI admin mobile (`luồng admin.png`): **70%**                                        | UI admin web (`image9`): **80%**                                                                  | Cùng một tham số, hai giá trị trên hai màn hình. Đưa vào `system_config` (`ai.auto_approve_score`), một nguồn duy nhất, hai UI cùng đọc từ API. Đề xuất mặc định **85** - xem `01-SPEC` §8.2.                                                                                |
 | M9  | **Bảng tính hoàn tiền mẫu**     | UI admin mobile: đơn 150.000đ ⇒ trừ ví 150.000 + ship 15.000 ⇒ hoàn **165.000đ** ✅ | UI admin web: cùng đơn ghi 150.000đ nhưng trừ ví **225.000** + ship 15.000 ⇒ hoàn **240.000đ** ❌ | Bản web lẫn giá váy 225.000đ vào đơn 150.000đ, và **cộng nhầm** phí ship vào tiền hoàn cho buyer thay vì trừ của seller. Công thức đúng ở `02-FLOWS` §5.5: buyer nhận `item_total + buyer_shipping_fee`; phí ship 2 chặng trừ **ví seller**, không cộng vào tiền buyer nhận. |
 
@@ -63,7 +68,7 @@ Khi khiếu nại lỗi shop được duyệt, shop phải chịu: hoàn 100% gi
 
 Ví dụ đơn 50.000đ ⇒ hold 60.000đ, nhưng chi phí thực = 50.000 (hàng) + 15.000 (ship buyer) + 22.000 (ship đi) + 22.000 (ship về) = **109.000đ**. Thiếu 49.000đ, REBOX gánh.
 
-**Công thức thay thế đề xuất:**
+**Công thức đã chốt cho MVP:**
 
 ```
 hold_amount = item_total
@@ -86,7 +91,7 @@ Shop có 100 listing × 200.000đ chỉ cần giữ 240.000đ. Nếu 10 đơn ph
 
 **Kiến trúc 2 tầng đề xuất:**
 
-- **Hard gate (bắt buộc)** - hold thực hiện tại bước **khởi tạo checkout, TRƯỚC khi buyer thanh toán**, trong transaction có `SELECT ... FOR UPDATE` trên ví. Không đủ số dư ⇒ ẩn listing ngay, buyer thấy "sản phẩm vừa ngừng bán".
+- **Hard gate (bắt buộc)** - hold thực hiện tại bước **khởi tạo checkout, TRƯỚC khi buyer thanh toán**, trong transaction có `SELECT ... FOR UPDATE` trên listing và ví. Không đủ số dư ⇒ ẩn listing ngay, buyer thấy "sản phẩm vừa ngừng bán".
 - **Soft signal (UX)** - quy tắc 120% × đơn lớn nhất chỉ dùng **cảnh báo sớm**. Bổ sung chỉ số `coverage_ratio = available_balance / Σ(hold ước tính của toàn bộ listing active)`, cảnh báo khi < 0,15.
 - **Greedy hide thay vì khóa toàn kho** - khi số dư tụt, ẩn dần listing từ **giá cao xuống thấp** cho tới khi số dư phủ được ngưỡng. Giữ doanh thu cho shop thay vì tắt sạch.
 
@@ -94,26 +99,15 @@ Shop có 100 listing × 200.000đ chỉ cần giữ 240.000đ. Nếu 10 đơn ph
 
 Vì tiền bán hàng đi thẳng về ngân hàng shop, **phí sàn 20% chỉ có thể trừ từ ví**. Bán càng nhiều, ví cạn càng nhanh. Sau ~5 đơn AOV 150k, shop ký quỹ 100.000đ đã âm.
 
-Bắt buộc phải có:
-
-- **Auto top-up** - seller liên kết tài khoản/thẻ, hệ thống tự nạp khi số dư < ngưỡng.
-- **Ký quỹ động phân hạng** thay cho con số cố định:
-
-  ```
-  min_deposit = clamp(3 × AOV_shop_30d × expected_daily_orders, 200.000, 5.000.000)
-  ```
-
-  Shop mới mặc định 500.000đ. Shop có lịch sử tốt (≥50 đơn, tỷ lệ khiếu nại <3%) được giảm dần.
-
-- **Công nợ có kiểm soát** - cho phép ví âm tối đa `debt_ceiling` (mặc định 0 với shop mới); quá hạn 7 ngày ⇒ khóa kho + chuyển thu hồi.
+**Quyết định MVP:** shop kích hoạt ở 100.000đ, không phân hạng và không auto top-up. Năng lực bán suy ra trực tiếp từ số dư khả dụng và hold của từng listing. `debt_ceiling = 0`; nếu chi phí thực vượt hold thì ghi khoản phải thu `SHOP_DEBT`, giữ số dư khả dụng không âm và khóa shop để xử lý. Auto top-up chỉ xem xét sau khi PSP hỗ trợ và seller chủ động bật.
 
 #### L4 - "ID sản phẩm = mã vận đơn" là lỗ hổng bảo mật
 
 Tài liệu: _"ID sản phẩm trên REBOX được định danh trùng với mã vận đơn của đơn hoàn"_.
 
-Mã vận đơn Shopee/GHTK tra cứu được công khai trên web ĐVVC ⇒ lộ **tên, số điện thoại, địa chỉ** của người mua gốc trên sàn khác. Đây là **rò rỉ dữ liệu cá nhân bên thứ ba**, vi phạm trực tiếp Nghị định 13/2023 và Luật BVDLCN 2025.
+Mã vận đơn Shopee/GHTK có thể bị dùng để tra cứu và làm lộ **tên, số điện thoại, địa chỉ** của người mua gốc trên sàn khác. Đây là rủi ro xử lý/lộ dữ liệu cá nhân bên thứ ba theo baseline hiện hành: Luật 91/2025/QH15 và Nghị định 356/2025/NĐ-CP; mapping điều khoản cụ thể do Legal chịu trách nhiệm.
 
-**Bắt buộc:** ID công khai là ULID nội bộ (`RBX-01J...`). Mã vận đơn lưu ở cột `source_tracking_no`, **mã hóa ở tầng ứng dụng**, chỉ seller sở hữu và admin có quyền mới đọc được, **không bao giờ** xuất ra API công khai.
+**Bắt buộc:** ID công khai là ULID nội bộ (`RBX-01J...`). Mã vận đơn lưu ở cột `source_tracking_enc`, **mã hóa ở tầng ứng dụng**, kèm HMAC hash để dedupe; chỉ seller sở hữu và admin có quyền mới đọc được, **không bao giờ** xuất ra API công khai.
 
 #### L5 - Điều khoản "video sai quy tắc ⇒ hủy quyền khiếu nại" có nguy cơ **vô hiệu**
 
@@ -123,7 +117,7 @@ Mã vận đơn Shopee/GHTK tra cứu được công khai trên web ĐVVC ⇒ l�
 
 #### L6 - Quyết định tự động bằng AI cần đường thoát cho con người
 
-Auto-refund và đặc biệt **auto-reject** ("AI TỪ CHỐI" trong UI admin) là quyết định tự động ảnh hưởng trực tiếp quyền lợi cá nhân. Luật BVDLCN 2025 và Nghị định 13/2023 yêu cầu minh bạch về xử lý tự động và quyền phản đối.
+Auto-refund và đặc biệt **auto-reject** ("AI TỪ CHỐI" trong UI admin) là quyết định tự động ảnh hưởng trực tiếp quyền lợi cá nhân. Đây là target GĐ3 và phải qua đánh giá theo Luật 91/2025/QH15, Nghị định 356/2025/NĐ-CP cùng legal gate hiện hành.
 
 **Bắt buộc:** AI **không được tự động từ chối**. AI chỉ có 2 đầu ra: `AUTO_APPROVE` (điểm rất cao + giá trị đơn dưới trần) hoặc `ESCALATE_TO_HUMAN`. Mọi từ chối do người quyết định, nêu lý do, và có **quyền khiếu nại lần 2**.
 
@@ -133,16 +127,16 @@ Dùng Open API của Shopee/TikTok để rút dữ liệu đơn hàng sang một
 
 **Bắt buộc có Plan B ngay từ MVP:**
 
-1. **OCR mã vận đơn on-device** (ML Kit / VisionCamera) - chỉ lấy mã, không lấy thông tin sản phẩm.
+1. **Web barcode/OCR có đường lùi** - dùng capability trình duyệt khi có, rồi nhập tay; ML Kit/VisionCamera chỉ thuộc mobile GĐ3.
 2. **Import CSV** - seller tự export "Đơn hoàn" từ Shopee Seller Center → upload lên REBOX → map theo mã vận đơn. Hợp pháp, không phụ thuộc API. **Đặt làm luồng chính của MVP.**
-3. **Đăng thủ công có AI hỗ trợ** - chụp ảnh → VLM gợi ý tên, danh mục, mô tả, giá.
+3. **Đăng thủ công** - chụp ảnh và tự nhập tên/danh mục/mô tả/giá ở GĐ1; VLM gợi ý chỉ thuộc GĐ3.
 
-Luồng API sàn xếp vào **Phase 2**, coi là tính năng tăng tốc, không phải nền móng.
+Luồng API sàn xếp vào **GĐ3**, coi là tính năng tăng tốc, không phải nền móng.
 
 #### L8 - Bán đơn chiếc (qty = 1) tạo bài toán oversell + phí ship gộp
 
-- Hai buyer cùng thêm 1 sản phẩm vào giỏ ⇒ cần **reservation lock có TTL** (Redis + trạng thái DB), không thể chỉ dựa vào cột tồn kho.
-- "Đơn ≥100k freeship, hệ thống tự gộp sản phẩm cùng kho vào một mã vận đơn" ⇒ giỏ hàng phải **tách theo seller** (`sub_order` per seller); tính phí ship và ngưỡng 100k **theo từng sub-order**, không theo tổng giỏ. Nếu tính theo tổng giỏ, buyer gom 3 shop × 40k sẽ được freeship 3 kiện - lỗ nặng.
+- Hai buyer cùng mua 1 sản phẩm ⇒ reservation dùng row lock + trạng thái DB + TTL; MVP chưa cần Redis.
+- Giỏ có thể nhóm nhiều shop để lưu, nhưng **mỗi lần checkout chỉ một seller**. Một order có đúng một sub-order ở MVP; phí ship và ngưỡng 100k tính trên order đó.
 
 #### L9 - Thiếu định nghĩa "giao hàng thành công" làm mốc đếm 3 ngày
 
@@ -156,15 +150,15 @@ Hệ thống phải ghi nhận `actual_shipping_cost` per đơn (lấy từ API 
 
 ---
 
-## 3. Bảng quyết định cần chốt trước khi code
+## 3. Trạng thái các quyết định trước khi code
 
-| ID  | Câu hỏi                                      | Người quyết        | Chặn sprint              |
-| --- | -------------------------------------------- | ------------------ | ------------------------ |
-| Q1  | Mức ký quỹ tối thiểu & công thức ký quỹ động | Business + Finance | S3                       |
-| Q2  | Công thức hold: giữ 120% hay theo L1         | Business + Tech    | S3                       |
-| Q3  | Ngưỡng hư hỏng 30% hay 40%                   | Business + Legal   | S6                       |
-| Q4  | Dòng tiền online 100% hay 96/4               | Business + Legal   | S4                       |
-| Q5  | Đối tác thanh toán - PSP nào có giấy phép?   | Business + Legal   | S4 (**blocker pháp lý**) |
-| Q6  | Nguồn dữ liệu MVP: CSV hay API sàn           | Tech               | S2                       |
-| Q7  | Danh mục hàng cấm/hạn chế trên REBOX         | Legal              | S2                       |
-| Q8  | Chính sách lưu trữ & xóa video khiếu nại     | Legal              | S6                       |
+| ID | Kết luận | Trạng thái | Tham chiếu |
+|---|---|---|---|
+| Q1 | Ký quỹ kích hoạt 100.000đ, không tier | Chốt | `07` A09 |
+| Q2 | Hold theo breakdown + reserve 45.000đ | Chốt | `07` A08 |
+| Q3 | Ngưỡng hư hỏng mặc định 30% | Chốt | `01` §4.3 |
+| Q4 | 100% tiền hàng đi thẳng seller; REBOX không giữ tiền hàng | Chốt có legal gate cho ví ký quỹ | `07` A10; `05` §2 |
+| Q5 | Vendor PSP và cấu trúc custody/refund | **BLOCKED** | Business + Legal, chặn tiền thật |
+| Q6 | MVP manual + CSV; live API sàn GĐ3 | Chốt | `07` A06 |
+| Q7 | Danh mục hàng cấm/hạn chế | Còn 5 câu Legal | `06` §8 |
+| Q8 | Retention target từ case đóng: original 90 ngày; derivative/biên bản 3 năm; lock/hold có thể kéo dài | Chốt kỹ thuật, Legal duyệt văn bản | `07` A12; `05` §3.4.6 |

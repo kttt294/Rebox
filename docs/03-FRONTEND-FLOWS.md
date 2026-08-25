@@ -1,20 +1,20 @@
 # REBOX - Luồng Frontend chi tiết
 
-Bám sát 7 sơ đồ prototype trong `REBOX-UI/`. Mỗi luồng ghi rõ: màn hình, state cục bộ, API gọi, trạng thái loading/empty/error, và edge case.
+Bám sát prototype trong `docs/REBOX-UI/`, nhưng phạm vi hiện hành tuân theo `07-ARCHITECTURE-DECISIONS.md`: GĐ1 là web responsive; native mobile và AI UI là GĐ3.
 
 ---
 
 ## 0'. Truy vết prototype → đặc tả
 
-Bảng đối chiếu từng file trong `REBOX-UI/` (và ảnh tương ứng trong `REBOX.docx`) với phần đặc tả đã viết. Dùng khi review để kiểm tra không bỏ sót màn hình nào.
+Bảng đối chiếu từng file trong `docs/REBOX-UI/` (và ảnh tương ứng trong `REBOX.docx`) với phần đặc tả đã viết. Prototype là nguồn tham khảo UX, không thắng quyết định canonical.
 
 | File prototype                                 | Ảnh trong docx | Màn hình                                                                               | Đặc tả tại             | Ghi chú khi hiện thực                                                                                         |
 | ---------------------------------------------- | -------------- | -------------------------------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `luồng đăng bán - seller.png`                  | Hình 2         | Seller mobile: quét mã → đồng bộ → xem trước → đăng bán (4 bước)                       | §2.2, §2.3             | Bổ sung state machine quét, chế độ offline, tự quay lại quét sau 1,5s, khối "Nếu bán được"                    |
 | `website-seller-đăng bán.png` (ảnh 1) + Hình 3 | Hình 3         | Seller web: tab **Đăng Bán** - khung quét + panel đồng bộ Shopee/TikTok + giá trần 90% | §3.1                   | Prototype đăng **từng món**; tổng kho cần **đăng hàng loạt** + máy quét cầm tay - đây là khoảng trống #4 ở §6 |
 | `luồng xem kho hàng và đối soát- seller.png`   | Hình 4         | Seller mobile: Kho hàng xả kho + Đối soát tài chính                                    | §2.4, §2.5             | Bổ sung trạng thái **BỊ ẨN** (thiếu quỹ) + tách 3 khối tiền                                                   |
-| `website-seller-đăng bán.png` (ảnh 2, 3)       | Hình 5         | Seller web: Quản lý kho hàng + Đối soát tài chính & Ví ký quỹ                          | §3.2                   | Bổ sung tab **Phân tích hàng hoàn theo SKU** (Gain Creator f, chưa có trong prototype)                        |
-| `luồng mua hàng - buyer.png`                   | Hình 6         | Buyer mobile: chi tiết SP → giỏ → QR → hồ sơ & khiếu nại                               | §1.2, §1.3, §1.4, §1.5 | Giỏ phải **tách theo shop**; QR phải **tách theo seller**; sửa nhãn "ĐIỀU KIỆN BẮT BUỘC"                      |
+| `website-seller-đăng bán.png` (ảnh 2, 3)       | Hình 5         | Seller web: Quản lý kho hàng + Đối soát tài chính & Ví ký quỹ                          | §3.2                   | Tab **Phân tích hàng hoàn theo SKU** là target GĐ3, chưa có trong prototype                                   |
+| `luồng mua hàng - buyer.png`                   | Hình 6         | Buyer: chi tiết SP → giỏ → QR → hồ sơ & khiếu nại                                      | §1.2, §1.3, §1.4, §1.5 | Giỏ nhóm theo shop; **mỗi lần checkout một shop/một QR**; sửa nhãn "ĐIỀU KIỆN BẮT BUỘC"                    |
 | -                                              | Hình 7         | Buyer web: chi tiết SP + giỏ bên phải + hồ sơ & lịch sử đơn                            | §1.2, §1.3             | Khối "Sàn REBOX Bảo Vệ Dòng Tiền 100%" ghi "hoàn tiền trong 10s" - xem M7                                     |
 | `luồng admin.png`                              | Hình 8         | Admin mobile: danh sách tranh chấp → chi tiết AI Tầng 1 → thống kê → tham số AI        | §4.1, §4.2, §4.3       | Bỏ nhánh **AI TỪ CHỐI** (L6); ngưỡng 70% ở đây vs 80% ở bản web (M8)                                          |
 | -                                              | Hình 9         | Admin web: AI Risk Triage & Arbitration Console                                        | §4.2, §4.3             | Bảng tính hoàn tiền trong mock **sai công thức** (M9); bỏ nhãn "Độ chính xác AI 99.8%"                        |
@@ -23,7 +23,7 @@ Bảng đối chiếu từng file trong `REBOX-UI/` (và ảnh tương ứng tro
 
 **Ba chi tiết trong prototype đã được giữ nguyên vì đúng và tốt:**
 
-1. **Toggle SELLER/BUYER/ADMIN ở góc phải header** - giải quyết gọn bài toán một người vừa bán vừa mua, tránh phải tách 2 app.
+1. **Toggle SELLER/BUYER ở góc phải header** - đổi context giao diện cho người vừa bán vừa mua. Admin tách route/role nội bộ và không nằm trong toggle.
 2. **Thanh "SỐ DƯ KHẢ DỤNG" cố định trên đầu mọi màn hình seller** - ký quỹ là ràng buộc thường trực của mô hình, đặt nó thường trực trong tầm mắt là đúng.
 3. **Ba tab đáy cho seller (Đăng bán / Kho hàng / Đối soát)** - khớp chính xác ba việc mà một nhân viên kho làm trong ngày. Không thêm tab thứ tư.
 
@@ -35,11 +35,11 @@ Bảng đối chiếu từng file trong `REBOX-UI/` (và ảnh tương ứng tro
 
 | App              | Đối tượng               | Nền tảng                                     | Ghi chú                                                                 |
 | ---------------- | ----------------------- | -------------------------------------------- | ----------------------------------------------------------------------- |
-| **REBOX Buyer**  | Người mua               | Mobile (RN) + Web (Next.js)                  | Web cần SSR để SEO trang sản phẩm                                       |
-| **REBOX Seller** | Chủ shop, nhân viên kho | Mobile (RN) + Web                            | Mobile ưu tiên quét mã; Web ưu tiên bảng biểu, kết nối máy quét cầm tay |
-| **REBOX Admin**  | Nội bộ                  | Web (chính) + Mobile (chỉ đọc + duyệt nhanh) |                                                                         |
+| **REBOX Buyer**  | Người mua               | Next.js responsive (GĐ1); Expo GĐ3 | Web cần SSR để SEO trang sản phẩm |
+| **REBOX Seller** | Chủ shop, nhân viên kho | Next.js responsive (GĐ1); Expo GĐ3 | Web ưu tiên bảng biểu/máy quét; native chỉ làm khi web là điểm nghẽn |
+| **REBOX Admin**  | Nội bộ                  | Web only ở MVP | MFA/AAL2; không có admin mobile approval ở GĐ1 |
 
-**Quyết định:** một binary mobile duy nhất, chuyển vai trò bằng toggle SELLER/BUYER ở góc phải header (đúng như prototype). Người dùng có thể vừa bán vừa mua. Vai trò lưu trong `user_roles`, không phải 2 app riêng.
+**Quyết định:** GĐ1 có một web app. Toggle Buyer/Seller chỉ đổi context; quyền thật lấy từ `shop_memberships`. Buyer là capability mặc định, admin nằm trong `platform_staff_roles`. Khi làm GĐ3 mới cân nhắc một binary mobile Buyer/Seller.
 
 ### 0.2. Kiến trúc state
 
@@ -47,10 +47,13 @@ Bảng đối chiếu từng file trong `REBOX-UI/` (và ảnh tương ứng tro
 TanStack Query   → toàn bộ server state (cache, retry, optimistic, invalidation)
 Zustand          → UI state cục bộ (giỏ hàng chưa gửi, form nháp, vai trò hiện tại)
 React Hook Form + Zod  → form, dùng chung schema với backend qua @rebox/shared
-MMKV / localStorage    → persist giỏ hàng, nháp đăng bán, token
+localStorage           → chỉ persist giỏ hàng/nháp không nhạy cảm; KHÔNG tự lưu auth token
+Supabase Auth adapter  → session web/SSR; không tự xây password/refresh-token flow
 ```
 
 **Nguyên tắc:** mọi con số tiền tính lại ở backend, frontend chỉ hiển thị. Frontend **được phép** hiển thị ước tính (ví dụ "phí sàn dự kiến ~30.000đ") nhưng phải gắn nhãn "dự kiến" và số chốt luôn lấy từ API.
+
+Supabase Realtime, nếu bật, chỉ invalidate query rồi client refetch NestJS API. Không dùng payload Realtime để xác nhận payment/order/wallet/hold/dispute; polling vẫn là fallback.
 
 ### 0.3. Xử lý lỗi chuẩn
 
@@ -59,15 +62,16 @@ MMKV / localStorage    → persist giỏ hàng, nháp đăng bán, token
 | `ITEM_BEING_PURCHASED` | Người khác đang thanh toán | Toast "Sản phẩm đang được người khác đặt mua" + tự bỏ khỏi giỏ sau 3s |
 | `ITEM_SOLD`            | Đã bán mất                 | Modal "Rất tiếc, sản phẩm vừa được mua" + gợi ý sản phẩm tương tự     |
 | `SHOP_UNAVAILABLE`     | Shop thiếu ký quỹ          | "Shop tạm ngừng bán" + nút bỏ item khỏi giỏ                           |
-| `HOLD_EXPIRED`         | Quá 15 phút chưa trả tiền  | Quay về giỏ, thử checkout lại                                         |
+| `HOLD_EXPIRED`         | Quá 30 phút chưa trả tiền  | Quay về giỏ, thử checkout lại; tiền đến muộn chuyển xử lý tay         |
+| `MULTI_SELLER_CHECKOUT_NOT_SUPPORTED` | Request lẫn nhiều shop | Giữ giỏ, yêu cầu chọn một nhóm shop để checkout |
 | `INSUFFICIENT_DEPOSIT` | (Seller) không đủ ký quỹ   | Banner đỏ + nút "Nạp ngay" + số tiền cần nạp                          |
 | `NETWORK`              | Mất mạng                   | Retry tự động 3 lần, sau đó nút "Thử lại"; form giữ nguyên dữ liệu    |
 
-**Quy tắc offline cho app kho:** nhân viên kho quét hàng trong kho thường sóng yếu. Màn hình quét phải hoạt động offline: lưu hàng đợi cục bộ (MMKV), đồng bộ khi có mạng, hiển thị badge "N mục chờ đồng bộ".
+**Quy tắc offline cho web kho ở GĐ1:** IndexedDB chỉ giữ draft do seller tự nhập, không nhạy cảm, theo namespace user, TTL tối đa 24h và xóa khi logout. Không persist raw mã vận đơn, địa chỉ, token, ảnh/file hoặc payload bên thứ ba; scan cần các dữ liệu đó phải có mạng hoặc chỉ giữ trong memory của tab rồi yêu cầu quét lại. Chỉ gửi lệnh publish khi có mạng và vẫn qua API/idempotency. MMKV/background task chỉ áp dụng nếu native mobile được triển khai ở GĐ3 và phải có privacy design riêng.
 
 ---
 
-## 1. Luồng Buyer - Mobile
+## 1. Luồng Buyer — web responsive MVP, native mobile ở GĐ3
 
 > Tham chiếu `luồng mua hàng - buyer.png` (4 màn hình)
 
@@ -97,11 +101,11 @@ MMKV / localStorage    → persist giỏ hàng, nháp đăng bán, token
 
 **Đặc thù bắt buộc của sàn hàng đơn chiếc:**
 
-- Mỗi món chỉ có 1 ⇒ danh sách "hết hàng" rất nhanh. Dùng **polling nhẹ 30s** hoặc SSE để gỡ item đã bán khỏi lưới, thay vì để user bấm vào rồi mới báo hết.
+- Mỗi món chỉ có 1 ⇒ danh sách "hết hàng" rất nhanh. Dùng **polling nhẹ 30s**; nếu bật Supabase Realtime thì sự kiện chỉ invalidate cache để client gọi lại NestJS API. Không coi payload Realtime là nguồn trạng thái cuối cùng.
 - Badge **`condition_grade`** phải hiển thị nổi bật ở mọi nơi có ảnh sản phẩm. Đây vừa là yếu tố tin cậy, vừa là **nghĩa vụ pháp lý** về mô tả trung thực hàng đã qua sử dụng.
 - Không hiển thị "còn X sản phẩm" - luôn là 1, hiển thị chỉ gây rối.
 
-**Khu vực quảng bá:** listing đã mua gói 20.000đ/tuần hiển thị ở khu vực gợi ý trang chủ, **bắt buộc gắn nhãn "Tài trợ"** (yêu cầu của Luật BVQLNTD 2023 và Luật Quảng cáo - xem `05-PHAP-LY` §8). Thứ tự trong khu vực này random như tài liệu mô tả.
+**GĐ3 — khu vực quảng bá:** khi paid promotion được mở lại, listing trả phí phải gắn nhãn "Tài trợ" và qua Legal review (`05-PHAP-LY` §8). GĐ1 không có gói 20.000đ/tuần hoặc ranking trả phí.
 
 **Quy tắc hiển thị giá theo `price_source` (`01-SPEC` §4.2.1) - áp dụng ở MỌI nơi có giá, không chỉ trang chi tiết:**
 
@@ -138,37 +142,37 @@ Khối quan trọng nhất là **"Cam kết của REBOX"** (prototype đã có):
 
 **Thay đổi so với prototype - bắt buộc:** đổi "ĐIỀU KIỆN BẮT BUỘC" thành "ĐIỀU KIỆN ĐỂ XỬ LÝ NHANH" và thêm dòng giải thích. Lý do ở `00-TONG-QUAN` L5 và `05-PHAP-LY` §5: điều khoản làm mất quyền khiếu nại có nguy cơ vô hiệu theo Điều 25 Luật BVQLNTD 2023.
 
-Ngoài ra bắt buộc hiển thị (nghĩa vụ của sàn theo Nghị định 85/2021):
+Ngoài ra policy UI bắt buộc hiển thị các thông tin dưới đây; Legal phải map wording cuối cùng sang Luật TMĐT 122/2025 và văn bản thi hành hiện hành trước production:
 
 - Tên shop, trạng thái xác thực (đã eKYC), địa chỉ kho cấp tỉnh/thành
 - Tình trạng hàng chi tiết (`condition_notes` - không được để trống)
 - Chính sách đổi trả, quy trình khiếu nại (link tới Quy chế sàn)
 
-### 1.3. Giỏ hàng - tách theo shop
+### 1.3. Giỏ hàng - nhóm theo shop, checkout từng shop
 
 ```
 ┌─────────────────────────────────┐
 │ Giỏ Hàng Của Bạn                │
 ├─────────────────────────────────┤
 │ ▾ Shop ABC (Hà Nội)             │
-│   ☑ Váy lụa Satin      225.000đ │
+│   ◉ Váy lụa Satin      225.000đ │
 │   Tạm tính:            225.000đ │
 │   Phí vận chuyển:            0đ │
 │   ✅ Đơn ≥100k - Freeship       │
 ├─────────────────────────────────┤
 │ ▾ Shop XYZ (TP.HCM)             │
-│   ☑ Ốp lưng iPhone      60.000đ │
+│   ○ Ốp lưng iPhone      60.000đ │
 │   Tạm tính:             60.000đ │
 │   Phí vận chuyển:       15.000đ │
 │   💡 Mua thêm 40.000đ từ shop   │
 │      này để được freeship       │
 ├─────────────────────────────────┤
-│ TỔNG CỘNG:             300.000đ │
-│        [ĐẶT HÀNG]               │
+│ ĐANG CHỌN SHOP ABC:    225.000đ │
+│   [CHECKOUT SHOP ABC]            │
 └─────────────────────────────────┘
 ```
 
-**Khác biệt quan trọng so với prototype:** prototype hiển thị giỏ phẳng với một dòng "Phí vận chuyển: 15.000đ". Thực tế phải **tách theo shop** vì ngưỡng freeship 100k tính theo từng shop (L8), và mỗi shop là một kiện hàng riêng, một QR thanh toán riêng.
+**Khác biệt quan trọng so với prototype:** prototype hiển thị giỏ phẳng với một dòng "Phí vận chuyển: 15.000đ". Giỏ có thể chứa nhiều nhóm shop để người dùng lưu lựa chọn, nhưng **mỗi lần checkout chỉ chọn đúng một shop**. API từ chối request lẫn nhiều seller bằng `MULTI_SELLER_CHECKOUT_NOT_SUPPORTED`.
 
 Gợi ý "mua thêm X để freeship" là đòn bẩy AOV mạnh và hoàn toàn khớp với mục tiêu chống tách đơn trong tài liệu.
 
@@ -178,31 +182,25 @@ Gợi ý "mua thêm X để freeship" là đòn bẩy AOV mạnh và hoàn toàn
 Bước 1: Chọn phương thức
   ┌──────────────────────────────┐
   │ ○ Thanh toán QR (khuyến nghị)│
-  │   +1 điểm thưởng             │  ← ưu đãi để đẩy khỏi COD
   │ ○ Ship COD                   │
   │   ⚠ Có thể không khả dụng    │
   └──────────────────────────────┘
 
-Bước 2 (nếu QR, nhiều shop): hiển thị TỪNG QR một
+Bước 2 (nếu QR): một checkout, một shop, một QR
   ┌──────────────────────────────┐
-  │ Thanh toán 1/2 - Shop ABC    │
+  │ Thanh toán - Shop ABC        │
   │        [QR CODE]             │
   │ Số tiền: 225.000đ            │
   │ Nội dung: RBX01J8XK...       │
-  │ ⏱ Còn 14:32                  │
+  │ ⏱ Còn 29:32                  │
   │ Đang kiểm tra giao dịch...   │
   │ [Đã chuyển khoản]  [Huỷ]     │
   └──────────────────────────────┘
 ```
 
-**Đây là điểm ma sát UX lớn nhất của mô hình.** Vì tiền đi thẳng về từng seller, buyer mua 3 shop phải quét 3 QR. Phương án giảm đau:
+**Quy tắc GĐ1:** gợi ý mua thêm trong cùng shop và để các nhóm shop còn lại trong giỏ. Không có checkout đa seller, chuỗi nhiều QR hoặc thanh toán một phần giữa các shop. Mở rộng mô hình tiền chỉ được xem xét sau khi ADR thanh toán/pháp lý mới được phê duyệt.
 
-1. **Mặc định gợi ý mua trong 1 shop** - bố cục trang chủ nhóm theo shop, gợi ý "sản phẩm khác từ shop này".
-2. **Nếu nhiều shop:** hiển thị tuần tự có thanh tiến độ, tự chuyển QR tiếp theo khi webhook xác nhận QR trước.
-3. **Cho phép thanh toán từng phần** - shop nào trả rồi thì đơn shop đó đi tiếp, không chờ nhau.
-4. **Cân nhắc nghiêm túc:** nếu tỷ lệ giỏ đa shop cao, nên chuyển sang mô hình tiền qua PSP rồi tách - nhưng khi đó cần giấy phép/đối tác trung gian thanh toán (`05-PHAP-LY` §2). Đây là đánh đổi kiến trúc–pháp lý cần ban dự án quyết.
-
-**Polling trạng thái:** sau khi buyer bấm "Đã chuyển khoản", client poll `GET /orders/{id}/payment-status` mỗi 3s trong 2 phút, rồi giãn ra 10s. Có SSE thì tốt hơn nhưng poll là đủ ở quy mô v1.
+**Polling trạng thái:** sau khi buyer bấm "Đã chuyển khoản", client poll `GET /orders/{id}/payment-status` mỗi 3s trong 2 phút, rồi giãn ra 10s. Realtime, nếu bật, chỉ là tín hiệu để refetch endpoint này.
 
 **Đếm ngược hết hạn:** khi còn 3 phút, đổi màu cảnh báo. Khi hết hạn, hiển thị màn hình rõ ràng: "Đơn đã hết hạn giữ chỗ. Nếu bạn đã chuyển khoản, liên hệ CSKH kèm mã RBX..." - tuyệt đối không để buyer chuyển tiền xong mà màn hình trống.
 
@@ -243,70 +241,68 @@ Bước 2 - Hướng dẫn quay video  ← THIẾU TRONG PROTOTYPE, BẮT BUỘC
     • Tránh quay giấy tờ cá nhân, màn hình có thông tin riêng
   [Tôi đã hiểu - Tiếp tục]
 
-Bước 2b - MÀN HÌNH ĐỒNG Ý  ← BẮT BUỘC, ĐỨNG TRƯỚC KHI QUAY
+Bước 2b - THÔNG BÁO & GHI NHẬN LỰA CHỌN  ← BẮT BUỘC, ĐỨNG TRƯỚC KHI QUAY
 ```
 
-Không được đặt sau khi đã quay xong: lúc đó buyer đã tạo ra dữ liệu rồi, sự đồng ý mất ý nghĩa. Xem `05-PHAP-LY` §3.4.5.
+Không được đặt sau khi đã quay xong: lúc đó buyer đã tạo dữ liệu trước khi nhận thông báo/ghi nhận lựa chọn. Xem `05-PHAP-LY` §3.4.5.
 
 ```
   ┌──────────────────────────────────────────────┐
   │  Trước khi quay video khiếu nại               │
   │                                               │
   │  Video của bạn sẽ được dùng để:               │
-  │  • Hệ thống AI phân tích tình trạng hàng hoá  │
-  │  • Nhân viên REBOX xem khi cần phân xử        │
+  │  • Nhân viên REBOX xem để phân xử             │
   │  • NGƯỜI BÁN xem để phản hồi khiếu nại        │
-  │    (chỉ bản đã che khuôn mặt)                 │
+  │    (chỉ bản đã che khuôn mặt và thông tin PII)│
   │                                               │
   │  Video có thể chứa hình ảnh khuôn mặt và      │
   │  giọng nói của bạn - đây là dữ liệu cá nhân   │
   │  nhạy cảm.                                    │
   │                                               │
-  │  Lưu trữ: video gốc 90 ngày sau khi đóng vụ   │
-  │  việc; ảnh đã che mặt và biên bản 3 năm.      │
+  │  Mốc giữ mục tiêu: video gốc 90 ngày sau khi  │
+  │  đóng case; ảnh đã che/biên bản 3 năm. Có thể │
+  │  lâu hơn nếu đang kháng nghị/legal hold hoặc  │
+  │  Object Lock chưa hết.                        │
   │                                               │
-  │  ☐ Tôi đồng ý cho REBOX xử lý video này để    │
-  │    giải quyết khiếu nại của tôi     [bắt buộc]│
+  │  ☐ Tôi đã đọc thông báo và chọn gửi video để  │
+  │    giải quyết khiếu nại              [bắt buộc]│
   │                                               │
-  │  ☐ Tôi cam đoan video không có hình ảnh người │
-  │    khác, hoặc tôi đã được họ đồng ý [bắt buộc]│
+  │  ☐ Tôi hiểu cần tránh quay người khác và dữ   │
+  │    liệu riêng tư không liên quan     [bắt buộc]│
   │                                               │
-  │  ☐ Cho phép dùng video để cải thiện hệ thống  │
-  │    AI                        [không bắt buộc] │
-  │                                               │
-  │  [Xem chính sách đầy đủ]     [Bắt đầu quay]   │
+  │  [Tiếp tục không gửi video]  [Bắt đầu quay]   │
+  │  [Xem chính sách đầy đủ]                      │
   └──────────────────────────────────────────────┘
 ```
 
-Ô cam đoan thứ hai học từ cách Shopee xử lý nội dung người dùng đăng, nhưng làm **minh thị** thay vì **ngầm định**. Cách diễn đạt phải là **cam đoan của người nộp**, không phải **miễn trừ trách nhiệm của REBOX** - nếu viết thành điều khoản đẩy toàn bộ rủi ro sang người tiêu dùng thì lại chạm Điều 25 Luật BVQLNTD 2023. Và nó **không thay thế** các biện pháp kỹ thuật ở bước REDACT: xem `05-PHAP-LY` §3.4.3.1.
+Ô thứ hai chỉ là xác nhận đã đọc hướng dẫn giảm thiểu dữ liệu, không phải lời cam đoan rằng buyer có thể đồng ý thay cho mọi người vô tình xuất hiện và không phải miễn trừ trách nhiệm của REBOX. Nó **không thay thế** các biện pháp kỹ thuật ở bước REDACT: xem `05-PHAP-LY` §3.4.3.
 
-Bốn ràng buộc bắt buộc lên màn hình này:
+Năm ràng buộc bắt buộc lên màn hình này:
 
 | Ràng buộc                                                                           | Vì sao                                                                               |
 | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Ô thứ hai **mặc định tắt**, và từ chối nó **không** ảnh hưởng gì đến việc khiếu nại | Gộp mục đích phụ vào đồng ý bắt buộc là lỗi phổ biến và dễ bị phát hiện nhất         |
-| Nút "Bắt đầu quay" chỉ bật khi ô bắt buộc được tick                                 | Không được coi im lặng là đồng ý                                                     |
+| Hai ô xác nhận đều **mặc định tắt**                                                    | Không được coi im lặng là đã đọc/đã chọn; wording/căn cứ cuối cùng do Legal duyệt     |
+| Nút "Bắt đầu quay" chỉ bật khi hai ô được tick                                      | Chỉ ràng buộc việc nộp video, không ràng buộc quyền mở khiếu nại                     |
+| Nút "Tiếp tục không gửi video" luôn hiện, không bị làm mờ/giấu                       | Ghi nhận lựa chọn từ chối rồi đưa hồ sơ sang manual review, tránh dark pattern       |
 | Phải nêu rõ **người bán sẽ xem**                                                    | Thông tin ảnh hưởng trực tiếp đến quyết định của buyer; cũng là thứ hay bị giấu nhất |
-| Đồng ý **theo từng vụ việc**, không phải một lần khi đăng ký tài khoản              | Mỗi khiếu nại là một bối cảnh xử lý riêng                                            |
+| Ghi nhận **theo từng vụ việc**, không phải một lần khi đăng ký tài khoản            | Mỗi khiếu nại là một bối cảnh xử lý riêng                                            |
+| Không hiển thị lựa chọn huấn luyện/cải thiện AI ở GĐ1                                | AI là GĐ3; mục đích phụ sau này cần bản ghi tự nguyện tách biệt                      |
 
-Khi bấm "Bắt đầu quay", client gọi `POST /disputes/{id}/consent` và **chờ phản hồi** trước khi mở camera. Server ghi `consent_records` gồm: phiên bản văn bản, `sha256` của chính nội dung đã render ra màn hình, từng ô đã tick, thời điểm, IP, thiết bị. Không có bản ghi đồng ý thì không có `dispute_evidences` - quan hệ khoá ngoại bắt buộc (`01-SPEC` §4.2).
+Khi bấm một trong hai hành động, client gọi `POST /disputes/{id}/processing-record {noticeArtifactId, decisions[{purpose, decision}]}` và **chờ phản hồi** trước khi mở camera/file picker hoặc chuyển manual review. Server tự resolve exact artifact/hash, `recordType` và `legalBasis`, tạo record cho interaction rồi append vào stable purpose chain; client không được tự khai các field pháp lý. Im lặng không được suy thành `GRANTED`; rút consent là interaction/event `WITHDRAWN` mới. Legal duyệt việc dùng `NOTICE_ACK` hay `CONSENT`; UI không tự gọi mọi trường hợp là "đồng ý". Không có processing record hợp lệ cho purpose upload thì không có `dispute_evidences` (`01-SPEC` §4.2).
 
 Nếu buyer từ chối: **không chặn khiếu nại.** Hồ sơ vẫn được tiếp nhận, đi thẳng vào luồng `ADMIN_REVIEW` thủ công (L5). Hiển thị đúng như vậy, không đe doạ mất quyền lợi.
 
 ```
-Bước 3 - Quay video trong app
+Bước 3 - Quay video trên web GĐ1 (native app ở GĐ3)
   - Đếm ngược 3-2-1 rồi tự động ghi
   - Overlay "5 giây đầu: quay nhãn niêm phong" + progress bar
   - Cảnh báo realtime nếu phát hiện tạm dừng
-  - Tối đa 180 giây, tối thiểu 15 giây
+  - Tối đa 90 giây, tối thiểu 15 giây
   - [Quay lại] [Dùng video này]
   - Link nhỏ: "Tôi đã quay bằng ứng dụng khác" → chọn từ thư viện
 
-  CẢNH BÁO RIÊNG TƯ THỜI GIAN THỰC (on-device, không gửi khung hình đi đâu):
-    Phát hiện khuôn mặt người khác → toast "⚠ Có người khác trong khung hình"
-    Phát hiện nhãn vận đơn lạ      → toast "⚠ Có nhãn đơn hàng trong khung hình"
-    → chỉ CẢNH BÁO, không chặn quay (chặn giữa chừng làm hỏng tính liên tục
-      của video, mà tính liên tục lại là căn cứ chấm integrity_score)
+  - Ghi `MediaRecorder` pause/resume/error và capture metadata
+  - GĐ1 không chạy face/label detection hoặc chấm `integrity_score` trên client
 
 Bước 4 - Mô tả + ảnh bổ sung
   Textarea (tối thiểu 20 ký tự) + tối đa 5 ảnh
@@ -317,16 +313,21 @@ Bước 5 - Xác nhận & gửi
 
 Bước 6 - Theo dõi
   Timeline: Đã gửi → Đang xác minh → Kết quả
+  Nếu được duyệt: "Chờ hoàn tiền" (FULL_REFUND_PENDING/PARTIAL_REFUND_PENDING)
+  → "Đã hoàn toàn bộ/một phần" chỉ sau PSP PAID hoặc seller-direct VERIFIED;
+  payout UNKNOWN/FAILED vẫn hiển thị đang xử lý, không báo đã hoàn
   Nếu bị từ chối: hiển thị lý do + nút "Khiếu nại lại" (7 ngày)
 ```
 
-**Upload:** nền tảng (background upload, `expo-task-manager`), có thanh tiến độ, tiếp tục được khi mất mạng. Video 60 giây ở 720p ≈ 50–80MB - trên 4G Việt Nam mất 1–3 phút. Cho phép buyer thoát app trong lúc upload.
+**Upload GĐ1:** web dùng upload tiếp tục theo từng phần trong khi tab còn mở, có thanh tiến độ và retry/idempotency. Không hứa tiếp tục sau khi đóng trình duyệt. Background upload bằng native task manager chỉ được xem xét cùng app GĐ3.
 
-**Nén trước khi upload:** transcode xuống 720p/2Mbps ngay trên máy. Giảm ~60% dung lượng, giảm chi phí lưu trữ, giảm thời gian upload. **Lưu ý:** ghi rõ trong `capture_meta` là đã nén bằng app, để AI không nhầm dấu vết transcode thành dấu hiệu cắt ghép.
+**Tính toàn vẹn:** giữ nguyên file mà người dùng đã nộp làm bản gốc WORM. Có thể tạo derivative 720p để phát/xử lý, nhưng phải ghi checksum, codec và lịch sử biến đổi trong `capture_meta`; không ghi đè bản gốc.
+
+Face/label detection và cảnh báo CV on-device là target GĐ3; phải qua privacy/eval gate và không được chặn quyền gửi khiếu nại.
 
 ---
 
-## 2. Luồng Seller - Mobile
+## 2. Luồng Seller — web responsive/narrow warehouse flow GĐ1
 
 > Tham chiếu `luồng đăng bán - seller.png` và `luồng xem kho hàng và đối soát- seller.png`
 
@@ -335,13 +336,16 @@ Bước 6 - Theo dõi
 Prototype hiển thị "SỐ DƯ KHẢ DỤNG: 300.000 VNĐ". Cần mở rộng thành 3 trạng thái:
 
 ```
-Bình thường (coverage ≥ 0.3)
+Bình thường (coverage ≥ 0.15)
 ┌──────────────────────────────────┐
 │ SỐ DƯ KHẢ DỤNG      300.000 VNĐ │
 │ Đang giữ cho đơn:   225.000 VNĐ │
+│ Đang chờ payout:          0 VNĐ │
+│ Tạm chặn do đối soát:     0 VNĐ │
+│ Nghĩa vụ còn thiếu:       0 VNĐ │
 └──────────────────────────────────┘
 
-Cảnh báo (coverage < 0.15)
+Cảnh báo (0 < coverage < 0.15)
 ┌──────────────────────────────────┐
 │ ⚠ SỐ DƯ THẤP         80.000 VNĐ │
 │ 12/40 sản phẩm đã tạm ẩn         │
@@ -356,7 +360,7 @@ Khóa (không phủ nổi listing nào)
 └──────────────────────────────────┘
 ```
 
-**Nguyên tắc:** không bao giờ chỉ báo "kho bị khóa". Luôn kèm **số tiền chính xác cần nạp** và **nút nạp ngay**. Đây là lúc seller sắp bỏ nền tảng.
+**Nguyên tắc:** không bao giờ chỉ báo "kho bị khóa". Luôn kèm **số tiền chính xác cần nạp** và **nút nạp ngay**. Chỉ dùng trạng thái khóa coverage khi shop có listing cần phủ nhưng không phủ nổi; shop chưa có listing không bị khóa. KYC, PAUSED, debt và activation là banner/gate riêng, không giả thành coverage thấp.
 
 ### 2.2. Màn hình quét mã vận đơn
 
@@ -369,7 +373,7 @@ IDLE ──quét được mã──► RESOLVING (hiện skeleton ngay, KHÔNG c
                             │
         ┌───────────────────┼──────────────────┬─────────────────┐
         ▼                   ▼                  ▼                 ▼
-   FOUND_LOCAL         FOUND_CSV         FOUND_API        NOT_FOUND
+   FOUND_LOCAL         FOUND_CSV         FOUND_API*       NOT_FOUND
    (~50ms)             (~100ms)          (1-3s)           (sau 8s)
         │                   │                  │                 │
         └───────────────────┴──────────────────┴─────────────────┘
@@ -384,19 +388,21 @@ IDLE ──quét được mã──► RESOLVING (hiện skeleton ngay, KHÔNG c
                     (nhân viên kho quét liên tục)
 ```
 
+`FOUND_API` là nhánh GĐ3 và bị tắt ở GĐ1. MVP dừng ở local/CSV/manual entry; không giả lập kết nối Shopee/TikTok khi chưa có partner approval.
+
 **Chi tiết bắt buộc cho môi trường kho:**
 
 | Yêu cầu                                                 | Lý do                                                                     |
 | ------------------------------------------------------- | ------------------------------------------------------------------------- |
 | Sau khi đăng xong, **tự quay lại chế độ quét sau 1,5s** | Nhân viên quét hàng trăm kiện/ngày, không ai muốn bấm "quét tiếp" 200 lần |
 | **Phản hồi âm thanh + rung** khi quét thành công        | Nhân viên không nhìn màn hình liên tục                                    |
-| **Hàng đợi offline**                                    | Kho thường sóng yếu; lưu cục bộ, đồng bộ sau, badge "N chờ đồng bộ"       |
+| **Hàng đợi offline giới hạn**                           | Chỉ draft không nhạy cảm, TTL 24h; mã vận đơn/ảnh/PII không persist, mất mạng thì yêu cầu quét lại |
 | **Đèn flash toggle**                                    | Kho tối, nhãn vận đơn hay bị mờ                                           |
 | **Nhập tay mã vận đơn**                                 | Nhãn rách/mờ là chuyện thường xuyên                                       |
 | **Lịch sử 20 mã vừa quét**                              | Để kiểm tra nhanh, phát hiện quét sót                                     |
 | **Cảnh báo quét trùng**                                 | "Mã này đã đăng bán ngày 20/8" + link tới listing                         |
 
-**Optimistic UI cho bước API sàn:** hiển thị form ngay ở mốc 1,5s với các trường đã có (từ CSV/local). Nếu API sàn trả về sau đó, **điền bù các trường còn trống** kèm hiệu ứng highlight, không ghi đè trường seller đã sửa.
+**Khi mở API sàn ở GĐ3:** hiển thị form ngay ở mốc 1,5s với các trường đã có (từ CSV/local). Nếu API sàn trả về sau đó, **điền bù các trường còn trống** kèm hiệu ứng highlight, không ghi đè trường seller đã sửa.
 
 ### 2.3. Form đăng bán
 
@@ -425,15 +431,16 @@ IDLE ──quét được mã──► RESOLVING (hiện skeleton ngay, KHÔNG c
 ├──────────────────────────────────────┤
 │ 💰 Nếu bán được:                     │
 │    Bạn nhận:      225.000đ (về TK)   │
-│    Phí sàn trừ ví: -45.000đ          │
-│    Ví sẽ giữ tạm:  270.000đ          │
-│    ⚠ Số dư sau khi giữ: 30.000đ      │
+│    Phí sàn dự kiến:  45.000đ          │
+│    Dự phòng vận chuyển: 45.000đ       │
+│    Ví sẽ giữ tạm:  315.000đ          │
+│    ⚠ Số dư sau khi giữ: 85.000đ      │
 ├──────────────────────────────────────┤
 │      [LƯU NHÁP]      [ĐĂNG BÁN]      │
 └──────────────────────────────────────┘
 ```
 
-**Khối "Nếu bán được" là thay đổi quan trọng nhất so với prototype.** Mô hình ký quỹ rất dễ gây hiểu lầm - seller thấy "phí 20%" nhưng không hình dung được rằng tiền hàng về ngân hàng còn phí thì trừ ví. Hiển thị minh bạch ngay tại thời điểm đăng bán sẽ giảm mạnh khiếu nại và tăng tỷ lệ giữ chân.
+**Khối "Nếu bán được" là thay đổi quan trọng nhất so với prototype.** Ví dụ giả định ví khả dụng 400.000đ và dùng công thức canonical: `225.000 + 45.000 commission + 45.000 reserve = 315.000đ`. Đây chỉ là hold ước tính; commission chỉ được ghi nhận khi đơn hoàn tất. UI phải render breakdown do API trả về, không tự tính.
 
 **Cảnh báo trước:** nếu đăng thêm listing này khiến `coverage` xuống dưới ngưỡng, hiện cảnh báo vàng trước khi bấm đăng, không phải sau.
 
@@ -476,6 +483,10 @@ Prototype hiển thị 3 con số: Số dư ký quỹ / Tạm khóa đối soát
 │ (tiền bạn nạp để bảo đảm giao dịch)  │
 │ Khả dụng:            300.000 VNĐ     │
 │ Đang giữ cho 2 đơn:  850.000 VNĐ     │
+│ Đang chờ payout:      100.000 VNĐ     │
+│ Tạm chặn unmatched:     50.000 VNĐ     │
+│ Nghĩa vụ còn thiếu:     20.000 VNĐ     │
+│ Có thể rút:            300.000 VNĐ     │
 │ [NẠP QUỸ]  [RÚT QUỸ]                 │
 ├──────────────────────────────────────┤
 │ DOANH THU BÁN HÀNG                   │
@@ -489,7 +500,7 @@ Prototype hiển thị 3 con số: Số dư ký quỹ / Tạm khóa đối soát
 ├──────────────────────────────────────┤
 │ LỊCH SỬ GIAO DỊCH VÍ                 │
 │ #RBX-99821  Hoàn tiền khiếu nại      │
-│             -165.000đ    hôm qua     │
+│             -150.000đ    hôm qua     │
 │ #RBX-99812  Phí sàn đơn Váy lụa      │
 │             -45.000đ     20/08       │
 │ Nạp quỹ                              │
@@ -518,7 +529,7 @@ Màn hình này không có trong prototype nhưng bắt buộc phải có: selle
 │ ℹ️ Ảnh trích từ video, khuôn mặt đã được     │
 │    che để bảo vệ quyền riêng tư.             │
 │                                              │
-│ Tóm tắt phân tích tự động:                   │
+│ Tóm tắt vụ việc do REBOX cung cấp:           │
 │ • Niêm phong: đã mở trước khi quay           │
 │ • Không phát hiện sản phẩm trong video        │
 │ [Xem báo cáo đầy đủ]                         │
@@ -533,22 +544,22 @@ Màn hình này không có trong prototype nhưng bắt buộc phải có: selle
 
 **Quy tắc tuyệt đối:** seller **không bao giờ** được xem video gốc - chỉ xem `evidence_derivatives` có `visible_to = 'SELLER'`, tức các khung hình đã che khuôn mặt. Xem `05-PHAP-LY` §3.4.3 và `01-SPEC` §4.2.
 
-Lý do: seller cần biết **hàng có bị hỏng không**, không cần xem nhà buyer. Khung hình đã che mặt kèm báo cáo AI là đủ để seller thực hiện quyền phản hồi, mà cắt được gần hết rủi ro dữ liệu của người thứ ba xuất hiện trong video.
+Lý do: seller cần biết **hàng có bị hỏng không**, không cần xem nhà buyer. Ở GĐ1, admin chọn/che các frame và viết tóm tắt thủ công; GĐ3 có thể hỗ trợ tự động nhưng output vẫn phải qua kiểm soát trước khi chia sẻ.
 
 | Ràng buộc                                             | Chi tiết                                                                                                         |
 | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | Không có nút tải xuống, không có link chia sẻ         | Ảnh phục vụ qua presigned URL 5 phút, kèm watermark mã vụ việc                                                   |
 | Câu chú thích "khuôn mặt đã được che" là **bắt buộc** | Cho seller biết họ đang xem bản đã xử lý, tránh hiểu nhầm là bằng chứng bị cắt xén                               |
-| Nếu khâu che mặt tự động thất bại                     | **Không hiển thị gì cho seller.** Chuyển cho admin chọn khung hình thủ công. Không bao giờ fallback về video gốc |
+| Chưa có bản derivative đã được duyệt                  | **Không hiển thị gì cho seller.** Admin chọn và che khung hình thủ công; không bao giờ fallback về video gốc    |
 | Hết 24 giờ không phản hồi                             | Vụ việc chuyển tiếp cho admin xử lý, ghi nhận seller đã được tạo cơ hội phản hồi                                 |
 
 ---
 
-## 3. Luồng Seller - Web App
+## 3. Luồng Seller — desktop wide/bulk enhancements GĐ1
 
 > Tham chiếu `website-seller-đăng bán.png`
 
-Web App phục vụ **tổng kho xử lý lô lớn**, khác hẳn mobile. Layout 3 cột theo prototype: sidebar (Đăng bán / Quản lý kho hàng / Đối soát dòng tiền) + nội dung chính.
+Web App GĐ1 phục vụ **tổng kho xử lý lô lớn**. Layout 3 cột theo prototype: sidebar (Đăng bán / Quản lý kho hàng / Đối soát dòng tiền) + nội dung chính.
 
 ### 3.1. Đăng bán hàng loạt (thế mạnh của web)
 
@@ -575,8 +586,8 @@ Web App phục vụ **tổng kho xử lý lô lớn**, khác hẳn mobile. Layou
 │ └──┴─────────┴────────┴──────┴────────┴─────────────┘ │
 ├───────────────────────────────────────────────────────┤
 │ 📊 Đăng 47 sản phẩm, tổng giá trị 12.400.000đ         │
-│ Ký quỹ cần có: 3.100.000đ · Hiện có: 800.000đ         │
-│ ⚠ 34 sản phẩm sẽ bị tạm ẩn. [Nạp 2.300.000đ]         │
+│ Hold ước tính để phủ toàn bộ: [API trả về]            │
+│ Ví khả dụng: 800.000đ · [N] món có thể hiển thị       │
 │                              [ĐĂNG 47 SẢN PHẨM]       │
 └───────────────────────────────────────────────────────┘
 ```
@@ -585,11 +596,11 @@ Web App phục vụ **tổng kho xử lý lô lớn**, khác hẳn mobile. Layou
 
 **Điền nhanh (bulk edit):** chọn nhiều dòng → đặt cùng tình trạng, cùng % giảm giá so với giá gốc, cùng cân nặng. Đây là tính năng tiết kiệm thời gian lớn nhất cho tổng kho - quan trọng hơn cả tốc độ quét.
 
-**Cảnh báo ký quỹ ở cuối bảng** biến thời điểm đăng hàng loạt thành thời điểm bán ký quỹ. Đúng lúc, đúng ngữ cảnh.
+**Cảnh báo coverage ở cuối bảng** chỉ là ước tính hiển thị từ API. Publish không khóa tiền thật; hold chỉ phát sinh khi checkout. Nếu không phủ đủ, backend dùng thuật toán canonical để xác định listing nào hiển thị.
 
-### 3.2. Quản lý kho hàng + Thống kê SKU
+### 3.2. Quản lý kho hàng + Thống kê SKU — target GĐ3
 
-Bảng kho theo prototype, bổ sung tab **"Phân tích hàng hoàn theo SKU"** - đây là Gain Creator (f) trong tài liệu nhưng chưa có trong prototype:
+Bảng kho cơ bản thuộc GĐ1. Tab **"Phân tích hàng hoàn theo SKU"** dưới đây là target GĐ3 sau khi có đủ dữ liệu; không nằm trong API/UI MVP:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -612,15 +623,17 @@ Bảng kho theo prototype, bổ sung tab **"Phân tích hàng hoàn theo SKU"** 
 
 ### 3.3. Cài đặt kết nối
 
-Trang gộp: liên kết sàn (Shopee/TikTok OAuth), liên kết phần mềm kho (client_id/secret + webhook URL + log giao webhook gần đây), tài khoản ngân hàng nhận tiền, địa chỉ kho, cấu hình ĐVVC mặc định.
+GĐ1 chỉ có tài khoản ngân hàng nhận tiền, địa chỉ kho và cấu hình ĐVVC mặc định. Liên kết sàn Shopee/TikTok là GĐ3 sau partner approval/ToS; Public API/client credential/webhook cho phần mềm kho thuộc GĐ4 sau khi có ít nhất 5 shop thật yêu cầu.
 
 ---
 
-## 4. Luồng Admin
+## 4. Luồng Admin — web only ở GĐ1
 
-> Tham chiếu `luồng admin.png` (mobile) và `website-seller-đăng bán.png` tab AI Admin Hub
+> Prototype mobile/AI chỉ là tham khảo. GĐ1 dùng web console và phân xử thủ công; các panel điểm số AI dưới đây là target GĐ3.
 
-### 4.1. Hàng đợi AI Triage
+### 4.1. Hàng đợi tranh chấp
+
+Ở GĐ1, hàng đợi sắp theo SLA/giá trị/risk flag do rule vận hành; ẩn cột điểm AI và không auto-approve. Khi module AI GĐ3 vượt qua eval và legal gate, UI mới bật thêm các trường AI trong mock sau.
 
 ```
 ┌──────────────────────────────────────────────────────┐
@@ -640,6 +653,8 @@ Trang gộp: liên kết sàn (Shopee/TikTok OAuth), liên kết phần mềm kh
 Sắp xếp mặc định theo `sla_deadline` tăng dần, không theo điểm AI. Việc sắp theo điểm AI khiến admin xử lý theo thứ tự máy gợi ý thay vì theo mức khẩn - một dạng automation bias.
 
 ### 4.2. Màn hình phân xử
+
+Mock dưới đây là **overlay target GĐ3** để bảo toàn ý tưởng prototype. Ở GĐ1, bỏ toàn bộ cột `PHÂN TÍCH AI` và mốc AI; thay bằng metadata/hash, snapshot listing, evidence, lịch sử hai bên và công cụ admin tự chọn frame để khử nhận dạng.
 
 ```
 ┌────────────────────────────┬─────────────────────────┐
@@ -670,7 +685,7 @@ Sắp xếp mặc định theo `sla_deadline` tăng dần, không theo điểm A
 │ QUYẾT ĐỊNH                                           │
 │ ○ Hoàn tiền toàn bộ  ○ Hoàn một phần [_____]đ        │
 │ ○ Từ chối khiếu nại                                  │
-│ ☐ Lỗi thuộc về người bán (ảnh hưởng phí ship)        │
+│ Lỗi: ○ Seller  ○ ĐVVC  ○ REBOX  ○ Chưa xác định      │
 │ ☐ Yêu cầu trả hàng về shop                           │
 │ Lý do (bắt buộc, ≥30 ký tự):                         │
 │ [_________________________________________________]  │
@@ -678,14 +693,14 @@ Sắp xếp mặc định theo `sla_deadline` tăng dần, không theo điểm A
 └──────────────────────────────────────────────────────┘
 ```
 
-**Bốn nguyên tắc thiết kế bắt buộc:**
+**Bốn nguyên tắc thiết kế (mục 1–2 chỉ áp dụng khi mở GĐ3):**
 
 1. **Không có nút "Chấp nhận đề xuất AI".** Admin phải tự chọn. Chống automation bias.
 2. **Mốc thời gian AI đánh dấu trên thanh video** - biến điểm số trừu tượng thành thứ admin kiểm chứng được bằng mắt trong 5 giây.
 3. **Luôn hiển thị phản hồi của seller** cạnh lời khai buyer. Nghe cả hai bên là nguyên tắc tố tụng cơ bản và là yêu cầu của quy trình giải quyết tranh chấp trên sàn.
 4. **Lý do bắt buộc ≥30 ký tự** - nó đi vào thông báo gửi cho cả hai bên và là hồ sơ khi có kháng nghị hoặc khiếu nại tới cơ quan quản lý.
 
-### 4.3. Thống kê vận hành & Tham số AI
+### 4.3. Thống kê vận hành & Tham số AI — GĐ3
 
 Theo prototype: tỷ lệ duyệt tự động, độ chính xác AI, tỷ lệ auto-refund vs escalate; trang cấu hình ngưỡng có slider.
 
@@ -702,23 +717,28 @@ Theo prototype: tỷ lệ duyệt tự động, độ chính xác AI, tỷ lệ 
 
 | Màn hình                | Endpoint chính                                                                  |
 | ----------------------- | ------------------------------------------------------------------------------- |
+| Đăng nhập/phiên         | Supabase Auth; `GET /me` qua NestJS                                             |
+| Seller - Onboarding KYC | `POST /seller/kyc/session {noticeArtifactId, decisions[]}` + Idempotency-Key; `GET /seller/kyc/status` |
 | Buyer - Home            | `GET /listings`                                                                 |
 | Buyer - Chi tiết        | `GET /listings/{id}`                                                            |
 | Buyer - Giỏ             | `GET /cart`, `POST /cart/items`                                                 |
-| Buyer - Checkout        | `POST /checkout/init`, `POST /checkout/{id}/pay`                                |
-| Buyer - Chờ thanh toán  | `GET /orders/{id}/payment-status` (poll 3s)                                     |
+| Buyer - Checkout        | `POST /checkout/init`; `POST /checkout/{id}/pay` dùng fake/sandbox tới khi A10 đóng |
+| Buyer - Chờ thanh toán  | `GET /orders/{id}/payment-status` (poll 3s; fake/sandbox tới khi A10 đóng)      |
 | Buyer - Đơn của tôi     | `GET /orders?role=buyer`                                                        |
-| Buyer - Khiếu nại       | `POST /orders/{id}/disputes`, `POST /disputes/{id}/evidence/init` + `/complete` |
+| Buyer - Khiếu nại       | `POST /orders/{id}/disputes`, `POST /disputes/{id}/processing-record`, `POST /disputes/{id}/evidence/init`, `POST /disputes/{id}/evidence/complete` |
+| Buyer - Kháng nghị       | `POST /disputes/{id}/appeal`; evidence bổ sung vẫn qua processing/evidence init/complete |
 | Seller - Quét mã        | `POST /seller/scan`                                                             |
 | Seller - Đăng bán       | `POST /seller/listings`                                                         |
 | Seller - Đăng hàng loạt | `POST /seller/listings/bulk`, `POST /seller/imports/csv`                        |
 | Seller - Kho            | `GET /seller/listings`                                                          |
 | Seller - Đối soát       | `GET /seller/wallet`, `GET /seller/wallet/transactions`                         |
-| Seller - Nạp/rút        | `POST /seller/wallet/topup`, `POST /seller/wallet/withdraw`                     |
-| Seller - Phân tích SKU  | `GET /seller/analytics/returns-by-sku`                                          |
+| Seller - Nạp/rút        | `POST /seller/wallet/topup`, `POST /seller/wallet/withdraw` — fake/sandbox tới khi A10 đóng |
+| Seller - Phản hồi vụ việc | `POST /disputes/{id}/seller-response`; evidence seller dùng cùng WORM pipeline          |
+| Seller - Phân tích SKU GĐ3 | `GET /seller/analytics/returns-by-sku` — không có ở MVP                      |
 | Admin - Hàng đợi        | `GET /admin/disputes`                                                           |
 | Admin - Phân xử         | `GET /admin/disputes/{id}`, `POST /admin/disputes/{id}/resolve`                 |
-| Admin - Tham số         | `GET/PUT /admin/configs`                                                        |
+| Quyền dữ liệu           | `POST /privacy/requests`, `GET /privacy/requests/{id}`                          |
+| Admin - Tham số AI GĐ3  | `GET/PUT /admin/configs`                                                        |
 
 ---
 
@@ -728,17 +748,18 @@ Bảng này liệt kê những gì prototype chưa có nhưng bắt buộc phả
 
 | #   | Thiếu                                                        | Mức độ   | Lý do                                                                       |
 | --- | ------------------------------------------------------------ | -------- | --------------------------------------------------------------------------- |
-| 1   | Giỏ hàng tách theo shop                                      | **Chặn** | Ngưỡng freeship 100k tính theo shop (L8)                                    |
-| 2   | Nhiều QR khi mua nhiều shop                                  | **Chặn** | Hệ quả trực tiếp của mô hình tiền đi thẳng về seller                        |
-| 3   | Hướng dẫn quay video trước khi quay                          | **Chặn** | Không có thì video không đạt chuẩn, AI không chấm được, tranh chấp tăng vọt |
+| 1   | Giỏ nhóm theo shop và chỉ checkout một shop                  | **Chặn** | Bảo toàn quy tắc một seller/checkout và ngưỡng freeship theo shop           |
+| 2   | Một checkout = một QR; giữ nhóm shop khác trong giỏ          | **Chặn** | Tránh state thanh toán một phần chưa được thiết kế                           |
+| 3   | Hướng dẫn quay video trước khi quay                          | **Chặn** | Không có thì bằng chứng kém chất lượng và tranh chấp tăng mạnh               |
 | 4   | Đăng bán hàng loạt trên web                                  | **Chặn** | Tổng kho là khách hàng chính; đăng từng món là không dùng được              |
 | 5   | Đổi "ĐIỀU KIỆN BẮT BUỘC" → "ĐỂ XỬ LÝ NHANH"                  | **Chặn** | Rủi ro điều khoản vô hiệu (L5)                                              |
-| 6   | Nhãn "Tài trợ" cho listing quảng bá                          | **Chặn** | Nghĩa vụ pháp lý                                                            |
+| 6   | Nhãn "Tài trợ" cho listing quảng bá GĐ3                      | Gate GĐ3  | Bắt buộc trước khi bật paid promotion                                       |
 | 7   | Khối "Nếu bán được" ở form đăng bán                          | Cao      | Mô hình ký quỹ khó hiểu, dễ gây khiếu nại                                   |
 | 8   | Trạng thái "Bị ẩn do thiếu quỹ"                              | Cao      | Seller không hiểu vì sao hàng biến mất                                      |
 | 9   | Đếm ngược hạn khiếu nại                                      | Cao      | Vừa là UX vừa là bằng chứng đã thông báo                                    |
-| 10  | Tab phân tích SKU                                            | Cao      | Gain Creator (f) trong tài liệu, chưa có trong prototype                    |
-| 11  | Chế độ offline cho màn hình quét                             | Cao      | Kho sóng yếu                                                                |
+| 10  | Tab phân tích SKU GĐ3                                        | GĐ3      | Chỉ làm sau khi có dữ liệu và nhu cầu thật                                  |
+| 11  | Draft/hàng đợi quét offline trên web                         | Cao      | Kho sóng yếu; publish lại phải qua API/idempotency                          |
 | 12  | Phản hồi của seller trong màn phân xử                        | Cao      | Nguyên tắc nghe cả hai bên                                                  |
-| 13  | Kênh khiếu nại/CSKH cho buyer                                | Cao      | Nghĩa vụ theo Nghị định 85/2021                                             |
+| 13  | Kênh khiếu nại/CSKH cho buyer                                | Cao      | Nghĩa vụ theo khung TMĐT hiện hành, copy/quy trình do Legal duyệt           |
 | 14  | Trang Quy chế sàn, Chính sách bảo mật, Giải quyết tranh chấp | **Chặn** | Bắt buộc khi đăng ký sàn TMĐT                                               |
+| 15  | Onboarding eKYC và trạng thái chờ duyệt                      | **Chặn** | Seller chưa VERIFIED không được publish                                     |
