@@ -112,40 +112,107 @@ flowchart TB
 4. **Mọi thao tác tiền là idempotent** và ghi vào sổ cái kép. Không có ngoại lệ.
 5. **Event sourcing cục bộ cho ví** - số dư là kết quả suy ra từ sổ cái, bảng balance chỉ là materialized view có version.
 
-### 2.3. Stack và lý do chọn
+### 2.3. Chiến lược web-first và khả năng tái sử dụng cho mobile
 
-| Lớp                  | Công nghệ                                                                                                       | Lý do                                                                                                                                                                |
-| -------------------- | --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Backend              | **NestJS + TypeScript**                                                                                         | Cùng ngôn ngữ với FE ⇒ đội 1–2 dev dùng chung type/DTO/validation. DI + module boundary sẵn có.                                                                      |
-| DB chính             | **PostgreSQL 16**                                                                                               | ACID nghiêm ngặt cho ledger, `SELECT FOR UPDATE`, partial index, JSONB cho payload sàn, FTS tiếng Việt (`unaccent` + `pg_trgm`).                                     |
-| Cache / Lock / Queue | **Redis 7 + BullMQ**                                                                                            | Reservation lock, rate-limit, hàng đợi job. Không cần Kafka ở quy mô <10k đơn/tháng.                                                                                 |
-| Object storage       | **Cloudflare R2** (hoặc VNG Cloud Object Storage)                                                               | Video khiếu nại tốn dung lượng; R2 **egress = 0đ** - quan trọng vì admin xem lại video nhiều. Cân nhắc VNG/Viettel để đảm bảo lưu trú dữ liệu (xem `05-PHAP-LY` §4). |
-| Search               | PG FTS (v1) → **Meilisearch** (v2)                                                                              | Dưới 50k listing, PG FTS là đủ. Không tự dựng OpenSearch ở GĐ1.                                                                                                      |
-| Mobile               | **React Native + Expo (dev client)**                                                                            | 1 codebase iOS/Android. `react-native-vision-camera` + ML Kit cho quét barcode/OCR on-device.                                                                        |
-| Web + Admin          | **Next.js 15 (App Router)**                                                                                     | SEO cho trang sản phẩm (quan trọng để buyer tìm thấy), SSR, dùng chung API client & type với RN qua package `@rebox/shared`.                                         |
-| AI service           | **Python FastAPI** + ffmpeg, PySceneDetect, ONNXRuntime, CLIP, YOLO; **Claude API** cho reasoning trên keyframe | Hệ sinh thái CV chỉ có ở Python. VLM cho phần "khác xa mô tả" - bài toán ngôn ngữ + thị giác mà model cổ điển không làm được.                                        |
-| IaC / Deploy         | Docker Compose (GĐ1) → Kubernetes hoặc Fly/ECS (GĐ2)                                                            | Ngân sách GĐ1 chỉ cho 1–2 VPS.                                                                                                                                       |
-| Observability        | OpenTelemetry → Grafana Cloud free tier / self-host Loki + Prometheus                                           | Bắt buộc có từ ngày đầu vì luồng tiền.                                                                                                                               |
+> **Quyết định:** làm **web trước, mobile sau**. Mục tiêu là khi làm mobile ở GĐ3 thì tái sử dụng được tối đa, chứ không phải viết lại từ đầu.
 
-### 2.4. Cấu trúc monorepo
+#### 2.3.1. Cái gì tái sử dụng được, cái gì không
+
+Không có framework nào "chuyển web thành mobile". React Native **không chạy** HTML/CSS — `<div>`, `<span>`, CSS thật đều không tồn tại. **Tầng giao diện luôn phải viết lại**, bất kể chọn công nghệ gì.
+
+| Tái sử dụng được | Phải viết lại |
+|---|---|
+| Kiểu dữ liệu, DTO, schema Zod | Toàn bộ màn hình |
+| API client (sinh từ OpenAPI) | Điều hướng |
+| Logic nghiệp vụ: tính phí, định dạng tiền, state machine | Component UI |
+| Quản lý state server (TanStack Query) | |
+| Validate form | |
+
+Tổ chức code kỷ luật ⇒ dùng lại **50–60%**. Không kỷ luật ⇒ gần **0%**. **Đây mới là yếu tố quyết định, không phải việc chọn framework nào.**
+
+#### 2.3.2. Vì sao không dùng một codebase duy nhất
+
+Phương án **Expo + React Native Web** cho một codebase chạy cả web lẫn native, tái sử dụng ~85%. Đã cân nhắc và **loại**.
+
+Lý do: nó xuất ra SPA, Google index kém — trong khi kênh thu hút người mua của REBOX phụ thuộc vào việc tìm thấy trang sản phẩm qua tìm kiếm. Next.js SSR giải quyết việc đó.
+
+**Đánh đổi có ý thức:** mất ~35% khả năng tái sử dụng để giữ SEO. Với mô hình marketplace, đáng.
+
+#### 2.3.3. Mắt xích giao diện duy nhất mang sang được: Tailwind → NativeWind
+
+Chọn **Tailwind** thay vì CSS Modules hay styled-components vì **NativeWind cho phép dùng đúng class name đó trên React Native**:
+
+```jsx
+// chạy được ở CẢ Next.js lẫn React Native
+<View className="flex-1 p-4 rounded-lg bg-white" />
+```
+
+Đây là mắt xích duy nhất trong tầng giao diện có thể mang sang. Chọn sai chỗ này là mất luôn khả năng tái sử dụng UI.
+
+### 2.4. Stack và lý do chọn
+
+| Lớp | Công nghệ | Lý do |
+|---|---|---|
+| Backend | **NestJS + TypeScript** | Cùng ngôn ngữ với FE ⇒ dùng chung type/DTO/validation. DI giúp test được sổ cái; module boundary ép kỷ luật. ⚠️ Đường học dốc hơn Express — xem §2.6 |
+| DB chính | **PostgreSQL 16** | ACID nghiêm ngặt cho ledger, `SELECT FOR UPDATE`, partial index, JSONB cho payload sàn, FTS tiếng Việt (`unaccent` + `pg_trgm`) |
+| ORM | **Drizzle** | SQL-first, type-safe, migration rõ ràng. Quan trọng với module ví: cần nhìn thấy SQL thật đang chạy |
+| Cache / Lock / Queue | **Redis 7 + BullMQ** | Reservation lock, rate-limit, hàng đợi job. Không cần Kafka ở quy mô <10k đơn/tháng |
+| Object storage | **Cloudflare R2** (hoặc VNG Cloud) | Video khiếu nại tốn dung lượng; R2 **egress = 0đ**. Cân nhắc VNG/Viettel để đảm bảo lưu trú dữ liệu (`05-PHAP-LY` §4) |
+| Search | PG FTS (v1) → **Meilisearch** (v2) | Dưới 50k listing, PG FTS là đủ |
+| **Web + Admin** | **Next.js 15 (App Router)** | **Nền tảng chính của GĐ1.** SEO cho trang sản phẩm, SSR |
+| UI | **Tailwind + shadcn/ui** | shadcn là code copy vào repo, không phải dependency nặng. Tailwind là mắt xích sang NativeWind (§2.3.3) |
+| State | **TanStack Query + Zustand** | Query cho server state; Zustand cho UI state cục bộ. Cả hai chạy được trên RN |
+| Form | **React Hook Form + Zod** | Zod schema dùng chung với backend qua `packages/shared` |
+| **Mobile (GĐ3)** | **Expo + NativeWind** | Thêm sau. `react-native-vision-camera` + ML Kit cho quét barcode/OCR on-device |
+| AI service | **Python FastAPI** + ffmpeg, PySceneDetect, ONNXRuntime, CLIP, YOLO; **Claude API** cho reasoning trên keyframe | Hệ sinh thái CV chỉ có ở Python |
+| IaC / Deploy | Docker Compose (GĐ1) → Kubernetes hoặc Fly/ECS (GĐ2) | Ngân sách GĐ1 chỉ cho 1–2 VPS |
+| Observability | OpenTelemetry → Grafana Cloud free tier / self-host Loki + Prometheus | Bắt buộc có từ ngày đầu vì luồng tiền |
+
+### 2.5. Cấu trúc monorepo — quyết định thật nằm ở đây
 
 ```
 rebox/
 ├─ apps/
-│  ├─ api/              # NestJS core
-│  ├─ worker/           # BullMQ workers (dùng chung code với api)
-│  ├─ web/              # Next.js - buyer + seller + admin
-│  ├─ mobile/           # React Native Expo
-│  └─ ai-triage/        # Python FastAPI
+│  ├─ api/          # NestJS
+│  ├─ worker/       # BullMQ, dùng chung code với api
+│  ├─ web/          # Next.js — buyer + seller + admin
+│  ├─ mobile/       # Expo — THÊM Ở GĐ3, để trống bây giờ
+│  └─ ai-triage/    # Python FastAPI — GĐ3
 ├─ packages/
-│  ├─ shared/           # DTO, zod schema, enum, money utils  (TS)
-│  ├─ api-client/       # SDK gọi API sinh từ OpenAPI
-│  └─ ui/               # design system dùng chung web/mobile (tamagui hoặc nativewind)
+│  ├─ shared/       # ⭐ type, enum, Zod schema, hằng số
+│  ├─ core/         # ⭐ logic thuần: tính phí, định dạng, state machine
+│  ├─ api-client/   # ⭐ sinh từ OpenAPI
+│  └─ ui-tokens/    # màu, spacing, typography — dạng token, KHÔNG phải CSS
 ├─ db/
-│  ├─ migrations/       # Prisma/Drizzle migrations
+│  ├─ migrations/
 │  └─ seeds/
-└─ docs/                # chính là thư mục này
+└─ docs/
 ```
+
+Ba package đánh dấu ⭐ quyết định việc làm mobile sau này mất **3 tuần hay 3 tháng**.
+
+#### Ba quy tắc bắt buộc giữ từ ngày đầu
+
+| # | Quy tắc | Vi phạm thì sao |
+|---|---|---|
+| 1 | **Không gọi `fetch` trong component.** Mọi lời gọi API đi qua `packages/api-client` | Làm mobile phải viết lại toàn bộ tầng gọi API |
+| 2 | **Không tính toán nghiệp vụ trong component.** Tính phí, quy đổi điểm, kiểm tra điều kiện — nằm trong `packages/core`, là hàm thuần, có test | **Lỗi tốn kém nhất.** Logic tính phí rải trong JSX thì mobile phải viết lại, và hai bên sẽ lệch nhau — nghĩa là hai bản tính tiền khác nhau |
+| 3 | **Không import gì từ `apps/web` vào `packages/`** | Package biết mình chạy trên web ⇒ không mang sang native được |
+
+Ba quy tắc này nên là **lint rule**, không phải thỏa thuận miệng. Cấu hình `eslint-plugin-boundaries` hoặc `dependency-cruiser` để CI chặn tự động.
+
+### 2.6. Hai cảnh báo trước khi bắt đầu
+
+**NestJS có đường học dốc.** Decorator, dependency injection, module system — mất khoảng **1 tuần** để quen nếu chưa từng dùng. Vẫn giữ vì hệ thống xử lý tiền cần khung sườn ép kỷ luật. Nhưng **dành hẳn tuần đầu Sprint 1 để học, đừng vừa học vừa code module ví.**
+
+**Quét mã vạch trên trình duyệt có giới hạn thật:**
+
+| | Android Chrome | iOS Safari |
+|---|---|---|
+| `BarcodeDetector` API | ✅ nhanh | ❌ không hỗ trợ |
+| ZXing WASM (dự phòng) | ✅ | ✅ nhưng **chậm hơn rõ rệt** |
+
+Nhân viên kho quét 50 kiện liên tiếp trên iPhone bằng web sẽ thấy khó chịu. Đây là lý do **app mobile cho seller đáng làm trước app cho buyer** ở GĐ3 — ngược với trực giác thông thường.
 
 ---
 

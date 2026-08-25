@@ -56,7 +56,7 @@ Thứ tự ưu tiên: **full-stack dev** trước, **marketing** sau. Ba hình t
 
 | Nguyên tắc                   | Áp dụng                                                                                                                                                         |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Web trước, mobile sau**    | Next.js responsive dùng được trên điện thoại. Quét mã vận đơn chạy được bằng camera trên trình duyệt (`BarcodeDetector` API / ZXing). Tiết kiệm ~4 người-tháng. |
+| **Web trước, mobile sau**    | Next.js responsive dùng được trên điện thoại. Quét mã chạy bằng camera trình duyệt (`BarcodeDetector` / ZXing) - **có giới hạn trên iOS**, xem `01-SPEC` §2.6. Tiết kiệm ~4 người-tháng. Chiến lược tái sử dụng cho mobile: `01-SPEC` §2.3 |
 | **Con người trước, AI sau**  | GĐ1 admin xử lý 100% tranh chấp thủ công. Ở 500 đơn/tháng với ~3% khiếu nại = 15 vụ/tháng - một người xử lý thừa sức. AI chỉ đáng làm khi đạt ~2.000 đơn/tháng. |
 | **CSV trước, API sàn sau**   | Import CSV là 3 ngày công. Tích hợp Shopee Open API là 3–4 tuần cộng rủi ro không được duyệt (L7).                                                              |
 | **Đúng tiền trước, đẹp sau** | Ví ký quỹ và sổ cái phải hoàn thiện từ ngày đầu. Sai sót ở đây không sửa được bằng bản vá.                                                                      |
@@ -103,9 +103,15 @@ Mục tiêu: **một đơn hàng thật, từ đăng bán đến hoàn tất đ�
 
 ### Sprint 1 - Nền tảng kỹ thuật
 
+> ⚠️ **Sprint 1 dài 3 tuần thay vì 2**, vì tuần đầu dành cho việc làm quen công nghệ. NestJS có decorator, dependency injection, module system - mất khoảng 1 tuần nếu chưa từng dùng. **Đừng vừa học vừa code module ví.** Nếu cả hai dev đã quen NestJS + Next.js thì bỏ tuần này, quay lại 2 tuần.
+>
+> Tuần học: dựng thử một CRUD nhỏ có transaction + test, không phải đọc tài liệu suông.
+
 | Việc                                                           | Nghiệm thu                                                |
 | -------------------------------------------------------------- | --------------------------------------------------------- |
 | **🔬 Khảo sát nhãn vật lý trên kiện hàng hoàn** - xem bên dưới | Bảng liệt kê trường dữ liệu in trên nhãn, theo từng nguồn |
+| **Dựng `packages/shared`, `core`, `api-client` ngay từ đầu**   | 3 package tồn tại và có ít nhất 1 hàm thật trong mỗi cái  |
+| **Lint rule chặn vi phạm ranh giới package**                   | CI fail khi component gọi `fetch` trực tiếp hoặc `packages/` import từ `apps/web` |
 | Monorepo, CI/CD, môi trường dev/staging/prod                   | Push lên `main` tự động deploy staging                    |
 | Schema DB + migration (toàn bộ bảng ở `01-SPEC` §4)            | `pnpm db:migrate` chạy sạch từ đầu                        |
 | Auth: đăng ký/đăng nhập OTP, JWT, refresh xoay vòng, RBAC      | Test tự động cho 3 vai trò                                |

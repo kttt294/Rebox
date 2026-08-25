@@ -43,7 +43,7 @@ Không cần tra lại trong tài liệu, dùng bảng này:
 
 | Sprint | Đọc | Bỏ qua phần còn lại |
 |---|---|---|
-| **1** — Nền tảng | `01` §2 (kiến trúc, stack), §4 (data model), §9 (NFR) | |
+| **1** — Nền tảng | `01` **§2.3 (tái sử dụng cho mobile), §2.5 (3 quy tắc monorepo), §2.6 (cảnh báo)**, §4 (data model), §9 (NFR) | |
 | **2** — Catalog & kho hoàn | `01` §7.1 · `02` §2 · `03` §2, §3 · `06` §7 | `06` §2–6 là việc của Pháp lý |
 | **3** — Ví & sổ cái ⭐ | `01` §5 (**đọc kỹ**) · `02` §1, §4 · `00` §L1, §L2, §L3 | |
 | **4** — Thanh toán | `01` §7.3 · `02` §3 | |
@@ -106,3 +106,19 @@ Bảy điều này nên đưa thẳng vào checklist review code, không phải 
 **Đừng gọi HTTP bên ngoài trong database transaction.** Ghi ledger + ghi `outbox` trong cùng transaction, worker đọc outbox gọi ra ngoài sau.
 
 **Đừng tin client về tiền.** Mọi số tiền tính lại ở backend. Frontend được hiển thị ước tính nhưng phải gắn nhãn "dự kiến".
+
+---
+
+## 8. Ba quy tắc monorepo — quyết định mobile sau này mất 3 tuần hay 3 tháng
+
+Web làm trước, mobile làm ở GĐ3. **Tầng giao diện luôn phải viết lại** (React Native không chạy HTML/CSS), nhưng 50–60% còn lại thì dùng lại được — nếu giữ đúng ba quy tắc:
+
+| # | Quy tắc | Vi phạm thì sao |
+|---|---|---|
+| 1 | Không gọi `fetch` trong component — đi qua `packages/api-client` | Mobile phải viết lại toàn bộ tầng gọi API |
+| 2 | **Không tính toán nghiệp vụ trong component** — nằm ở `packages/core`, hàm thuần, có test | **Tốn kém nhất.** Logic tính phí rải trong JSX ⇒ mobile viết lại ⇒ hai bản tính tiền lệch nhau |
+| 3 | `packages/` không được import từ `apps/web` | Package biết mình chạy trên web ⇒ không mang sang native được |
+
+Ba quy tắc này là **lint rule trong CI**, không phải thỏa thuận miệng. Chi tiết: `01-SPEC` §2.5.
+
+Dùng **Tailwind**, không dùng CSS Modules hay styled-components — NativeWind cho phép dùng lại đúng class name đó trên React Native. Đây là mắt xích duy nhất trong tầng UI mang sang được.
