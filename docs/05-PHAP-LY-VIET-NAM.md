@@ -356,6 +356,21 @@ Trần "giá bán tối đa 90% giá gốc" mà tài liệu gốc và `hosodangk
 
 **Bắt buộc:** phân biệt nguồn gốc giá bằng cột `price_source` (`01-SPEC` §4.2.1) và **không hiển thị** `original_price`, `discount_pct`, hay trần 90% cho listing có `price_source = SELLER_DECLARED`. Chỉ hiển thị `price`. Thực thi ở tầng response serializer của API, không phải quy ước ở giao diện - để không phụ thuộc vào việc từng client (web, mobile, đối tác Public API) có tuân thủ đúng hay không.
 
+#### 5.3.2. 🟡 Phân biệt: "giá tham chiếu ảo" (đã xử lý) khác với "chưa kiểm chứng độ cạnh tranh của giá" (không thể xử lý triệt để)
+
+Hai vấn đề dễ bị gộp làm một khi đọc nhanh, nhưng cần tách bạch vì cách xử lý và mức độ rủi ro khác nhau:
+
+| | Giá tham chiếu ảo (§5.3.1) | Chưa kiểm chứng tính cạnh tranh (mục này) |
+|---|---|---|
+| Câu hỏi pháp lý | REBOX có đang **công bố** một con số sai sự thật không? | REBOX có đang **đảm bảo** một điều mà mình không kiểm chứng được không? |
+| Có xử lý dứt điểm được không | Có - ẩn con số không kiểm chứng được là đủ | Không - không tồn tại nguồn dữ liệu độc lập để REBOX biết "giá thị trường" của một món hàng tùy ý |
+| Cách xử lý | Kỹ thuật: ẩn `original_price`/`discount_pct` ở tầng API | Sản phẩm: để cơ chế lựa chọn của người mua tự điều tiết (buyer không mua hàng định giá không hợp lý) |
+| Rủi ro còn lại nếu xử lý đúng | Không còn - đã loại bỏ được thông tin sai | **Rủi ro không nằm ở việc thiếu cơ chế kiểm soát giá**, mà ở việc **hồ sơ/marketing tuyên bố một cam kết REBOX không giữ được** |
+
+**Quyết định sản phẩm đã chốt:** REBOX không chủ động kiểm soát hay xác nhận tính cạnh tranh của giá đối với listing `SELLER_DECLARED`. Đây là lựa chọn hợp lý, tương tự cách các nền tảng rao vặt ngang hàng vận hành (Chợ Tốt, Facebook Marketplace) - không nền tảng nào giải được bài toán "biết giá thị trường thật" ở mức từng listing riêng lẻ, và cố xử lý bằng luật cứng chỉ tạo ảo giác kiểm soát chứ không tạo ra kiểm soát thật.
+
+**Hệ quả bắt buộc kéo theo:** vì REBOX không giữ cam kết này cho toàn sàn, **mọi phát biểu tuyệt đối kiểu "REBOX luôn có giá thấp hơn thị trường"** - dù trong Quy chế sàn, tài liệu quảng bá, hay chính hồ sơ dự thi - đều là rủi ro thông tin gây nhầm lẫn, cùng bản chất với các mục đã sửa ở §5.4 (M7, "100% có lợi"...). Không cần xây thêm cơ chế kỹ thuật nào, chỉ cần **giới hạn đúng phạm vi câu chữ**: mọi tuyên bố về mức giá tốt hơn thị trường phải nêu rõ áp dụng cho nhóm `VERIFIED_*` (giá đã đối chiếu, trần 90% được ép cứng), không diễn đạt như áp dụng cho toàn bộ sản phẩm trên sàn.
+
 ### 5.4. Cam kết quảng bá phải chính xác
 
 | Câu trong tài liệu/UI                               | Vấn đề                                          | Sửa                                                      |

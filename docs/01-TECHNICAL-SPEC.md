@@ -372,6 +372,10 @@ Nghiêm trọng hơn: hiển thị `original_price` gạch ngang kèm % giảm c
 
 Endpoint public (`GET /listings/{id}`, danh sách tìm kiếm) **không serialize** `original_price` khi `price_source = SELLER_DECLARED`, kể cả khi cột đó có giá trị trong DB. Đây là quy tắc ở tầng response serializer, không phải quy ước ở frontend — tránh trường hợp một client khác (web, mobile, hoặc đối tác Public API) vô tình hiển thị con số chưa kiểm chứng.
 
+**Về tính cạnh tranh của giá (khác với tính xác thực của giá gốc, xem thêm `05-PHAP-LY` §5.3.1):** với `SELLER_DECLARED`, REBOX chỉ đảm bảo *không hiển thị mức giảm giả*, KHÔNG đảm bảo *giá bán có thực sự cạnh tranh so với thị trường*. Đây là giới hạn có chủ đích, không phải thiếu sót: không có nguồn dữ liệu độc lập nào để REBOX xác định "giá thị trường" của một món hàng tồn kho hay hàng hoàn tùy ý — bài toán này không nền tảng rao vặt nào giải được ở mức từng listing.
+
+Quyết định thiết kế: để cơ chế lựa chọn của người mua tự điều tiết, đúng như mọi sàn rao vặt ngang hàng (Chợ Tốt, Facebook Marketplace) vận hành với listing không xác tín. Sản phẩm định giá không hợp lý sẽ khó bán, tạo áp lực buộc seller tự điều chỉnh giá cạnh tranh hơn. REBOX không chủ động can thiệp giá ở nhóm này, và **không đưa ra bất kỳ cam kết nào về mức độ cạnh tranh của giá** cho listing `SELLER_DECLARED` trong Quy chế sàn lẫn nội dung truyền thông — hệ quả trực tiếp: mọi tuyên bố "giá thấp hơn thị trường" ở bất kỳ đâu (UI, tài liệu, marketing) phải giới hạn phạm vi rõ ràng cho nhóm `VERIFIED_*`, không được diễn đạt như áp dụng cho toàn sàn.
+
 -- ========== KHO HÀNG HOÀN ==========
 CREATE TABLE return_items (
   id                    TEXT PRIMARY KEY,
