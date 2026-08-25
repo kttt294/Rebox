@@ -16,6 +16,13 @@ build/
 .next/
 .turbo/
 coverage/
+test-results/
+playwright-report/
+
+# Supabase CLI local state
+supabase/.branches/
+supabase/.temp/
+supabase/snippets/
 
 # Môi trường & bí mật
 .env

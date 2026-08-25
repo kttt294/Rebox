@@ -1,5 +1,14 @@
 {
   "name": "@rebox/shared",
   "version": "0.0.0",
-  "private": true
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "4.4.3"
+  }
 }

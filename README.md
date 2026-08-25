@@ -33,3 +33,46 @@ Công thức hold, activation deposit, checkout một seller, TTL và phạm vi 
 ## Ghi chú
 
 `REBOX.docx` là tài liệu nguồn cục bộ và được loại trừ qua `.gitignore`. Bản prototype làm việc hiện nằm tại `docs/REBOX-UI/`, chỉ là tham chiếu UX và không phải nguồn quyết định canonical. Trước khi publish repo, chủ dự án phải rà soát quyền chia sẻ và dữ liệu nhạy cảm của các asset này.
+
+## Chạy Sprint 1 trên máy local
+
+Yêu cầu: Node `24.11.1`, Docker Desktop đang chạy và Corepack đi kèm Node.
+
+```powershell
+corepack pnpm install
+corepack pnpm db:start
+corepack pnpm db:migrate
+corepack pnpm db:seed
+```
+
+Lấy `PUBLISHABLE_KEY` từ `corepack pnpm supabase status -o env`, rồi tạo
+`apps/web/.env.local` theo `.env.example`. Không đưa `SECRET_KEY`,
+`SERVICE_ROLE_KEY` hoặc database credential vào biến `NEXT_PUBLIC_*`.
+
+Hai tài khoản local synthetic để kiểm tra publish gate:
+
+```text
+verified-seller@rebox.test / Synthetic-Test-Password-123!
+pending-seller@rebox.test  / Synthetic-Test-Password-123!
+```
+
+Chạy ba runtime ở ba terminal:
+
+```powershell
+corepack pnpm --filter @rebox/api dev
+corepack pnpm --filter @rebox/worker dev
+corepack pnpm --filter @rebox/web dev
+```
+
+Kiểm tra toàn bộ:
+
+```powershell
+corepack pnpm lint
+corepack pnpm typecheck
+corepack pnpm test
+corepack pnpm build
+corepack pnpm test:e2e
+```
+
+Local seed chỉ chứa fixture synthetic. Trước khi A14 đóng, không nhập dữ liệu
+người dùng, nhãn vận đơn, eKYC, thanh toán hoặc production dump thật.

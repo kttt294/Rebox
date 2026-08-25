@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.11.1
+      - name: Install dependencies
+        run: corepack pnpm install --frozen-lockfile
+      - name: Start local Supabase
+        run: corepack pnpm supabase start
+      - name: Apply canonical migration and synthetic seed
+        run: corepack pnpm db:migrate && corepack pnpm db:seed
+      - name: Verify generated API contract
+        run: corepack pnpm --filter @rebox/api-client generate && git diff --exit-code -- packages/api-client/src/generated.ts
+      - name: Lint
+        run: corepack pnpm lint
+      - name: Typecheck
+        run: corepack pnpm typecheck
+      - name: Test
+        run: corepack pnpm test
+      - name: Build
+        run: corepack pnpm build
+      - name: Install Chromium
+        run: corepack pnpm exec playwright install --with-deps chromium
+      - name: Browser smoke test
+        run: corepack pnpm test:e2e

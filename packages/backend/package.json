@@ -1,5 +1,21 @@
 {
   "name": "@rebox/backend",
   "version": "0.0.0",
-  "private": true
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "seed": "node dist/platform/database/seed.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@rebox/shared": "workspace:*",
+    "drizzle-orm": "0.45.2",
+    "pg": "8.23.0",
+    "ulid": "3.0.2"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  }
 }

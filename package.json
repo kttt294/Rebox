@@ -1,5 +1,37 @@
 {
   "name": "rebox",
   "version": "0.0.0",
-  "private": true
+  "private": true,
+  "packageManager": "pnpm@11.24.0",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "build": "corepack pnpm -r build",
+    "dev": "corepack pnpm --parallel --filter @rebox/api --filter @rebox/worker --filter @rebox/web dev",
+    "lint": "eslint .",
+    "typecheck": "corepack pnpm --filter @rebox/shared build && corepack pnpm --filter @rebox/api-client build && corepack pnpm --filter @rebox/backend build && corepack pnpm -r typecheck",
+    "test": "corepack pnpm --filter @rebox/shared build && corepack pnpm --filter @rebox/backend build && vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "db:start": "supabase start",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "corepack pnpm --filter @rebox/shared build && corepack pnpm --filter @rebox/backend build && corepack pnpm --filter @rebox/backend seed",
+    "db:reset": "supabase db reset --local --no-seed && corepack pnpm db:migrate && corepack pnpm db:seed",
+    "supabase": "supabase"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@nestjs/cli": "11.0.24",
+    "@playwright/test": "1.62.1",
+    "@types/node": "24.10.4",
+    "drizzle-kit": "0.31.10",
+    "eslint": "10.9.1",
+    "openapi-typescript": "7.13.0",
+    "supabase": "2.115.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.68.0",
+    "vitest": "4.1.11"
+  }
 }

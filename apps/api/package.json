@@ -1,5 +1,25 @@
 {
   "name": "@rebox/api",
   "version": "0.0.0",
-  "private": true
+  "private": true,
+  "scripts": {
+    "build": "nest build",
+    "dev": "nest start --watch",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nestjs/common": "11.2.3",
+    "@nestjs/core": "11.2.3",
+    "@nestjs/platform-express": "11.2.3",
+    "@nestjs/swagger": "11.4.7",
+    "@rebox/backend": "workspace:*",
+    "@rebox/shared": "workspace:*",
+    "jose": "5.10.0",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "11.2.3"
+  }
 }
