@@ -2,13 +2,15 @@
 
 :root {
   color-scheme: light;
-  --ink: #101828;
+  --ink: #102845;
   --muted: #66758b;
   --paper: #f4f7fb;
   --card: #ffffff;
-  --accent: #1968ee;
-  --accent-soft: #eaf2ff;
-  --nav-surface: #eef3f9;
+  --accent: #477cc3;
+  --accent-strong: #3567b0;
+  --accent-header: #4c83d4;
+  --accent-soft: #eef5fd;
+  --nav-surface: #eef5fd;
   --line: #dce5f0;
   --line-strong: #cbd7e6;
   --success: #07966b;
@@ -22,7 +24,7 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font-family: Arial, "Helvetica Neue", sans-serif;
+  font-family: var(--font-roboto), Roboto, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 a { color: inherit; text-decoration: none; }
@@ -32,8 +34,22 @@ button:disabled { cursor: not-allowed; }
 input, select, textarea { color: var(--ink); }
 input::placeholder, textarea::placeholder { color: #98a6b8; }
 input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible {
-  outline: 3px solid rgb(25 104 238 / 22%);
+  outline: 3px solid rgb(71 124 195 / 24%);
   outline-offset: 2px;
+}
+
+.rebox-container {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 1264px;
+}
+
+@media (min-width: 1440px) {
+  .rebox-container {
+    margin-left: calc((100vw - 1264px) / 2);
+    margin-right: 0;
+    width: 1264px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

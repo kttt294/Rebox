@@ -1,0 +1,47 @@
+import Link from "next/link";
+import type { ReactNode } from "react";
+
+type FinanceTab = "overview" | "wallet";
+
+function SellerNavItem({ active, children, href }: { active?: boolean; children: ReactNode; href?: string }) {
+  const className = `flex h-[34px] w-[184px] items-center rounded-xl px-3 text-[13px] ${active ? "bg-[var(--accent-soft)] text-[var(--accent)]" : "text-[var(--ink)]"}`;
+  if (!href) return <span className={className}>{children}</span>;
+  return (
+    <Link aria-current={active ? "page" : undefined} className={className} href={href}>{children}</Link>
+  );
+}
+
+export function SellerShell({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-h-[calc(100vh-52px)] bg-[var(--paper)] xl:h-[calc(100vh-52px)] xl:min-h-0 xl:overflow-hidden">
+      <aside className="hidden w-[220px] shrink-0 border-r border-[var(--line)] bg-white px-4 py-[18px] xl:block">
+        <nav aria-label="Điều hướng Seller Center">
+          <p className="mb-1 text-[11px] font-medium text-[var(--muted)]">QUẢN LÝ BÁN HÀNG</p>
+          <div className="grid gap-1">
+            <SellerNavItem>Tất cả</SellerNavItem>
+            <SellerNavItem>Quản Lý Kho Hàng</SellerNavItem>
+            <SellerNavItem>Khiếu nại / Hoàn trả</SellerNavItem>
+          </div>
+          <p className="mb-1 mt-5 text-[11px] font-medium text-[var(--muted)]">TÀI CHÍNH</p>
+          <SellerNavItem active href="/seller/finance">Đối Soát &amp; Ví Ký Quỹ</SellerNavItem>
+          <p className="mb-1 mt-5 text-[11px] font-medium text-[var(--muted)]">DỮ LIỆU</p>
+          <SellerNavItem>Báo Cáo Hiệu Suất</SellerNavItem>
+        </nav>
+      </aside>
+      <main className="min-w-0 flex-1 p-4 sm:p-6 xl:overflow-hidden">{children}</main>
+    </div>
+  );
+}
+
+export function FinanceWorkspace({ active, children }: { active: FinanceTab; children: ReactNode }) {
+  return (
+    <section className="flex min-h-[900px] w-full flex-col gap-3 overflow-hidden rounded-[18px] bg-white p-4 shadow-[0_3px_10px_rgba(16,40,69,0.08)] ring-1 ring-inset ring-[var(--line)] sm:p-6 xl:h-full xl:min-h-0">
+      <h1 className="h-[33px] text-[24px] font-bold leading-[33px] text-[var(--ink)] sm:text-[28px]">Đối Soát Tài Chính &amp; Ví Ký Quỹ</h1>
+      <nav className="flex h-11 shrink-0 items-end gap-2" aria-label="Đối soát tài chính">
+        <Link className={`flex h-9 w-[94px] flex-col items-center justify-end gap-2 px-3.5 text-sm font-medium ${active === "overview" ? "text-[var(--accent)]" : "text-[var(--muted)]"}`} href="/seller/finance"><span className="whitespace-nowrap">Tổng quan</span><span className={`h-[3px] rounded-sm ${active === "overview" ? "w-[54px] bg-[var(--accent)]" : "w-[54px]"}`} /></Link>
+        <Link className={`flex h-9 w-[88px] flex-col items-center justify-end gap-2 px-3.5 text-sm font-medium ${active === "wallet" ? "text-[var(--accent)]" : "text-[var(--muted)]"}`} href="/seller/wallet"><span className="whitespace-nowrap">Lịch sử ví</span><span className={`h-[3px] rounded-sm ${active === "wallet" ? "w-[60px] bg-[var(--accent)]" : "w-[60px]"}`} /></Link>
+      </nav>
+      {children}
+    </section>
+  );
+}

@@ -1,17 +1,18 @@
-import Link from "next/link";
+import { storefrontProducts } from "../features/commerce-data";
+import { ProductCard } from "../features/product-card";
 
 export default function HomePage() {
   return (
-    <main className="mx-auto grid min-h-[75vh] max-w-6xl place-items-center px-5 py-16">
-      <section className="max-w-3xl text-center">
-        <p className="mb-4 text-sm font-bold uppercase tracking-[0.2em] text-[var(--accent)]">Hàng hoàn, cơ hội mới</p>
-        <h1 className="text-5xl font-black leading-tight sm:text-7xl">Món hàng tốt không nên bị bỏ quên.</h1>
-        <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[var(--muted)]">
-          REBOX giúp shop đăng bán minh bạch hàng hoàn và giúp người mua tìm được sản phẩm phù hợp với mức giá dễ tiếp cận.
-        </p>
-        <div className="mt-9 flex flex-wrap justify-center gap-3">
-          <Link className="rounded-full bg-[var(--accent)] px-6 py-3 font-bold text-white" href="/seller">Bắt đầu đăng bán</Link>
-          <Link className="rounded-full border border-[var(--line)] bg-white px-6 py-3 font-bold" href="/login">Đăng nhập</Link>
+    <main>
+      <section className="h-[72px] overflow-hidden bg-white px-4 pt-5 sm:px-6 xl:px-0">
+        <div className="rebox-container text-center">
+          <h1 className="text-lg font-medium leading-[22px] text-[var(--accent)]">GỢI Ý HÔM NAY</h1>
+          <div className="mt-4 h-1 w-full rounded-sm bg-[var(--accent)]" />
+        </div>
+      </section>
+      <section className="min-h-[760px] bg-[var(--paper)] px-4 pb-7 pt-5 sm:px-6 xl:px-0">
+        <div className="rebox-container grid grid-cols-1 gap-x-3 gap-y-4 min-[440px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[repeat(6,200px)]">
+          {storefrontProducts.map((product) => <ProductCard key={product.id} product={product} />)}
         </div>
       </section>
     </main>

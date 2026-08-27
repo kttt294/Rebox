@@ -1,6 +1,7 @@
 # Tài liệu nguồn và prototype — giữ ở máy, không đẩy lên repo public
 REBOX.docx
 *.docx
+.codex/
 
 # Hệ điều hành / IDE
 Thumbs.db
