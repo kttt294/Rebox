@@ -37,15 +37,15 @@ function CartProduct({
     <section className="overflow-hidden rounded-lg border border-[var(--line)] bg-white shadow-[0_3px_10px_rgba(16,40,69,0.08)] xl:h-[185px]">
       <div className="grid h-[52px] grid-cols-[18px_1fr_auto] items-center gap-3 px-5">
         <SelectionBox checked={selected} label={`Chọn sản phẩm của ${group.shopName}`} onChange={onSelect} />
-        <h2 className="text-sm font-medium">{group.shopName}</h2>
-        <button className="text-xs font-medium text-[var(--accent)]" type="button">Chat với shop</button>
+        <Link className="text-sm font-medium hover:text-[var(--accent)]" href="/shops/rebox-official-store">{group.shopName}</Link>
+        <Link className="text-xs font-medium text-[var(--accent)]" href="/shops/rebox-official-store">Xem shop</Link>
       </div>
       <div className="h-px bg-[#e7edf5]" />
       <div className="grid min-h-[132px] gap-4 px-5 py-4 xl:grid-cols-[18px_88px_minmax(0,572px)_110px_120px_120px_100px] xl:items-center">
         <SelectionBox checked={selected} label={`Chọn ${product.title}`} onChange={onSelect} />
         <ProductVisual className={`size-[88px] text-[17px] ${group.id === "official-tech" ? "bg-[#5c91c9]" : "bg-[#4f7dc2]"}`} label={product.visualLabel} />
         <div className="min-w-0 self-stretch">
-          <h3 className="text-sm leading-5">{product.title}</h3>
+          <Link className="text-sm leading-5 hover:text-[var(--accent)]" href={`/listings/${product.id}`}>{product.title}</Link>
           <p className="mt-1 text-xs leading-[18px] text-[var(--muted)]">Phân loại: {product.variant}</p>
         </div>
         <div className="text-sm font-medium xl:w-[110px]">

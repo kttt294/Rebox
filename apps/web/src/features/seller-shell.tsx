@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 type FinanceTab = "overview" | "wallet";
@@ -12,23 +15,24 @@ function SellerNavItem({ active, children, href }: { active?: boolean; children:
 }
 
 export function SellerShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+
   return (
     <div className="flex min-h-[calc(100vh-52px)] bg-[var(--paper)] xl:h-[calc(100vh-52px)] xl:min-h-0 xl:overflow-hidden">
       <aside className="hidden w-[220px] shrink-0 border-r border-[var(--line)] bg-white px-4 py-[18px] xl:block">
         <nav aria-label="Điều hướng Seller Center">
           <p className="mb-1 text-[11px] font-medium text-[var(--muted)]">QUẢN LÝ BÁN HÀNG</p>
           <div className="grid gap-1">
-            <SellerNavItem>Tất cả</SellerNavItem>
-            <SellerNavItem>Quản Lý Kho Hàng</SellerNavItem>
-            <SellerNavItem>Khiếu nại / Hoàn trả</SellerNavItem>
+            <SellerNavItem active={pathname === "/seller/inventory"} href="/seller/inventory">Quản Lý Kho Hàng</SellerNavItem>
+            <SellerNavItem active={pathname === "/seller/returns"} href="/seller/returns">Khiếu nại / Hoàn trả</SellerNavItem>
           </div>
           <p className="mb-1 mt-5 text-[11px] font-medium text-[var(--muted)]">TÀI CHÍNH</p>
-          <SellerNavItem active href="/seller/finance">Đối Soát &amp; Ví Ký Quỹ</SellerNavItem>
+          <SellerNavItem active={pathname === "/seller/finance" || pathname === "/seller/wallet"} href="/seller/finance">Đối Soát &amp; Ví Ký Quỹ</SellerNavItem>
           <p className="mb-1 mt-5 text-[11px] font-medium text-[var(--muted)]">DỮ LIỆU</p>
-          <SellerNavItem>Báo Cáo Hiệu Suất</SellerNavItem>
+          <SellerNavItem active={pathname === "/seller/reports"} href="/seller/reports">Báo Cáo Hiệu Suất</SellerNavItem>
         </nav>
       </aside>
-      <main className="min-w-0 flex-1 p-4 sm:p-6 xl:overflow-hidden">{children}</main>
+      <main className="min-w-0 flex-1 p-4 sm:p-6 xl:overflow-y-auto">{children}</main>
     </div>
   );
 }

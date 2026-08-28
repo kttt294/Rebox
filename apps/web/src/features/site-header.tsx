@@ -7,8 +7,16 @@ import { usePathname } from "next/navigation";
 function UtilityNavigation({ compact = false }: { compact?: boolean }) {
   return (
     <div className={`rebox-container flex h-[30px] items-center justify-between gap-6 overflow-hidden text-white/95 ${compact ? "text-[13px]" : "text-sm"}`}>
-      <p className="hidden whitespace-nowrap sm:block">Kênh Người Bán&nbsp;&nbsp; | &nbsp;&nbsp;Trở thành đối tác REBOX&nbsp;&nbsp; | &nbsp;&nbsp;Tải ứng dụng</p>
-      <p className="ml-auto whitespace-nowrap">Thông báo&nbsp;&nbsp; Hỗ trợ&nbsp;&nbsp; Tiếng Việt&nbsp;&nbsp; | &nbsp;&nbsp;Đăng ký&nbsp;&nbsp; | &nbsp;&nbsp;Đăng nhập</p>
+      <p className="hidden whitespace-nowrap sm:block">
+        <Link className="hover:underline" href="/seller/finance">Kênh Người Bán</Link>
+        &nbsp;&nbsp; | &nbsp;&nbsp;Trở thành đối tác REBOX&nbsp;&nbsp; | &nbsp;&nbsp;Tải ứng dụng
+      </p>
+      <p className="ml-auto whitespace-nowrap">
+        Thông báo&nbsp;&nbsp; Hỗ trợ&nbsp;&nbsp; Tiếng Việt&nbsp;&nbsp; | &nbsp;&nbsp;
+        <Link className="hover:underline" href="/register">Đăng ký</Link>
+        &nbsp;&nbsp; | &nbsp;&nbsp;
+        <Link className="hover:underline" href="/login">Đăng nhập</Link>
+      </p>
     </div>
   );
 }
@@ -24,10 +32,10 @@ function ReboxBrand({ section }: { section?: string | undefined }) {
   );
 }
 
-function SearchField({ className = "" }: { className?: string }) {
+function SearchField({ className = "", placeholder = "Tìm kiếm sản phẩm hoàn, đồ mới giá tốt..." }: { className?: string; placeholder?: string | undefined }) {
   return (
     <form action="/" className={`flex h-12 min-w-0 items-center overflow-hidden rounded-md bg-white pl-[18px] pr-1 ${className}`} role="search">
-      <input aria-label="Tìm kiếm sản phẩm" className="h-full min-w-0 flex-1 border-0 bg-transparent text-sm outline-none" name="q" placeholder="Tìm kiếm sản phẩm hoàn, đồ mới giá tốt..." type="search" />
+      <input aria-label="Tìm kiếm sản phẩm" className="h-full min-w-0 flex-1 border-0 bg-transparent text-sm outline-none" name="q" placeholder={placeholder} type="search" />
       <button aria-label="Tìm kiếm" className="flex h-10 w-[60px] shrink-0 items-center justify-center rounded-[5px] bg-[var(--accent-strong)]" type="submit">
         <Image alt="" aria-hidden height={22} src="/rebox/search.svg" width={22} />
       </button>
@@ -35,13 +43,13 @@ function SearchField({ className = "" }: { className?: string }) {
   );
 }
 
-function MarketplaceHeader({ cart = false }: { cart?: boolean }) {
+function MarketplaceHeader({ cart = false, shop = false }: { cart?: boolean; shop?: boolean }) {
   return (
     <header className="relative z-40 min-h-[132px] bg-[var(--accent-header)] px-4 pt-2.5 text-white sm:px-6 xl:h-[132px] xl:overflow-hidden xl:px-0">
       <UtilityNavigation />
       <div className="rebox-container mt-2 flex min-h-16 flex-wrap items-center gap-x-7 gap-y-3 pb-4 xl:h-16 xl:flex-nowrap xl:pb-0">
         <ReboxBrand section={cart ? "Giỏ Hàng" : undefined} />
-        <SearchField className={`order-3 w-full xl:order-none ${cart ? "xl:flex-1" : "xl:w-[900px] xl:flex-none"}`} />
+        <SearchField className={`order-3 w-full xl:order-none ${cart ? "xl:flex-1" : "xl:w-[900px] xl:flex-none"}`} placeholder={shop ? "Tìm trong REBOX Official Store..." : undefined} />
         {!cart ? (
           <Link aria-label="Mở giỏ hàng" className="ml-auto flex size-[34px] shrink-0 items-center justify-center xl:ml-0" href="/cart">
             <Image alt="" aria-hidden height={34} src="/rebox/cart.svg" width={34} />
@@ -64,6 +72,29 @@ function CheckoutHeader() {
           </Link>
           <span className="mx-[18px] h-[34px] w-px bg-[var(--line)]" />
           <span className="text-[22px] text-[var(--accent)]">Thanh Toán</span>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function AccountHeader() {
+  return (
+    <header className="relative z-40 h-[120px] bg-[var(--accent-header)] px-4 py-1.5 text-white sm:px-6 xl:px-0">
+      <div className="mx-auto w-full max-w-[940px]">
+        <div className="flex h-6 items-center justify-between gap-6 overflow-hidden whitespace-nowrap text-xs text-white/95">
+          <p>Kênh Người Bán&nbsp;&nbsp; | &nbsp;&nbsp;Tải ứng dụng&nbsp;&nbsp; | &nbsp;&nbsp;Kết nối</p>
+          <p className="ml-auto">Thông Báo&nbsp;&nbsp; Hỗ Trợ&nbsp;&nbsp; Tiếng Việt&nbsp;&nbsp; | &nbsp;&nbsp;<Link className="hover:underline" href="/account/profile">username</Link></p>
+        </div>
+        <div className="mt-1 flex h-14 items-center gap-[18px]">
+          <Link className="flex h-11 w-40 shrink-0 items-center gap-2.5 text-white" href="/">
+            <Image alt="" aria-hidden height={38} src="/rebox/logo-mark.svg" width={38} />
+            <strong className="text-[27px] leading-none">REBOX</strong>
+          </Link>
+          <SearchField className="h-[42px] flex-1 rounded-none lg:w-[650px] lg:flex-none" />
+          <Link aria-label="Mở giỏ hàng" className="grid size-[30px] shrink-0 place-items-center" href="/cart">
+            <Image alt="" aria-hidden height={30} src="/rebox/cart.svg" width={30} />
+          </Link>
         </div>
       </div>
     </header>
@@ -114,7 +145,9 @@ export function SiteHeader() {
   const pathname = usePathname();
   if (pathname === "/checkout") return <CheckoutHeader />;
   if (pathname === "/cart") return <MarketplaceHeader cart />;
-  if (pathname === "/") return <MarketplaceHeader />;
-  if (pathname === "/seller/finance" || pathname === "/seller/wallet") return <SellerHeader />;
+  if (pathname.startsWith("/account/")) return <AccountHeader />;
+  if (pathname === "/" || pathname.startsWith("/listings/")) return <MarketplaceHeader />;
+  if (pathname.startsWith("/shops/")) return <MarketplaceHeader shop />;
+  if (pathname.startsWith("/seller/")) return <SellerHeader />;
   return null;
 }

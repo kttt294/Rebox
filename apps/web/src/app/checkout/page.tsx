@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cartGroups, formatPrice } from "../../features/commerce-data";
 import { ProductVisual, ReboxBadge } from "../../features/commerce-ui";
 
@@ -29,13 +30,13 @@ export default function CheckoutPage() {
           </div>
           <div className="flex h-12 items-center gap-2.5 border-b border-[var(--line)] px-7">
             <ReboxBadge className="h-[22px] w-[70px]">Yêu thích</ReboxBadge>
-            <strong className="min-w-0 flex-1 text-sm font-medium xl:w-[220px] xl:flex-none">REBOX Official Store</strong>
-            <button className="ml-2 whitespace-nowrap text-[13px] font-medium text-[var(--accent)]" type="button">Chat ngay</button>
+            <Link className="min-w-0 flex-1 text-sm font-medium hover:text-[var(--accent)] xl:w-[220px] xl:flex-none" href="/shops/rebox-official-store">REBOX Official Store</Link>
+            <Link className="ml-2 whitespace-nowrap text-[13px] font-medium text-[var(--accent)]" href="/shops/rebox-official-store">Xem shop</Link>
           </div>
           <div className="grid min-h-[132px] items-center gap-4 px-7 py-[22px] xl:grid-cols-[86px_16px_598px_32px_120px_78px_100px_70px_108px] xl:gap-0">
             <ProductVisual className="size-[86px] bg-[var(--accent-header)] text-lg xl:col-start-1" label="TECH" />
             <div className="min-w-0 self-start xl:col-start-3">
-              <h3 className="text-sm leading-5">{checkoutProduct.title}</h3>
+              <Link className="text-sm leading-5 hover:text-[var(--accent)]" href={`/listings/${checkoutProduct.id}`}>{checkoutProduct.title}</Link>
               <p className="mt-1 text-xs text-[var(--muted)]">Phân loại: {checkoutProduct.variant}</p>
               <ReboxBadge className="mt-3 h-[22px] w-[82px]">REBOX DEAL</ReboxBadge>
             </div>
