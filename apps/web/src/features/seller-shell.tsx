@@ -32,16 +32,16 @@ export function SellerShell({ children }: { children: ReactNode }) {
           <SellerNavItem active={pathname === "/seller/reports"} href="/seller/reports">Báo Cáo Hiệu Suất</SellerNavItem>
         </nav>
       </aside>
-      <main className="min-w-0 flex-1 p-4 sm:p-6 xl:overflow-y-auto">{children}</main>
+      <main className="min-w-0 flex-1 p-4 sm:p-6 xl:overflow-y-auto xl:p-3">{children}</main>
     </div>
   );
 }
 
 export function FinanceWorkspace({ active, children }: { active: FinanceTab; children: ReactNode }) {
   return (
-    <section className="flex min-h-[900px] w-full flex-col gap-3 overflow-hidden rounded-[18px] bg-white p-4 shadow-[0_3px_10px_rgba(16,40,69,0.08)] ring-1 ring-inset ring-[var(--line)] sm:p-6 xl:h-full xl:min-h-0">
+    <section className="flex min-h-[900px] w-full flex-col gap-3 overflow-hidden rounded-[18px] bg-white p-4 shadow-[0_3px_10px_rgba(16,40,69,0.08)] ring-1 ring-inset ring-[var(--line)] sm:p-6 xl:h-full xl:min-h-[679px] xl:gap-1.5 xl:p-3">
       <h1 className="h-[33px] text-[24px] font-bold leading-[33px] text-[var(--ink)] sm:text-[28px]">Đối Soát Tài Chính &amp; Ví Ký Quỹ</h1>
-      <nav className="flex h-11 shrink-0 items-end gap-2" aria-label="Đối soát tài chính">
+      <nav className="flex h-11 shrink-0 items-end gap-2 xl:h-9" aria-label="Đối soát tài chính">
         <Link className={`flex h-9 w-[94px] flex-col items-center justify-end gap-2 px-3.5 text-sm font-medium ${active === "overview" ? "text-[var(--accent)]" : "text-[var(--muted)]"}`} href="/seller/finance"><span className="whitespace-nowrap">Tổng quan</span><span className={`h-[3px] rounded-sm ${active === "overview" ? "w-[54px] bg-[var(--accent)]" : "w-[54px]"}`} /></Link>
         <Link className={`flex h-9 w-[88px] flex-col items-center justify-end gap-2 px-3.5 text-sm font-medium ${active === "wallet" ? "text-[var(--accent)]" : "text-[var(--muted)]"}`} href="/seller/wallet"><span className="whitespace-nowrap">Lịch sử ví</span><span className={`h-[3px] rounded-sm ${active === "wallet" ? "w-[60px] bg-[var(--accent)]" : "w-[60px]"}`} /></Link>
       </nav>

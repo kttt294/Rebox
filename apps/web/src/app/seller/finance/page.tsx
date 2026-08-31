@@ -25,9 +25,9 @@ const products = [
 
 function MetricCards() {
   return (
-    <div className="grid shrink-0 gap-3 lg:grid-cols-3 xl:grid-cols-[repeat(3,350px)]">
+    <div className="grid shrink-0 gap-3 lg:grid-cols-3 xl:grid-cols-[repeat(3,350px)] xl:gap-2">
       {metrics.map((metric) => (
-        <article className="flex h-[104px] flex-col gap-2 rounded-xl bg-white px-[18px] py-4 ring-1 ring-inset ring-[var(--line)]" key={metric.label}>
+        <article className="flex h-[104px] flex-col gap-2 rounded-xl bg-white px-[18px] py-4 ring-1 ring-inset ring-[var(--line)] xl:h-20 xl:gap-1 xl:px-4 xl:py-2" key={metric.label}>
           <p className="text-[11px] font-medium text-[var(--muted)]">{metric.label}</p>
           <p className="text-2xl font-bold leading-normal text-[var(--ink)]">{metric.value}</p>
         </article>
@@ -38,8 +38,8 @@ function MetricCards() {
 
 function RevenueTrend() {
   return (
-    <article className="h-[270px] shrink-0 overflow-x-auto rounded-xl ring-1 ring-inset ring-[var(--line)]">
-      <div className="relative h-[268px] min-w-[1122px]">
+    <article className="h-[270px] shrink-0 overflow-x-auto rounded-xl ring-1 ring-inset ring-[var(--line)] xl:h-[245px]">
+      <div className="relative h-[268px] min-w-[1122px] xl:h-[243px]">
         <h2 className="absolute left-[19px] top-[17px] text-lg font-bold">Xu hướng doanh thu 6 tháng gần nhất</h2>
         <p className="absolute left-[19px] top-[43px] text-xs text-[var(--muted)]">Doanh thu thực nhận theo tháng</p>
         <div className="absolute inset-y-0 left-1/2 w-[1122px] -translate-x-1/2">
@@ -104,7 +104,7 @@ export default function SellerFinancePage() {
     <SellerShell>
       <FinanceWorkspace active="overview">
         <MetricCards />
-        <div className="flex h-[562px] max-h-[562px] min-h-0 flex-1 flex-col gap-3">
+        <div className="flex h-[562px] max-h-[562px] min-h-0 flex-1 flex-col gap-3 xl:gap-1.5">
           <RevenueTrend />
           <div className="flex h-[280px] min-h-0 flex-1 gap-3 overflow-x-auto overflow-y-hidden">
             <RevenueByProduct />
