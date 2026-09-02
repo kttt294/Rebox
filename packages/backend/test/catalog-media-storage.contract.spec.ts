@@ -1,0 +1,42 @@
+import { describe, expect, it } from "vitest";
+import type {
+  CatalogImageObject,
+  CatalogImageUploadIntent,
+  CatalogMediaStorage
+} from "../src/modules/inventory";
+
+class FakeCatalogMediaStorage implements CatalogMediaStorage {
+  private readonly objects = new Map<string, CatalogImageObject>();
+
+  async createUploadIntent(input: { key: string; mimeType: string; sizeBytes: number }): Promise<CatalogImageUploadIntent> {
+    this.objects.set(input.key, { ...input, width: 1200, height: 900 });
+    return {
+      key: input.key,
+      uploadUrl: `https://storage.test/${input.key}`,
+      expiresAt: "2026-09-02T01:00:00.000Z",
+      headers: { "content-type": input.mimeType }
+    };
+  }
+
+  async inspectObject(key: string): Promise<CatalogImageObject | null> {
+    return this.objects.get(key) ?? null;
+  }
+
+  async deleteObject(key: string): Promise<void> {
+    this.objects.delete(key);
+  }
+}
+
+describe("CatalogMediaStorage contract", () => {
+  it("creates an intent, reads authoritative metadata and deletes the object", async () => {
+    const storage: CatalogMediaStorage = new FakeCatalogMediaStorage();
+    const input = { key: "catalog/shop/listing/image", mimeType: "image/webp", sizeBytes: 42_000 };
+
+    const intent = await storage.createUploadIntent(input);
+    expect(intent).toMatchObject({ key: input.key, headers: { "content-type": input.mimeType } });
+    await expect(storage.inspectObject(input.key)).resolves.toMatchObject(input);
+
+    await storage.deleteObject(input.key);
+    await expect(storage.inspectObject(input.key)).resolves.toBeNull();
+  });
+});

@@ -26,7 +26,7 @@ export function AccountShell({ activeHref, children }: { activeHref: string; chi
         <aside className="w-[190px] shrink-0 max-md:mb-4 max-md:w-full">
           <div className="flex h-[68px] items-center gap-3">
             <span className="grid size-12 place-items-center rounded-full bg-[var(--accent-soft)] text-sm font-bold text-[var(--accent)]">US</span>
-            <div><strong className="block text-[15px]">username</strong><Link className="mt-1 block text-xs text-[var(--muted)] hover:underline" href="/account/profile">Sửa hồ sơ</Link></div>
+            <div><strong className="block text-[15px]">Tài khoản</strong><Link className="mt-1 block text-xs text-[var(--muted)] hover:underline" href="/account/profile">Xem hồ sơ</Link></div>
           </div>
           <div className="h-px bg-[var(--line)]" />
           <strong className="block py-1 text-xs">TÀI KHOẢN CỦA TÔI</strong>

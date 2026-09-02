@@ -38,9 +38,12 @@ export function SellerWorkbench() {
   const [actor, setActor] = useState<ActorContext>();
   const [listings, setListings] = useState<Listing[]>([]);
   const [error, setError] = useState<string>();
+  const [success, setSuccess] = useState<string>();
   const [loading, setLoading] = useState(true);
   const [action, setAction] = useState<string>();
+  const [editingListingId, setEditingListingId] = useState<string>();
   const shop = actor?.shops[0];
+  const editingListing = listings.find((listing) => listing.id === editingListingId);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -76,38 +79,57 @@ export function SellerWorkbench() {
     }
   }
 
-  async function createListing(event: FormEvent<HTMLFormElement>) {
+  async function saveListing(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!shop) return;
     const form = event.currentTarget;
     const data = new FormData(form);
-    setAction("create-listing");
+    const input = {
+      title: String(data.get("title")),
+      description: String(data.get("description")),
+      categoryId: String(data.get("categoryId")),
+      conditionGrade: String(data.get("conditionGrade")) as Listing["conditionGrade"],
+      conditionNotes: String(data.get("conditionNotes")),
+      price: Number(data.get("price")),
+      weightGram: Number(data.get("weightGram"))
+    };
+    const currentEditingId = editingListing?.id;
+    setAction(currentEditingId ? `update-${currentEditingId}` : "create-listing");
     setError(undefined);
+    setSuccess(undefined);
     try {
-      await api.createListing(shop.id, {
-        title: String(data.get("title")),
-        description: String(data.get("description")),
-        categoryId: String(data.get("categoryId")),
-        conditionGrade: String(data.get("conditionGrade")) as Listing["conditionGrade"],
-        conditionNotes: String(data.get("conditionNotes")),
-        price: Number(data.get("price")),
-        weightGram: Number(data.get("weightGram"))
-      });
-      form.reset();
-      await reload();
+      const saved = currentEditingId
+        ? await api.updateListingDraft(shop.id, currentEditingId, input)
+        : await api.createListing(shop.id, input);
+      setListings((current) => currentEditingId
+        ? current.map((listing) => listing.id === saved.id ? saved : listing)
+        : [saved, ...current]);
+      if (currentEditingId) setEditingListingId(undefined);
+      else form.reset();
+      setSuccess(currentEditingId ? "Đã cập nhật bản nháp." : "Đã lưu bản nháp.");
     } catch (caught) {
       setError(caught instanceof ApiClientError && caught.code === "VALIDATION_FAILED"
         ? "Thông tin sản phẩm chưa hợp lệ. Vui lòng kiểm tra lại các trường bắt buộc."
-        : "Không thể lưu bản nháp. Vui lòng thử lại.");
+        : caught instanceof ApiClientError && caught.code === "INVALID_LISTING_STATE"
+          ? "Chỉ bản nháp mới có thể chỉnh sửa. Dữ liệu bạn vừa nhập vẫn được giữ nguyên."
+          : "Không thể lưu bản nháp. Dữ liệu bạn vừa nhập vẫn được giữ nguyên để thử lại.");
     } finally {
       setAction(undefined);
     }
+  }
+
+  function startEditing(listingId: string) {
+    setEditingListingId(listingId);
+    setError(undefined);
+    setSuccess(undefined);
+    requestAnimationFrame(() => document.getElementById("listing-form")?.scrollIntoView({ behavior: "smooth" }));
   }
 
   async function publish(listingId: string) {
     if (!shop) return;
     setAction(`publish-${listingId}`);
     setError(undefined);
+    setSuccess(undefined);
     try {
       await api.publishListing(shop.id, listingId);
       await reload();
@@ -177,27 +199,28 @@ export function SellerWorkbench() {
       </section>
 
       {error ? <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800" role="alert">{error}</p> : null}
+      {success ? <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800" role="status">{success}</p> : null}
 
-      <form id="new-listing" className="scroll-mt-28 rounded-[18px] border border-[var(--line)] bg-white shadow-[0_12px_35px_rgba(35,63,101,0.06)]" onSubmit={createListing}>
+      <form id="listing-form" key={editingListing?.id ?? "new"} className="scroll-mt-28 rounded-[18px] border border-[var(--line)] bg-white shadow-[0_12px_35px_rgba(35,63,101,0.06)]" onSubmit={saveListing}>
         <div className="border-b border-[var(--line)] px-5 py-5 sm:px-7">
-          <h2 className="text-xl font-black tracking-tight">Thông tin sản phẩm</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">Các trường có dấu * là bắt buộc trước khi lưu bản nháp.</p>
+          <h2 className="text-xl font-black tracking-tight">{editingListing ? "Chỉnh sửa bản nháp" : "Thông tin sản phẩm"}</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">{editingListing ? `Đang sửa ${editingListing.title}.` : "Các trường có dấu * là bắt buộc trước khi lưu bản nháp."}</p>
         </div>
 
         <div className="grid gap-x-6 gap-y-5 p-5 sm:grid-cols-2 sm:p-7">
           <label className="grid gap-2 text-sm font-bold sm:col-span-2" htmlFor="title">
             Tên sản phẩm *
-            <input className="rounded-xl border border-[var(--line-strong)] px-4 py-3.5 font-normal transition-colors hover:border-slate-400" id="title" name="title" minLength={3} maxLength={180} placeholder="Nhập tên sản phẩm rõ ràng, dễ tìm kiếm" required />
+            <input className="rounded-xl border border-[var(--line-strong)] px-4 py-3.5 font-normal transition-colors hover:border-slate-400" defaultValue={editingListing?.title} id="title" name="title" minLength={3} maxLength={180} placeholder="Nhập tên sản phẩm rõ ràng, dễ tìm kiếm" required />
           </label>
 
           <label className="grid gap-2 text-sm font-bold" htmlFor="categoryId">
             Mã danh mục *
-            <input className="rounded-xl border border-[var(--line-strong)] px-4 py-3.5 font-normal transition-colors hover:border-slate-400" id="categoryId" name="categoryId" maxLength={80} placeholder="Ví dụ: fashion-women" required />
+            <input className="rounded-xl border border-[var(--line-strong)] px-4 py-3.5 font-normal transition-colors hover:border-slate-400" defaultValue={editingListing?.categoryId} id="categoryId" name="categoryId" maxLength={80} placeholder="Ví dụ: fashion-women" required />
           </label>
 
           <label className="grid gap-2 text-sm font-bold" htmlFor="conditionGrade">
             Tình trạng *
-            <select className="rounded-xl border border-[var(--line-strong)] bg-white px-4 py-3.5 font-normal transition-colors hover:border-slate-400" id="conditionGrade" name="conditionGrade">
+            <select className="rounded-xl border border-[var(--line-strong)] bg-white px-4 py-3.5 font-normal transition-colors hover:border-slate-400" defaultValue={editingListing?.conditionGrade ?? "NEW_SEALED"} id="conditionGrade" name="conditionGrade">
               <option value="NEW_SEALED">Mới nguyên seal</option>
               <option value="LIKE_NEW_99">Gần như mới</option>
               <option value="GOOD">Còn tốt</option>
@@ -208,30 +231,37 @@ export function SellerWorkbench() {
 
           <label className="grid gap-2 text-sm font-bold" htmlFor="price">
             Giá bán dự kiến (VNĐ) *
-            <input className="rounded-xl border border-[var(--line-strong)] px-4 py-3.5 font-normal transition-colors hover:border-slate-400" id="price" name="price" type="number" inputMode="numeric" min={1} placeholder="450000" required />
+            <input className="rounded-xl border border-[var(--line-strong)] px-4 py-3.5 font-normal transition-colors hover:border-slate-400" defaultValue={editingListing?.price} id="price" name="price" type="number" inputMode="numeric" min={1} placeholder="450000" required />
           </label>
 
           <label className="grid gap-2 text-sm font-bold" htmlFor="weightGram">
             Khối lượng (gram) *
-            <input className="rounded-xl border border-[var(--line-strong)] px-4 py-3.5 font-normal transition-colors hover:border-slate-400" id="weightGram" name="weightGram" type="number" inputMode="numeric" min={1} max={100000} placeholder="500" required />
+            <input className="rounded-xl border border-[var(--line-strong)] px-4 py-3.5 font-normal transition-colors hover:border-slate-400" defaultValue={editingListing?.weightGram} id="weightGram" name="weightGram" type="number" inputMode="numeric" min={1} max={100000} placeholder="500" required />
           </label>
 
           <label className="grid gap-2 text-sm font-bold sm:col-span-2" htmlFor="conditionNotes">
             Mô tả tình trạng và khuyết điểm *
-            <textarea className="min-h-28 resize-y rounded-xl border border-[var(--line-strong)] px-4 py-3.5 font-normal leading-6 transition-colors hover:border-slate-400" id="conditionNotes" name="conditionNotes" minLength={3} maxLength={2000} placeholder="Ghi rõ vết xước, móp, thiếu phụ kiện hoặc dấu hiệu đã qua sử dụng" required />
+            <textarea className="min-h-28 resize-y rounded-xl border border-[var(--line-strong)] px-4 py-3.5 font-normal leading-6 transition-colors hover:border-slate-400" defaultValue={editingListing?.conditionNotes} id="conditionNotes" name="conditionNotes" minLength={3} maxLength={2000} placeholder="Ghi rõ vết xước, móp, thiếu phụ kiện hoặc dấu hiệu đã qua sử dụng" required />
           </label>
 
           <label className="grid gap-2 text-sm font-bold sm:col-span-2" htmlFor="description">
             Mô tả bổ sung
-            <textarea className="min-h-24 resize-y rounded-xl border border-[var(--line-strong)] px-4 py-3.5 font-normal leading-6 transition-colors hover:border-slate-400" id="description" name="description" maxLength={5000} placeholder="Thông tin chất liệu, kích thước, phụ kiện đi kèm" />
+            <textarea className="min-h-24 resize-y rounded-xl border border-[var(--line-strong)] px-4 py-3.5 font-normal leading-6 transition-colors hover:border-slate-400" defaultValue={editingListing?.description} id="description" name="description" maxLength={5000} placeholder="Thông tin chất liệu, kích thước, phụ kiện đi kèm" />
           </label>
         </div>
 
         <div className="flex flex-col gap-3 border-t border-[var(--line)] bg-slate-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
           <p className="text-sm leading-6 text-[var(--muted)]">Bạn có thể chỉnh sửa bản nháp trước khi đăng bán.</p>
-          <button className="rounded-xl bg-[var(--accent)] px-6 py-3 font-bold text-white shadow-[0_7px_16px_rgba(25,104,238,0.2)] transition-transform active:translate-y-px disabled:opacity-60" disabled={action === "create-listing"}>
-            {action === "create-listing" ? "Đang lưu..." : "Lưu bản nháp"}
-          </button>
+          <div className="flex gap-3">
+            {editingListing ? (
+              <button className="rounded-xl border border-[var(--line-strong)] bg-white px-5 py-3 font-bold text-[var(--ink)]" onClick={() => setEditingListingId(undefined)} type="button">
+                Hủy chỉnh sửa
+              </button>
+            ) : null}
+            <button className="rounded-xl bg-[var(--accent)] px-6 py-3 font-bold text-white shadow-[0_7px_16px_rgba(25,104,238,0.2)] transition-transform active:translate-y-px disabled:opacity-60" disabled={action === "create-listing" || action === `update-${editingListing?.id}`}>
+              {action === "create-listing" || action === `update-${editingListing?.id}` ? "Đang lưu..." : editingListing ? "Lưu thay đổi" : "Lưu bản nháp"}
+            </button>
+          </div>
         </div>
       </form>
 
@@ -275,9 +305,14 @@ export function SellerWorkbench() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       {listing.status === "DRAFT" ? (
-                        <button className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-bold text-white disabled:opacity-60" disabled={action === `publish-${listing.id}`} onClick={() => void publish(listing.id)} type="button">
-                          {action === `publish-${listing.id}` ? "Đang đăng..." : "Đăng bán"}
-                        </button>
+                        <div className="flex justify-end gap-2">
+                          <button className="rounded-lg border border-[var(--line-strong)] bg-white px-4 py-2 text-sm font-bold text-[var(--ink)]" onClick={() => startEditing(listing.id)} type="button">
+                            Chỉnh sửa
+                          </button>
+                          <button className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-bold text-white disabled:opacity-60" disabled={action === `publish-${listing.id}`} onClick={() => void publish(listing.id)} type="button">
+                            {action === `publish-${listing.id}` ? "Đang đăng..." : "Đăng bán"}
+                          </button>
+                        </div>
                       ) : (
                         <Link className="text-sm font-bold text-[var(--accent)] hover:underline" href={`/listings/${listing.id}`}>Xem công khai</Link>
                       )}

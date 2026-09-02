@@ -1,33 +1,16 @@
 import { expect, test } from "@playwright/test";
 
-test("fits the full finance overview into a laptop viewport", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 755 });
+test("does not render synthetic finance balances", async ({ page }) => {
   await page.goto("/seller/finance");
 
-  const layout = await page.locator("main").evaluate((main) => {
-    const total = [...main.querySelectorAll("p")].find((node) => node.textContent === "Tổng tài chính: 1.150.000 VNĐ");
-    if (!total) throw new Error("Could not find the finance total");
-
-    const mainRect = main.getBoundingClientRect();
-    const totalRect = total.getBoundingClientRect();
-    return {
-      overflowPixels: Math.max(0, main.scrollHeight - main.clientHeight),
-      totalIsVisible: totalRect.bottom <= mainRect.bottom
-    };
-  });
-
-  expect(layout.overflowPixels).toBeLessThanOrEqual(1);
-  expect(layout.totalIsVisible).toBe(true);
+  await expect(page.getByRole("heading", { name: "Chưa có dữ liệu tài chính" })).toBeVisible();
+  await expect(page.getByText("1.150.000 VNĐ")).toHaveCount(0);
+  await expect(page.getByText("850.000 VNĐ")).toHaveCount(0);
 });
 
-test("keeps vertical scrolling on mobile", async ({ page }) => {
+test("shows the unavailable state on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/seller/finance");
 
-  const layout = await page.evaluate(() => ({
-    viewportHeight: innerHeight,
-    documentHeight: document.documentElement.scrollHeight
-  }));
-
-  expect(layout.documentHeight).toBeGreaterThan(layout.viewportHeight);
+  await expect(page.getByRole("heading", { name: "Chưa có dữ liệu tài chính" })).toBeVisible();
 });

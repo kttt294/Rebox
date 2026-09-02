@@ -101,6 +101,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Listing"
+  /v1/shops/{shopId}/listings/{listingId}:
+    patch:
+      operationId: updateListingDraft
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ShopId"
+        - $ref: "#/components/parameters/ListingId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateListingDraft"
+      responses:
+        "200":
+          description: Draft updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Listing"
   /v1/listings/{listingId}:
     get:
       operationId: getPublicListing
@@ -112,7 +132,33 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Listing"
+                $ref: "#/components/schemas/PublicListing"
+  /v1/listings:
+    get:
+      operationId: listPublicListings
+      parameters:
+        - name: cursor
+          in: query
+          schema: { type: string, maxLength: 512 }
+        - name: q
+          in: query
+          schema: { type: string, maxLength: 180 }
+        - name: category
+          in: query
+          schema: { type: string, maxLength: 80 }
+        - name: shopId
+          in: query
+          schema: { type: string, maxLength: 80 }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [newest, price_asc, price_desc], default: newest }
+      responses:
+        "200":
+          description: Public listings page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicListingPage"
 components:
   securitySchemes:
     bearerAuth:
@@ -173,6 +219,9 @@ components:
         conditionNotes: { type: string, minLength: 3, maxLength: 2000 }
         price: { type: integer, minimum: 1 }
         weightGram: { type: integer, minimum: 1, maximum: 100000 }
+    UpdateListingDraft:
+      $ref: "#/components/schemas/CreateListing"
+      unevaluatedProperties: false
     Listing:
       allOf:
         - $ref: "#/components/schemas/CreateListing"
@@ -186,3 +235,26 @@ components:
             status: { type: string }
             publishedAt: { anyOf: [{ type: string, format: date-time }, { type: "null" }] }
             createdAt: { type: string, format: date-time }
+    PublicListing:
+      type: object
+      required: [id, shopId, shopDisplayName, title, categoryId, conditionGrade, conditionNotes, price, publishedAt, createdAt]
+      properties:
+        id: { type: string }
+        shopId: { type: string }
+        shopDisplayName: { type: string }
+        title: { type: string, minLength: 3, maxLength: 180 }
+        description: { type: string, maxLength: 5000 }
+        categoryId: { type: string }
+        conditionGrade: { type: string, enum: [NEW_SEALED, LIKE_NEW_99, GOOD, FAIR, DEFECT] }
+        conditionNotes: { type: string, minLength: 3, maxLength: 2000 }
+        price: { type: integer, minimum: 1 }
+        publishedAt: { anyOf: [{ type: string, format: date-time }, { type: "null" }] }
+        createdAt: { type: string, format: date-time }
+    PublicListingPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/PublicListing" }
+        nextCursor: { anyOf: [{ type: string }, { type: "null" }] }

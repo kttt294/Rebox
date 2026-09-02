@@ -102,6 +102,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/shops/{shopId}/listings/{listingId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateListingDraft"];
+        trace?: never;
+    };
     "/v1/listings/{listingId}": {
         parameters: {
             query?: never;
@@ -110,6 +126,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["getPublicListing"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/listings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPublicListings"];
         put?: never;
         post?: never;
         delete?: never;
@@ -156,6 +188,7 @@ export interface components {
             price: number;
             weightGram: number;
         };
+        UpdateListingDraft: components["schemas"]["CreateListing"];
         Listing: components["schemas"]["CreateListing"] & {
             id: string;
             shopId: string;
@@ -165,6 +198,25 @@ export interface components {
             publishedAt: string | null;
             /** Format: date-time */
             createdAt: string;
+        };
+        PublicListing: {
+            id: string;
+            shopId: string;
+            shopDisplayName: string;
+            title: string;
+            description?: string;
+            categoryId: string;
+            /** @enum {string} */
+            conditionGrade: "NEW_SEALED" | "LIKE_NEW_99" | "GOOD" | "FAIR" | "DEFECT";
+            conditionNotes: string;
+            price: number;
+            publishedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        PublicListingPage: {
+            items: components["schemas"]["PublicListing"][];
+            nextCursor: string | null;
         };
     };
     responses: never;
@@ -337,6 +389,33 @@ export interface operations {
             };
         };
     };
+    updateListingDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shopId: components["parameters"]["ShopId"];
+                listingId: components["parameters"]["ListingId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateListingDraft"];
+            };
+        };
+        responses: {
+            /** @description Draft updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Listing"];
+                };
+            };
+        };
+    };
     getPublicListing: {
         parameters: {
             query?: never;
@@ -354,7 +433,33 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Listing"];
+                    "application/json": components["schemas"]["PublicListing"];
+                };
+            };
+        };
+    };
+    listPublicListings: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                q?: string;
+                category?: string;
+                shopId?: string;
+                sort?: "newest" | "price_asc" | "price_desc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Public listings page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicListingPage"];
                 };
             };
         };

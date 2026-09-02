@@ -1,4 +1,11 @@
-import type { CreateListingInput, Listing } from "@rebox/shared";
+import type {
+  CreateListingInput,
+  Listing,
+  PublicListing,
+  PublicListingPage,
+  PublicListingsQuery,
+  UpdateListingDraftInput
+} from "@rebox/shared";
 import type { Pool, PoolClient } from "pg";
 import { ulid } from "ulid";
 import { DomainError } from "../../errors";
@@ -21,6 +28,10 @@ type ListingRow = {
   created_at: Date;
 };
 
+type CatalogCursor = { sort: PublicListingsQuery["sort"]; value: string; id: string };
+
+const publicListingPageSize = 24;
+
 const listingSelect = `
   SELECT l.id, l.shop_id, s.display_name AS shop_display_name,
          l.title, l.description, l.category_id, l.condition_grade,
@@ -29,8 +40,8 @@ const listingSelect = `
   FROM listings l
   JOIN shops s ON s.id = l.shop_id`;
 
-function presentListing(row: ListingRow): Listing {
-  const listing: Listing = {
+function presentPublicListing(row: ListingRow): PublicListing {
+  const listing: PublicListing = {
     id: row.id,
     shopId: row.shop_id,
     shopDisplayName: row.shop_display_name,
@@ -39,9 +50,6 @@ function presentListing(row: ListingRow): Listing {
     conditionGrade: row.condition_grade,
     conditionNotes: row.condition_notes,
     price: Number(row.price),
-    weightGram: row.weight_gram,
-    images: row.images,
-    status: row.status,
     publishedAt: row.published_at?.toISOString() ?? null,
     createdAt: row.created_at.toISOString()
   };
@@ -49,6 +57,34 @@ function presentListing(row: ListingRow): Listing {
     listing.description = row.description;
   }
   return listing;
+}
+
+function presentListing(row: ListingRow): Listing {
+  return {
+    ...presentPublicListing(row),
+    weightGram: row.weight_gram,
+    images: row.images,
+    status: row.status
+  };
+}
+
+function decodeCatalogCursor(encoded: string, sort: PublicListingsQuery["sort"]): CatalogCursor {
+  try {
+    const parsed = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as unknown;
+    if (!Array.isArray(parsed) || parsed.length !== 3 || parsed[0] !== sort
+      || typeof parsed[1] !== "string" || typeof parsed[2] !== "string"
+      || (sort === "newest" ? Number.isNaN(Date.parse(parsed[1])) : !/^\d+$/.test(parsed[1]))) {
+      throw new Error("Invalid cursor");
+    }
+    return { sort, value: parsed[1], id: parsed[2] };
+  } catch {
+    throw new DomainError("VALIDATION_FAILED", 422, "Invalid catalog cursor");
+  }
+}
+
+function encodeCatalogCursor(row: ListingRow, sort: PublicListingsQuery["sort"]): string {
+  const value = sort === "newest" ? row.created_at.toISOString() : row.price;
+  return Buffer.from(JSON.stringify([sort, value, row.id])).toString("base64url");
 }
 
 export class InventoryModule {
@@ -107,6 +143,56 @@ export class InventoryModule {
     }
   }
 
+  async updateDraft(
+    actorId: string,
+    shopId: string,
+    listingId: string,
+    input: UpdateListingDraftInput
+  ): Promise<Listing> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await this.identity.requireShopCapability(client, actorId, shopId, "CREATE_LISTING");
+      const updated = await client.query(
+        `UPDATE listings
+         SET title = $3, description = $4, category_id = $5,
+             condition_grade = $6, condition_notes = $7, price = $8, weight_gram = $9
+         WHERE id = $1 AND shop_id = $2 AND status = 'DRAFT'
+         RETURNING id`,
+        [
+          listingId,
+          shopId,
+          input.title,
+          input.description ?? null,
+          input.categoryId,
+          input.conditionGrade,
+          input.conditionNotes,
+          input.price,
+          input.weightGram
+        ]
+      );
+      if (updated.rowCount === 0) {
+        const current = await client.query<{ status: string }>(
+          "SELECT status FROM listings WHERE id = $1 AND shop_id = $2",
+          [listingId, shopId]
+        );
+        if (!current.rows[0]) {
+          throw new DomainError("RESOURCE_NOT_FOUND", 404, "Listing not found");
+        }
+        throw new DomainError("INVALID_LISTING_STATE", 409, "Only a draft listing can be updated");
+      }
+
+      const listing = await this.selectOwnedListing(client, listingId, shopId);
+      await client.query("COMMIT");
+      return listing;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async publish(actorId: string, shopId: string, listingId: string): Promise<Listing> {
     const client = await this.pool.connect();
     try {
@@ -153,7 +239,7 @@ export class InventoryModule {
     }
   }
 
-  async getPublicListing(listingId: string): Promise<Listing> {
+  async getPublicListing(listingId: string): Promise<PublicListing> {
     const result = await this.pool.query<ListingRow>(
       `${listingSelect}
        WHERE l.id = $1 AND l.status = 'ACTIVE' AND s.status = 'ACTIVE'`,
@@ -163,7 +249,57 @@ export class InventoryModule {
     if (!row) {
       throw new DomainError("RESOURCE_NOT_FOUND", 404, "Listing not found");
     }
-    return presentListing(row);
+    return presentPublicListing(row);
+  }
+
+  async listPublicListings(input: PublicListingsQuery): Promise<PublicListingPage> {
+    const values: unknown[] = [];
+    const conditions = ["l.status = 'ACTIVE'", "s.status = 'ACTIVE'"];
+    const parameter = (value: unknown): string => {
+      values.push(value);
+      return `$${values.length}`;
+    };
+
+    if (input.q) {
+      const query = parameter(input.q);
+      conditions.push(`to_tsvector(
+        'simple'::regconfig,
+        rebox_unaccent(l.title || ' ' || coalesce(l.description, '') || ' ' || l.condition_notes)
+      ) @@ plainto_tsquery('simple'::regconfig, rebox_unaccent(${query}))`);
+    }
+    if (input.category) {
+      conditions.push(`l.category_id = ${parameter(input.category)}`);
+    }
+    if (input.shopId) {
+      conditions.push(`l.shop_id = ${parameter(input.shopId)}`);
+    }
+    if (input.cursor) {
+      const cursor = decodeCatalogCursor(input.cursor, input.sort);
+      const value = parameter(cursor.value);
+      const id = parameter(cursor.id);
+      conditions.push(input.sort === "newest"
+        ? `(l.created_at, l.id) < (${value}::timestamptz, ${id})`
+        : `(l.price, l.id) ${input.sort === "price_asc" ? ">" : "<"} (${value}::bigint, ${id})`);
+    }
+
+    const orderBy = input.sort === "newest"
+      ? "l.created_at DESC, l.id DESC"
+      : `l.price ${input.sort === "price_asc" ? "ASC" : "DESC"}, l.id ${input.sort === "price_asc" ? "ASC" : "DESC"}`;
+    const result = await this.pool.query<ListingRow>(
+      `${listingSelect}
+       WHERE ${conditions.join(" AND ")}
+       ORDER BY ${orderBy}
+       LIMIT ${publicListingPageSize + 1}`,
+      values
+    );
+    const pageRows = result.rows.slice(0, publicListingPageSize);
+    const last = pageRows.at(-1);
+    return {
+      items: pageRows.map(presentPublicListing),
+      nextCursor: result.rows.length > publicListingPageSize && last
+        ? encodeCatalogCursor(last, input.sort)
+        : null
+    };
   }
 
   private async selectOwnedListing(client: PoolClient, listingId: string, shopId: string): Promise<Listing> {

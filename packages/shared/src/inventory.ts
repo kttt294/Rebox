@@ -19,6 +19,9 @@ export const createListingSchema = z.object({
 });
 export type CreateListingInput = z.infer<typeof createListingSchema>;
 
+export const updateListingDraftSchema = createListingSchema.strict();
+export type UpdateListingDraftInput = z.infer<typeof updateListingDraftSchema>;
+
 export const listingSchema = createListingSchema.extend({
   id: z.string(),
   shopId: z.string(),
@@ -29,3 +32,24 @@ export const listingSchema = createListingSchema.extend({
   createdAt: z.string().datetime()
 });
 export type Listing = z.infer<typeof listingSchema>;
+
+export const publicListingSchema = listingSchema.omit({ images: true, status: true, weightGram: true });
+export type PublicListing = z.infer<typeof publicListingSchema>;
+
+const optionalQueryText = (maxLength: number) =>
+  z.preprocess((value) => value === "" ? undefined : value, z.string().trim().min(1).max(maxLength).optional());
+
+export const publicListingsQuerySchema = z.object({
+  cursor: optionalQueryText(512),
+  q: optionalQueryText(180),
+  category: optionalQueryText(80),
+  shopId: optionalQueryText(80),
+  sort: z.enum(["newest", "price_asc", "price_desc"]).default("newest")
+}).strict();
+export type PublicListingsQuery = z.infer<typeof publicListingsQuerySchema>;
+
+export const publicListingPageSchema = z.object({
+  items: z.array(publicListingSchema),
+  nextCursor: z.string().nullable()
+});
+export type PublicListingPage = z.infer<typeof publicListingPageSchema>;

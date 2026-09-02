@@ -66,6 +66,75 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
     });
   });
 
+  it("updates an owned draft and persists every editable field", async () => {
+    const draft = await inventory.createDraft(verifiedActor, verifiedShop, listingInput("Original title"));
+    const input = {
+      ...listingInput("Updated title"),
+      description: "Updated description",
+      categoryId: "updated-category",
+      conditionGrade: "LIKE_NEW_99" as const,
+      conditionNotes: "Updated condition notes",
+      price: 135_000,
+      weightGram: 650
+    };
+
+    const updated = await inventory.updateDraft(verifiedActor, verifiedShop, draft.id, input);
+    const persisted = await inventory.listShopListings(verifiedActor, verifiedShop);
+
+    expect(updated).toMatchObject(input);
+    expect(persisted.find((listing) => listing.id === draft.id)).toMatchObject(input);
+  });
+
+  it("rejects updating a listing after it leaves draft state", async () => {
+    const draft = await inventory.createDraft(verifiedActor, verifiedShop, listingInput("Published item"));
+    await inventory.publish(verifiedActor, verifiedShop, draft.id);
+
+    await expect(
+      inventory.updateDraft(verifiedActor, verifiedShop, draft.id, listingInput("Forbidden update"))
+    ).rejects.toMatchObject<Partial<DomainError>>({
+      code: "INVALID_LISTING_STATE",
+      status: 409
+    });
+  });
+
+  it("does not allow another shop actor to update a draft by listing ID", async () => {
+    const draft = await inventory.createDraft(verifiedActor, verifiedShop, listingInput("Owned draft"));
+
+    await expect(
+      inventory.updateDraft(pendingActor, pendingShop, draft.id, listingInput("IDOR update"))
+    ).rejects.toMatchObject<Partial<DomainError>>({
+      code: "RESOURCE_NOT_FOUND",
+      status: 404
+    });
+  });
+
+  it("searches public listings without accents and hides non-public inventory", async () => {
+    const active = await inventory.createDraft(verifiedActor, verifiedShop, listingInput("Váy lụa dáng dài"));
+    const draft = await inventory.createDraft(verifiedActor, verifiedShop, listingInput("Váy lụa còn nháp"));
+    const inactiveShopListing = await inventory.createDraft(pendingActor, pendingShop, listingInput("Váy lụa shop khóa"));
+    await inventory.publish(verifiedActor, verifiedShop, active.id);
+    await pool.query("UPDATE listings SET status = 'ACTIVE', published_at = now() WHERE id = $1", [inactiveShopListing.id]);
+
+    const page = await inventory.listPublicListings({ q: "vay lua", sort: "newest" });
+
+    expect(page.items.map((listing) => listing.id)).toContain(active.id);
+    expect(page.items.map((listing) => listing.id)).not.toContain(draft.id);
+    expect(page.items.map((listing) => listing.id)).not.toContain(inactiveShopListing.id);
+    expect(page.items.find((listing) => listing.id === active.id)).not.toHaveProperty("weightGram");
+  });
+
+  it("rejects a malformed or wrong-sort catalog cursor", async () => {
+    await expect(inventory.listPublicListings({ cursor: "not-a-cursor", sort: "newest" }))
+      .rejects.toMatchObject<Partial<DomainError>>({ code: "VALIDATION_FAILED", status: 422 });
+  });
+
+  it("filters the public catalog by shop", async () => {
+    const page = await inventory.listPublicListings({ shopId: verifiedShop, sort: "newest" });
+
+    expect(page.items.length).toBeGreaterThan(0);
+    expect(page.items.every((listing) => listing.shopId === verifiedShop)).toBe(true);
+  });
+
   it("claims an event once across concurrent workers and remains idempotent", async () => {
     const draft = await inventory.createDraft(verifiedActor, verifiedShop, listingInput("Outbox item"));
     await inventory.publish(verifiedActor, verifiedShop, draft.id);

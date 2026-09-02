@@ -3,7 +3,11 @@ import type {
   CreateListingInput,
   CreateShopInput,
   ErrorResponse,
-  Listing
+  Listing,
+  PublicListing,
+  PublicListingPage,
+  PublicListingsQuery,
+  UpdateListingDraftInput
 } from "@rebox/shared";
 
 export type { paths } from "./generated";
@@ -61,11 +65,24 @@ export function createApiClient(options: ApiClientOptions) {
         method: "POST",
         body: JSON.stringify(input)
       }),
+    updateListingDraft: (shopId: string, listingId: string, input: UpdateListingDraftInput) =>
+      request<Listing>(
+        `/v1/shops/${encodeURIComponent(shopId)}/listings/${encodeURIComponent(listingId)}`,
+        { method: "PATCH", body: JSON.stringify(input) }
+      ),
     publishListing: (shopId: string, listingId: string) =>
       request<Listing>(
         `/v1/shops/${encodeURIComponent(shopId)}/listings/${encodeURIComponent(listingId)}/publish`,
         { method: "POST" }
       ),
-    getPublicListing: (listingId: string) => request<Listing>(`/v1/listings/${encodeURIComponent(listingId)}`)
+    listPublicListings: (query: Partial<PublicListingsQuery> = {}) => {
+      const search = new URLSearchParams();
+      for (const [key, value] of Object.entries(query)) {
+        if (value) search.set(key, value);
+      }
+      const suffix = search.size ? `?${search}` : "";
+      return request<PublicListingPage>(`/v1/listings${suffix}`, { cache: "no-store" });
+    },
+    getPublicListing: (listingId: string) => request<PublicListing>(`/v1/listings/${encodeURIComponent(listingId)}`)
   };
 }

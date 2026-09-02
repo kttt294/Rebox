@@ -1,6 +1,13 @@
-import { Body, Controller, Get, Inject, Param, Post } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Patch, Post, Query } from "@nestjs/common";
 import { DomainError, type InventoryModule } from "@rebox/backend";
-import { createListingSchema, type Listing } from "@rebox/shared";
+import {
+  createListingSchema,
+  type Listing,
+  type PublicListing,
+  type PublicListingPage,
+  publicListingsQuerySchema,
+  updateListingDraftSchema
+} from "@rebox/shared";
 import { INVENTORY } from "../../backend.providers";
 import { CurrentActor } from "../decorators/current-actor";
 import { Public } from "../decorators/public";
@@ -28,6 +35,20 @@ export class ListingsController {
     return this.inventory.listShopListings(actor.id, shopId);
   }
 
+  @Patch("shops/:shopId/listings/:listingId")
+  updateDraft(
+    @CurrentActor() actor: Actor,
+    @Param("shopId") shopId: string,
+    @Param("listingId") listingId: string,
+    @Body() body: unknown
+  ): Promise<Listing> {
+    const parsed = updateListingDraftSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new DomainError("VALIDATION_FAILED", 422, parsed.error.issues[0]?.message ?? "Invalid listing");
+    }
+    return this.inventory.updateDraft(actor.id, shopId, listingId, parsed.data);
+  }
+
   @Post("shops/:shopId/listings/:listingId/publish")
   publish(
     @CurrentActor() actor: Actor,
@@ -38,8 +59,18 @@ export class ListingsController {
   }
 
   @Public()
+  @Get("listings")
+  listPublicListings(@Query() query: unknown): Promise<PublicListingPage> {
+    const parsed = publicListingsQuerySchema.safeParse(query);
+    if (!parsed.success) {
+      throw new DomainError("VALIDATION_FAILED", 422, parsed.error.issues[0]?.message ?? "Invalid catalog query");
+    }
+    return this.inventory.listPublicListings(parsed.data);
+  }
+
+  @Public()
   @Get("listings/:listingId")
-  getPublicListing(@Param("listingId") listingId: string): Promise<Listing> {
+  getPublicListing(@Param("listingId") listingId: string): Promise<PublicListing> {
     return this.inventory.getPublicListing(listingId);
   }
 }

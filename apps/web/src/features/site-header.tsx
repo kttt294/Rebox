@@ -34,7 +34,7 @@ function ReboxBrand({ section }: { section?: string | undefined }) {
 
 function SearchField({ className = "", placeholder = "Tìm kiếm sản phẩm hoàn, đồ mới giá tốt..." }: { className?: string; placeholder?: string | undefined }) {
   return (
-    <form action="/" className={`flex h-12 min-w-0 items-center overflow-hidden rounded-md bg-white pl-[18px] pr-1 ${className}`} role="search">
+    <form action="/search" className={`flex h-12 min-w-0 items-center overflow-hidden rounded-md bg-white pl-[18px] pr-1 ${className}`} role="search">
       <input aria-label="Tìm kiếm sản phẩm" className="h-full min-w-0 flex-1 border-0 bg-transparent text-sm outline-none" name="q" placeholder={placeholder} type="search" />
       <button aria-label="Tìm kiếm" className="flex h-10 w-[60px] shrink-0 items-center justify-center rounded-[5px] bg-[var(--accent-strong)]" type="submit">
         <Image alt="" aria-hidden height={22} src="/rebox/search.svg" width={22} />
@@ -49,7 +49,7 @@ function MarketplaceHeader({ cart = false, shop = false }: { cart?: boolean; sho
       <UtilityNavigation />
       <div className="rebox-container mt-2 flex min-h-16 flex-wrap items-center gap-x-7 gap-y-3 pb-4 xl:h-16 xl:flex-nowrap xl:pb-0">
         <ReboxBrand section={cart ? "Giỏ Hàng" : undefined} />
-        <SearchField className={`order-3 w-full xl:order-none ${cart ? "xl:flex-1" : "xl:w-[900px] xl:flex-none"}`} placeholder={shop ? "Tìm trong REBOX Official Store..." : undefined} />
+        <SearchField className={`order-3 w-full xl:order-none ${cart ? "xl:flex-1" : "xl:w-[900px] xl:flex-none"}`} placeholder={shop ? "Tìm sản phẩm trong cửa hàng..." : undefined} />
         {!cart ? (
           <Link aria-label="Mở giỏ hàng" className="ml-auto flex size-[34px] shrink-0 items-center justify-center xl:ml-0" href="/cart">
             <Image alt="" aria-hidden height={34} src="/rebox/cart.svg" width={34} />
@@ -84,7 +84,7 @@ function AccountHeader() {
       <div className="mx-auto w-full max-w-[940px]">
         <div className="flex h-6 items-center justify-between gap-6 overflow-hidden whitespace-nowrap text-xs text-white/95">
           <p>Kênh Người Bán&nbsp;&nbsp; | &nbsp;&nbsp;Tải ứng dụng&nbsp;&nbsp; | &nbsp;&nbsp;Kết nối</p>
-          <p className="ml-auto">Thông Báo&nbsp;&nbsp; Hỗ Trợ&nbsp;&nbsp; Tiếng Việt&nbsp;&nbsp; | &nbsp;&nbsp;<Link className="hover:underline" href="/account/profile">username</Link></p>
+          <p className="ml-auto">Thông Báo&nbsp;&nbsp; Hỗ Trợ&nbsp;&nbsp; Tiếng Việt&nbsp;&nbsp; | &nbsp;&nbsp;<Link className="hover:underline" href="/account/profile">Tài khoản</Link></p>
         </div>
         <div className="mt-1 flex h-14 items-center gap-[18px]">
           <Link className="flex h-11 w-40 shrink-0 items-center gap-2.5 text-white" href="/">
@@ -146,7 +146,7 @@ export function SiteHeader() {
   if (pathname === "/checkout") return <CheckoutHeader />;
   if (pathname === "/cart") return <MarketplaceHeader cart />;
   if (pathname.startsWith("/account/")) return <AccountHeader />;
-  if (pathname === "/" || pathname.startsWith("/listings/")) return <MarketplaceHeader />;
+  if (pathname === "/" || pathname.startsWith("/listings/") || pathname === "/search") return <MarketplaceHeader />;
   if (pathname.startsWith("/shops/")) return <MarketplaceHeader shop />;
   if (pathname.startsWith("/seller/")) return <SellerHeader />;
   return null;

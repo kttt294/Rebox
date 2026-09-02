@@ -38,7 +38,7 @@ Khi thay đổi API, controller, OpenAPI contract, generated types, API client, 
 
 ## 3. API đã được tạo
 
-Hiện có **8 endpoint**, đều ở trạng thái `IMPLEMENTED` trên local.
+Hiện có **10 endpoint**, đều ở trạng thái `IMPLEMENTED` trên local.
 
 | Method | Path | Auth | Module | Trạng thái | Mục đích |
 |---|---|---|---|---|---|
@@ -48,7 +48,9 @@ Hiện có **8 endpoint**, đều ở trạng thái `IMPLEMENTED` trên local.
 | `POST` | `/v1/shops` | Supabase JWT | Identity | `IMPLEMENTED` | Tạo profile/shop và membership `OWNER` trong transaction |
 | `GET` | `/v1/shops/{shopId}/listings` | Supabase JWT | Inventory | `IMPLEMENTED` | Lấy listing thuộc shop mà actor có quyền truy cập |
 | `POST` | `/v1/shops/{shopId}/listings` | Supabase JWT | Inventory | `IMPLEMENTED` | Tạo manual listing ở trạng thái draft |
+| `PATCH` | `/v1/shops/{shopId}/listings/{listingId}` | Supabase JWT | Inventory | `IMPLEMENTED` | Sửa listing thuộc đúng shop khi còn ở trạng thái `DRAFT` |
 | `POST` | `/v1/shops/{shopId}/listings/{listingId}/publish` | Supabase JWT | Inventory | `IMPLEMENTED` | Publish listing và ghi outbox event trong cùng transaction |
+| `GET` | `/v1/listings` | Public | Inventory | `IMPLEMENTED` | Tìm listing public bằng cursor, từ khóa, danh mục và sắp xếp |
 | `GET` | `/v1/listings/{listingId}` | Public | Inventory | `IMPLEMENTED` | Lấy listing công khai; chỉ trả listing và shop đang active |
 
 ## 4. Request chính
@@ -90,6 +92,14 @@ Hiện có **8 endpoint**, đều ở trạng thái `IMPLEMENTED` trên local.
 - `FAIR`
 - `DEFECT`
 
+### `PATCH /v1/shops/{shopId}/listings/{listingId}`
+
+Dùng cùng payload editable với API tạo draft. Request không nhận các field do server sở hữu như `shopId`, `status`, `priceSource` hoặc ownership. Chỉ listing `DRAFT` thuộc đúng shop mới được cập nhật.
+
+### `GET /v1/listings`
+
+Query hỗ trợ `cursor`, `q`, `category`, `shopId` và `sort=newest|price_asc|price_desc`. API trả tối đa 24 listing mỗi trang cùng `nextCursor`; chỉ listing `ACTIVE` của shop `ACTIVE` xuất hiện. Tìm kiếm dùng PostgreSQL FTS với chuẩn hóa dấu tiếng Việt.
+
 ## 5. Authentication và authorization
 
 Endpoint có cột Auth là `Supabase JWT` yêu cầu header:
@@ -101,6 +111,8 @@ Authorization: Bearer <supabase-access-token>
 NestJS xác định actor từ claim `sub` trong JWT. Client không được gửi actor ID thay cho danh tính đã xác thực.
 
 JWT chỉ chứng minh danh tính. Quyền nghiệp vụ vẫn được backend kiểm tra bằng shop membership, role, membership status, KYC status và shop status.
+
+Sửa draft yêu cầu capability `CREATE_LISTING`; `OWNER`, `MANAGER` và `WAREHOUSE` có thể sửa listing `DRAFT` thuộc shop của mình. Listing không thuộc shop trả `404`; listing đã rời trạng thái `DRAFT` trả `INVALID_LISTING_STATE`.
 
 Publish listing yêu cầu tối thiểu:
 
@@ -160,16 +172,16 @@ Vì vậy OpenAPI là **contract**, còn controller/backend là **implementation
 |---|---|
 | JWT/JWKS | Token hợp lệ được chấp nhận; sai audience bị từ chối; public route không cần token |
 | Identity | Tạo shop/profile/OWNER membership thành công |
-| Inventory | VERIFIED publish được; PENDING bị chặn; IDOR trả `404` |
-| Public listing | Active listing hiển thị; draft trả `404` |
+| Inventory | VERIFIED publish được; PENDING bị chặn; update draft persist; non-draft bị chặn; IDOR trả `404` |
+| Public listing | Search không dấu; draft/shop inactive bị ẩn; active listing mở được bằng SSR |
 | Outbox | Hai worker concurrent không xử lý trùng; runtime xử lý thành `PROCESSED:1` |
-| Quality gates | Lint, typecheck, 11 test, build và 2 Playwright E2E test đều đạt ở lần kiểm tra gần nhất |
+| Quality gates | Lint, typecheck, 19 test, build và 6 Playwright E2E đều đạt ở lần kiểm tra gần nhất |
 
 Các kết quả trên là local verification, không phải staging/production verification.
 
 ## 8. Planned APIs
 
-Chưa có API payment, wallet, order, fulfillment, claims/evidence production, mobile, AI hoặc live marketplace integration.
+Chưa có API payment, wallet, order, fulfillment, claims/evidence production, mobile, AI hoặc live marketplace integration. Upload ảnh catalog mới có storage port và fake contract test; endpoint chờ adapter Supabase Storage cùng giới hạn MIME/kích thước/số ảnh được chốt.
 
 Không chuyển API planned sang bảng **API đã được tạo** cho đến khi có đủ implementation, authorization, validation và test.
 
@@ -192,4 +204,6 @@ Các production API liên quan tiền thật bị chặn bởi A10. Evidence pro
 
 | Ngày | Thay đổi |
 |---|---|
+| 2026-09-02 | Thêm public catalog/search cursor + PostgreSQL FTS và nối home/search vào API thật |
+| 2026-09-02 | Ghi nhận API sửa listing draft, authorization/state guard và kết quả test liên quan |
 | 2026-08-25 | Tạo API catalog; ghi nhận 8 endpoint Sprint 1 đã implement và test local |
