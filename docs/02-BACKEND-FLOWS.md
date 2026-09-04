@@ -102,25 +102,28 @@ POST /seller/wallet/topup  {amount}  Idempotency-Key: <uuid>
 
 ## 2. Luồng đăng bán
 
-### 2.1. Ingest hàng hoàn - 3 nguồn MVP + 1 nguồn GĐ3
+### 2.1. Nguồn bản kê - hai kênh nhập song song
 
 ```mermaid
 flowchart LR
-  A["Quét barcode<br/>trên web"] --> E{Có dữ liệu<br/>đối chiếu?}
-  B["Import CSV<br/>từ Seller Center"] --> E
-  C["API sàn<br/>Shopee/TikTok · GĐ3"] --> E
-  D["Nhập tay"] --> I["Tạo listing draft<br/>SELLER_DECLARED"]
-  E -->|có| F["return_items<br/>(dedupe theo hash mã VĐ)"]
-  E -->|không| G["Trả về form trống<br/>để seller nhập tay"] --> I
-  F --> H["Tạo listing draft<br/>VERIFIED_*"]
+  U["Seller chọn nguồn"] --> B["Import CSV/XLSX<br/>đang bật"]
+  U --> C["Import Shopee/TikTok<br/>feature flag / Sắp có"]
+  B --> N["Chuẩn hóa<br/>ReturnManifestDraft[]"]
+  C --> N
+  N --> P["Preview + validate"]
+  P --> S["Commit ReturnPackage<br/>và ReturnLine"]
+  A["Quét shipper label<br/>ở slice sau"] --> L["Lookup package local"]
+  L --> S
+  S --> H["Một package<br/>một Listing số lượng 1"]
 ```
 
-**Dedupe:** `source_tracking_hash = HMAC_SHA256(pepper, normalize(tracking_no))`. Unique index `(shop_id, source_tracking_hash)`. Quét trùng ⇒ trả về `return_item` đã có kèm trạng thái, **không tạo bản ghi mới** - nhân viên kho quét trùng là chuyện xảy ra hằng ngày.
+`SPREADSHEET` và `PLATFORM_API` là hai lựa chọn ngang hàng; không có thứ tự ưu tiên hoặc fallback tự động. Cả hai trả `ReturnManifestDraft[]` và dùng chung preview/validate/commit. Bản đầu chỉ implement CSV/XLSX; nút API chưa gọi backend cho tới khi đủ gate. Spreadsheet canonical có grain `ReturnLine`, nên nhiều dòng cùng tracking được nhóm thành một package. Các field cấp package lặp trên mọi dòng phải giống nhau. Dedupe package bằng `(shop_id, source_platform, source_tracking_hash)` và line bằng `(return_package_id, source_item_ref)`.
+
+`source_quantity` chỉ mô tả bản kê nguồn. REBOX không mở kiện, không có `received_quantity`, không sinh `ReturnUnit` và không tạo nhiều listing từ các line. Đăng thủ công là flow catalog riêng, không phải fallback tự động của scan-to-list.
 
 ### 2.2. Scan-to-list (luồng nhanh)
 
-**Mô hình truy cập: tra cứu theo yêu cầu, KHÔNG đồng bộ toàn bộ** (`01-SPEC` §7.1.1).
-REBOX chỉ đọc đúng đơn seller chủ động đưa ra bằng cách quét mã trên kiện hàng vật lý.
+Seller phải hoàn thành import và commit bằng một trong hai kênh trước. Scan chỉ lookup package local đã commit; nó không gọi API sàn và không tự chuyển nguồn.
 
 ```
 POST /seller/scan  {scannedCode, codeType, platformHint}
@@ -133,48 +136,26 @@ POST /seller/scan  {scannedCode, codeType, platformHint}
     ⚠ Heuristic này DỄ VỠ khi các bên đổi định dạng → tách thành bảng cấu hình,
       có test theo mẫu thật, không hardcode rải rác
 
-2.  Tra return_items theo source_tracking_hash
-    ├─ HIT   → trả dữ liệu đã có (≈50ms). KẾT THÚC.
-    └─ MISS  → tiếp
+2.  Tra ReturnPackage theo shop_id + platform + source_tracking_hash
+    ├─ HIT   → trả package, lines và listing draft/hiện hành. KẾT THÚC.
+    └─ MISS  → trả SOURCE_MANIFEST_NOT_FOUND và link về màn hình chọn nguồn import.
 
-3.  Tra cache đơn-đã-quét (TTL 30 ngày, chỉ chứa đơn seller đã từng đưa ra)
-    ├─ HIT   → tạo return_item từ cache. KẾT THÚC.
-    └─ MISS  → tiếp
+3.  Không gọi API sàn, không parse file và không tạo package/line giả trong scan.
+    Import là workflow riêng có preview/commit; scan chỉ dùng dữ liệu đã commit.
 
-4.  ĐƯỜNG C - tra csv_staging (seller đã import trước đó)
-    ├─ HIT   → tạo return_item từ dòng CSV. KẾT THÚC.
-    └─ MISS  → tiếp
-    ※ Đường này KHÔNG cần API, luôn hoạt động → giữ làm luồng chính của MVP (L7)
-
-5.  Chỉ áp dụng ở GĐ3 — nếu shop đã kết nối API sàn, partner/ToS đã duyệt VÀ feature flag bật:
-
-    ĐƯỜNG A - codeType == ORDER_SN                    ← ưu tiên
-      get_order_detail(order_sn)                      1 lần gọi, tối thiểu hoá triệt để
-
-    ĐƯỜNG B - codeType == TRACKING_NO
-      b1. get_order_list(status=RETURNED, 60 ngày)
-          → CHỈ lấy cặp (order_sn, tracking_number)
-          → giữ trong cache ngắn hạn, KHÔNG ghi xuống DB
-      b2. đối chiếu trong bộ nhớ tìm đơn khớp
-      b3. CHỈ get_order_detail cho đúng đơn đó
-      ※ Giảm thiểu ở tầng LƯU TRỮ, không giảm được ở tầng ĐỌC - nêu rõ trong
-        chính sách, không che
-
-    Chung cho A và B:
-      - timeout 8s, circuit breaker, backoff
-      - lọc allowlist trường dữ liệu NGAY tại tầng ingest, trước khi ghi
-      - ghi audit_logs: shop nào, đọc đơn nào, lúc nào
-      ├─ OK    → tạo return_item + ghi cache (chỉ trường sản phẩm)
-      └─ FAIL  → tiếp
-
-6.  Trả form trống + mã đã điền sẵn để seller nhập tay
+4.  [TX] get-or-create đúng một listing DRAFT cho package đã tìm thấy.
+    - disclosure bắt buộc UNOPENED_UNINSPECTED
+    - package.inventory_status = AVAILABLE
+    - retry cùng dữ liệu trả cùng package/listing
+    - conflict không sửa listing ACTIVE hoặc package RESERVED/SOLD
 ```
 
 **Bộ lọc allowlist - bắt buộc, chặn ở tầng ingest:**
 
 ```
-CHO PHÉP :  item_name, sku, variant/model, item_images[],
-            original_price, category, weight, dimensions
+CHO PHÉP :  order/return ref, tracking, item_name, sku, quantity,
+            variant/model, item_images[], original_price, category,
+            package weight/dimensions, return reason
 CHẶN     :  buyer_name, buyer_phone, buyer_address, buyer_user_id,
             recipient_*, mọi trường định danh người mua gốc
 ```
@@ -185,37 +166,37 @@ Chặn tại tầng ingest chứ không lọc lúc hiển thị: dữ liệu kh�
 
 ```
 Barcode không đọc được  → OCR vùng text trong web nếu browser hỗ trợ
-OCR không ra            → nhập tay mã
-Không có mã             → đăng thủ công + ảnh chụp thực tế
+OCR không ra            → nhập tay mã vận đơn
+Không có bản kê         → quay về chọn import Shopee/TikTok hoặc CSV/XLSX, commit rồi quét lại
 ```
 
-ML Kit/VisionCamera chỉ thuộc mobile GĐ3. Luồng GĐ1 luôn hoạt động được bằng form nhập tay và không tạo `return_items` giả khi không có nguồn đối chiếu.
+ML Kit/VisionCamera chỉ thuộc mobile GĐ3. Flow nguyên kiện không tạo package/line giả khi không tìm thấy bản kê. Seller vẫn có thể dùng flow listing thủ công hiện hành, nhưng đó không phải trải nghiệm "quét là đăng".
 
-**Điểm thiết kế GĐ3:** nhánh API sàn **không bao giờ chặn** trải nghiệm. Timeout 8s là quá lâu cho nhân viên kho đang quét liên tục; UI hiển thị form ở 1,5s và chỉ điền bù trường còn trống khi API trả về. GĐ1 không gọi nhánh này. Xem `03-FRONTEND-FLOWS` §2.2.
+**Seam API:** hai importer chỉ gặp nhau ở normalized DTO và pipeline preview/commit. Không dựng adapter giả, OAuth flow hay scheduler khi chưa có sandbox/credential. Lỗi của một kênh được báo tại kênh đó; hệ thống không tự lấy dữ liệu từ kênh còn lại.
 
 ### 2.3. Publish listing
 
 ```
-POST /seller/listings  {returnItemId?, title, price, condition, conditionNotes,
-                        categoryId, images[], weight, dim}
+POST /seller/return-packages/{packageId}/listing
 
 [TX]
   1. Kiểm tra access token + shop membership; OWNER/MANAGER được publish,
      WAREHOUSE chỉ được tạo/lưu draft
   2. Kiểm tra shop.kyc_status = VERIFIED và shop.status = ACTIVE trước transition ACTIVE
-  3. Nếu có returnItemId: kiểm tra sở hữu return_item, trạng thái = IN_STOCK
+  3. Khóa package; kiểm tra thuộc shop, manifest đầy đủ, status AVAILABLE và
+     chưa có listing khác
   4. Kiểm tra giá:
-       nếu có returnItemId và nguồn đã đối chiếu = VERIFIED_PLATFORM/VERIFIED_CSV
+       original_price = SUM(line.source_quantity * line.original_price)
+       nếu manifest từ PLATFORM_API/SPREADSHEET
          → price <= 0.9 * original_price
-       nếu không có returnItemId
-         → server đặt price_source = SELLER_DECLARED
-         → price_cap = NULL; public response không trả original_price/discount_pct
        price >= 10.000  (dưới ngưỡng này phí sàn min 10k nuốt hết)
-  5. Kiểm tra danh mục: không thuộc danh sách cấm/hạn chế (§2.4)
-  6. Tạo listing status = PENDING_REVIEW
-  7. Chỉ khi có returnItemId: return_item.liquidation_status = LISTED
+  5. Kiểm tra tất cả ReturnLine; policy nghiêm ngặt nhất của package thắng
+  6. Tạo listing status = PENDING_REVIEW, disclosure = UNOPENED_UNINSPECTED
+  7. Không ghi quantity vào listing; availableQuantity = 1 khi package AVAILABLE, ngược lại = 0
   8. [OUTBOX] job listing.moderate
 COMMIT
+
+Listing thủ công tiếp tục dùng endpoint hiện có và `SELLER_DECLARED`; nó không đi qua endpoint package ở trên.
 
 Worker listing.moderate:
   - Re-check shop.kyc_status = VERIFIED, shop.status = ACTIVE và membership còn hiệu lực
@@ -307,32 +288,32 @@ sequenceDiagram
   participant DB
   participant FEE as Fee Engine
 
-  B->>API: POST /checkout/init {listingIds, addressId} + Idempotency-Key
+  B->>API: POST /checkout/init {items:[{listingId, quantity:1}], addressId} + Idempotency-Key
   API->>DB: resolve cart/listing/shop IDs read-only; BEGIN; SELECT wallet rồi shop FOR UPDATE
-  API->>DB: SELECT listings FOR UPDATE theo ULID
-  API->>API: kiểm tra ACTIVE và tất cả cùng một shop_id bất biến đã resolve
+  API->>DB: SELECT listings rồi ReturnPackage AVAILABLE FOR UPDATE theo ULID
+  API->>API: kiểm tra đúng một package listing, quantity=1 và shop_id bất biến đã resolve
   API->>API: kiểm tra shop.status=ACTIVE, KYC=VERIFIED, debt=0 và activation gate
-  alt lẫn nhiều seller
-    API-->>B: 422 MULTI_SELLER_CHECKOUT_NOT_SUPPORTED
+  alt nhiều package hoặc lẫn nhiều seller
+    API-->>B: 422 ONE_PACKAGE_PER_CHECKOUT hoặc MULTI_SELLER_CHECKOUT_NOT_SUPPORTED
   else shop/KYC/debt/activation không hợp lệ
     API-->>B: 409 SHOP_UNAVAILABLE
   end
   API->>FEE: computeFees + snapshot config
-  alt listing không ACTIVE
+  alt listing không ACTIVE hoặc package không AVAILABLE
     API-->>B: 409 ITEM_BEING_PURCHASED hoặc ITEM_SOLD
   else available < hold
     API->>DB: listing → HIDDEN_BY_FUND
     API-->>B: 409 SHOP_UNAVAILABLE
   else hợp lệ
     API->>DB: ledger HOLD_CREATE + fund_hold(expires=+30p)
-    API->>DB: order + đúng 1 sub_order + fee_snapshot + listing RESERVED,
+    API->>DB: order + đúng 1 sub_order + fee_snapshot + package RESERVED,
              reserved_until=expiresAt + scheduled outbox expiry
     API->>DB: COMMIT
   end
   API-->>B: 200 {orderId, breakdown, expiresAt}
 ```
 
-**Thứ tự khóa cố định (bắt buộc):** server resolve ID/shop read-only trước nhưng không tin state đọc ở bước này. Mọi workflow chạm reservation/tiền/case của sub-order khóa theo một thứ tự duy nhất: `wallet → shop → listings (ULID tăng dần) → order → sub_order → fund_hold → dispute_case/dispute/refund`. Bảng không tồn tại ở flow thì bỏ qua, không đảo thứ tự. Checkout chưa có order nên khóa wallet/shop rồi listings; greedy coverage cũng theo thứ tự này. Không tin giá/address do client gửi. Việc serialise theo wallet giảm một ít concurrency cùng shop nhưng loại cycle deadlock và phù hợp tải MVP.
+**Thứ tự khóa cố định (bắt buộc):** `wallet → shop → listings → return_packages (ULID tăng dần) → order → sub_order → fund_hold → dispute_case/dispute/refund`. Bảng không tồn tại ở flow thì bỏ qua, không đảo thứ tự. Checkout re-check package `AVAILABLE` dưới lock; không tin giá/address do client gửi.
 
 **Toàn bộ thay đổi nghiệp vụ nằm trong một transaction.** Một order có đúng một sub-order ở MVP (`UNIQUE(sub_orders.order_id)`).
 
@@ -345,7 +326,7 @@ Catalog public cũng chỉ trả listing `ACTIVE` khi join shop `status=ACTIVE`,
 ```
 POST /checkout/{orderId}/pay  {method: VIETQR}
 
-1. [TX] resolve ID rồi khóa wallet → shop → listings theo ULID → order → sub_order → fund_hold;
+1. [TX] resolve ID rồi khóa wallet → shop → listings → packages theo ULID → order → sub_order → fund_hold;
    chỉ tiếp tục khi trạng thái RESERVED,
    payment_method chưa chốt (hoặc đã là VIETQR) và now() < fund_hold.expires_at
    - orders.payment_method = VIETQR
@@ -366,7 +347,7 @@ POST /webhooks/bank  {providerEventId, direction, settlementState,
    và chỉ tiếp tục với direction=CREDIT, settlementState=FINAL|SETTLED
 2. Trích subOrderId từ content bằng regex /RBX([0-9A-HJKMNP-TV-Z]{26})/
 3. [TX] [IDEM: "bankwh:" + provider + ":" + account + ":" + providerEventId]
-     - resolve ID rồi SELECT wallet + listings theo ULID + order + sub_order
+     - resolve ID rồi SELECT wallet + listings + packages theo ULID + order + sub_order
        + active fund_hold FOR UPDATE theo đúng thứ tự canonical
      - yêu cầu order.payment_method = VIETQR,
        sub_order.status = AWAITING_PAYMENT và now() < fund_hold.expires_at
@@ -376,13 +357,13 @@ POST /webhooks/bank  {providerEventId, direction, settlementState,
      - so khớp content chứa đúng subOrderId canonical
      - sub_order.status: AWAITING_PAYMENT → CONFIRMED
      - sub_order.payment_status: UNPAID → CONFIRMED
-     - listing → SOLD
+     - ReturnPackage đã phân bổ `RESERVED → SOLD`; listing giữ policy state ACTIVE nhưng không còn purchasable
      - [OUTBOX] noti seller + buyer
 4. Nếu sai bất kỳ state/deadline/account/content/amount nào → payment_unmatched;
    webhook đến sau hạn không được auto-confirm kể cả expiry job đang trễ
 ```
 
-**Worker expiry (được schedule ngay tại checkout init):** claim idempotent, khóa wallet → shop → listings theo ULID → order → sub-order → active hold theo cùng thứ tự với `/pay` và webhook. Nếu state còn `RESERVED|AWAITING_PAYMENT` và `now() >= expires_at`, chuyển sub-order `EXPIRED`, payment `CANCELLED`, release toàn hold, listing `RESERVED → ACTIVE` (hoặc trạng thái ẩn theo policy hiện tại), ghi outbox. Webhook và expiry tranh cùng row lock nên đúng một bên thắng; event tiền tới sau khi expiry commit luôn vào unmatched và không hồi sinh order.
+**Worker expiry (được schedule ngay tại checkout init):** claim idempotent, khóa wallet → shop → listings → packages theo ULID → order → sub-order → active hold theo cùng thứ tự với `/pay` và webhook. Nếu state còn `RESERVED|AWAITING_PAYMENT` và hết hạn, chuyển sub-order `EXPIRED`, payment `CANCELLED`, release hold và package `RESERVED → AVAILABLE`. Webhook và expiry tranh cùng row lock nên đúng một bên thắng.
 
 Reversal/correction của provider không được xử như một credit payment mới. Nó tạo immutable event liên kết giao dịch gốc và đi compensating/reconciliation workflow; mọi thay đổi ledger dùng idempotency key riêng.
 
@@ -405,7 +386,7 @@ Reversal/correction của provider không được xử như một credit paymen
 ```
 POST /checkout/{orderId}/pay  {method: COD}
 
-1. [TX] khóa wallet → shop → listings theo ULID → order → sub_order → fund_hold;
+1. [TX] khóa wallet → shop → listings → packages theo ULID → order → sub_order → fund_hold;
    yêu cầu RESERVED,
    payment_method chưa chốt và now() < fund_hold.expires_at
 2. Kiểm tra rủi ro buyer:
@@ -415,7 +396,7 @@ POST /checkout/{orderId}/pay  {method: COD}
 3. Trong cùng TX:
      - orders.payment_method = COD
      - sub_order.status = CONFIRMED; payment_status = COD_PENDING
-     - listing RESERVED → SOLD; hold vẫn giữ nguyên
+     - ReturnPackage đã phân bổ `RESERVED → SOLD`; hold vẫn giữ nguyên
    COMMIT
 4. ĐVVC thu tiền, chi hộ về TK seller trong 24–48h
 5. Job đối soát COD hằng ngày: so khớp bảng kê ĐVVC với sub_orders và snapshot
@@ -424,14 +405,13 @@ POST /checkout/{orderId}/pay  {method: COD}
      - ĐVVC báo giao thành công nhưng chưa thấy tiền sau 72h → cảnh báo ops
 ```
 
-### 3.4. Tạo vận đơn & gộp kiện
+### 3.4. Tạo vận đơn mới cho nguyên kiện
 
 ```
 Trigger: sub_order → CONFIRMED, seller bấm "Xác nhận & In vận đơn"
 
-1. Gom toàn bộ sub_order_items (đã cùng shop theo thiết kế)
-2. Tính tổng cân nặng + kích thước bao ngoài (thuật toán đóng gói đơn giản:
-   tổng thể tích, cạnh dài nhất)
+1. Lấy đúng ReturnPackage đã bán; không mở, không đóng gói lại và không gom với package khác
+2. Dùng cân nặng/kích thước cả kiện từ manifest; nếu thiếu thì seller chỉ cân/đo bên ngoài
 3. [TX] tạo shipment_intent(PENDING) + idempotency key; COMMIT
 4. Ngoài TX: CarrierAdapter.createOrder({from, to, weight, dim, codAmount,
                                           insuranceValue, idempotencyKey})
@@ -440,6 +420,7 @@ Trigger: sub_order → CONFIRMED, seller bấm "Xác nhận & In vận đơn"
    Timeout/ambiguous → intent UNKNOWN/RECONCILING và query bằng cùng stable key;
    terminal fail mới FAILED, không tạo intent/direction thứ hai
 6. Trả về PDF/PNG nhãn vận đơn (khổ A6 hoặc 10x15 cho máy in nhiệt)
+7. UI nhắc seller che kín hoặc bóc nhãn cũ chứa tên/SĐT/địa chỉ/QR trước khi dán nhãn mới
 ```
 
 **Chọn ĐVVC:** ở v1 chọn theo cấu hình shop + vùng giao. Không làm thuật toán tối ưu cước ở MVP - độ phức tạp cao, lợi ích thấp khi sản lượng còn nhỏ.
@@ -901,16 +882,16 @@ Chỉ mở lại khi có ít nhất 5 shop thật yêu cầu. Không tạo OAuth
 
 ```
 REBOX → ERP  (khi bán được hàng)
-  webhook listing.sold → ERP trừ tồn kho SKU tương ứng
+  webhook inventory.package_sold → ERP đánh dấu đúng kiện đã bán
 
 ERP → REBOX  (khi hàng được bán ở kênh khác)
-  POST /v1/inventory/sync {sku, availableQty: 0}
-  → REBOX tìm listing ACTIVE có source_sku khớp
-  → nếu qty = 0: listing → DELISTED (tránh bán trùng)
-  → nếu listing đang RESERVED: KHÔNG gỡ, trả 409 + cảnh báo ERP
+  POST /v1/inventory/sync {externalPackageRef, status: SOLD}
+  → REBOX map đúng ReturnPackage, không ghi counter vào Listing
+  → package AVAILABLE chuyển SOLD; availableQuantity thành 0
+  → package RESERVED: KHÔNG ghi đè, trả 409 + cảnh báo ERP
 ```
 
-**Xử lý xung đột:** REBOX là nguồn sự thật cho listing đang trong quy trình bán (`RESERVED`, `SOLD`). ERP không được ghi đè. Với listing `ACTIVE`, ERP có quyền ưu tiên vì kho vật lý nằm ở phía seller.
+**Xử lý xung đột:** REBOX là nguồn sự thật cho package đang `RESERVED` hoặc `SOLD`; ERP không được ghi đè. API ERP vẫn là GĐ4.
 
 ### 6.3. Giao webhook
 

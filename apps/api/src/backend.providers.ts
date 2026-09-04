@@ -13,6 +13,13 @@ export const IDENTITY = Symbol("IDENTITY");
 export const INVENTORY = Symbol("INVENTORY");
 export const CATALOG_MEDIA_STORAGE = Symbol("CATALOG_MEDIA_STORAGE");
 
+function trackingSecret(name: "RETURN_TRACKING_ENCRYPTION_KEY" | "RETURN_TRACKING_HMAC_KEY"): string {
+  const configured = process.env[name];
+  if (configured) return configured;
+  if (process.env.NODE_ENV === "production") throw new Error(`${name} is required`);
+  return `local-dev-only-${name}-change-before-production`;
+}
+
 export const backendProviders: Provider[] = [
   {
     provide: DATABASE,
@@ -42,6 +49,9 @@ export const backendProviders: Provider[] = [
       database: DatabaseContext,
       identity: IdentityModule,
       mediaStorage: CatalogMediaStorage
-    ): InventoryModule => new InventoryModule(database.pool, identity, mediaStorage)
+    ): InventoryModule => new InventoryModule(database.pool, identity, mediaStorage, {
+      encryptionSecret: trackingSecret("RETURN_TRACKING_ENCRYPTION_KEY"),
+      hmacSecret: trackingSecret("RETURN_TRACKING_HMAC_KEY")
+    })
   }
 ];

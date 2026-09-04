@@ -1,7 +1,7 @@
 # REBOX — Quyết định kiến trúc trước khi viết code
 
-Phiên bản: 1.0  
-Ngày chốt: 2026-08-25  
+Phiên bản: 1.2
+Ngày cập nhật: 2026-09-04
 Trạng thái: **Canonical cho MVP**
 
 Tài liệu này là nguồn chuẩn cho các quyết định kiến trúc và phạm vi MVP. Khi một mô tả trong `00`–`06`, `CODEBASE.md`, prototype hoặc tài liệu nguồn mâu thuẫn với file này thì **file này được ưu tiên**. Riêng nhận định pháp lý trong `05-PHAP-LY-VIET-NAM.md` vẫn phải được luật sư rà soát trước khi vận hành thật.
@@ -11,6 +11,7 @@ Tài liệu này là nguồn chuẩn cho các quyết định kiến trúc và p
 | Trạng thái | Ý nghĩa |
 |---|---|
 | `ACCEPTED` | Đã chốt, được dùng để thiết kế schema, interface và test |
+| `PROPOSED` | Đã có thiết kế để review; chưa được tạo migration/backend cho tới khi chủ dự án duyệt |
 | `BLOCKED` | Chưa đủ căn cứ để chốt; không được triển khai production phần phụ thuộc |
 | `DEFERRED` | Không thuộc MVP; chỉ mở lại khi đạt điều kiện kích hoạt |
 
@@ -23,7 +24,7 @@ Không tạo abstraction hoặc dependency chỉ để phục vụ một quyết
 - Tiền, đơn hàng và tranh chấp cần một nguồn sự thật giao dịch duy nhất.
 - Tiền bán hàng đi thẳng tới seller; REBOX không xây escrow cho tiền hàng.
 - Ví ký quỹ và luồng hoàn tiền vẫn là vấn đề pháp lý có thể chặn ra mắt.
-- Mọi listing có số lượng bằng một; checkout phải chống oversell bằng transaction database.
+- Một `ReturnPackage` nguyên kiện là một đơn vị tồn kho và có tối đa một listing hiệu lực; checkout phải khóa đúng package đó bằng transaction database.
 - Video là chứng cứ ưu tiên, không phải điều kiện để tiếp nhận khiếu nại.
 
 ## 3. Bảng quyết định
@@ -35,7 +36,7 @@ Không tạo abstraction hoặc dependency chỉ để phục vụ một quyết
 | A03 | Supabase PostgreSQL + Auth là nền tảng dữ liệu/định danh | `ACCEPTED` |
 | A04 | NestJS là authority của mọi mutation nghiệp vụ | `ACCEPTED` |
 | A05 | PostgreSQL outbox; chưa dùng Redis/BullMQ | `ACCEPTED` |
-| A06 | Manual + CSV là nguồn catalog MVP | `ACCEPTED` |
+| A06 | Spreadsheet và API sàn là hai kênh nhập ngang hàng, dùng chung contract | `ACCEPTED` |
 | A07 | Mỗi lần checkout chỉ một seller | `ACCEPTED` |
 | A08 | Hold dùng dự phòng ship 45.000đ ở MVP | `ACCEPTED` |
 | A09 | Ký quỹ kích hoạt 100.000đ, không phân tier | `ACCEPTED` |
@@ -45,6 +46,7 @@ Không tạo abstraction hoặc dependency chỉ để phục vụ một quyết
 | A13 | Supabase Realtime chỉ là tín hiệu refetch | `ACCEPTED` |
 | A14 | Supabase Singapore cần legal gate trước production | `ACCEPTED` |
 | A15 | Các feature GĐ3/GĐ4 chưa thuộc MVP | `DEFERRED` |
+| A16 | Bán nguyên `ReturnPackage`; `ReturnLine` chỉ là bản kê nguồn | `ACCEPTED` |
 
 ## 4. A01 — Monorepo và runtime GĐ1
 
@@ -154,31 +156,31 @@ MVP không thêm Redis/BullMQ. PostgreSQL xử lý:
 - scheduled job bằng `available_at`, retry count và dead-letter state;
 - idempotency bằng unique constraint bền vững.
 
-Mọi workflow chạm reservation/tiền/case của một sub-order dùng cùng lock order: `wallet → shop → listings theo ULID → order → sub_order → fund_hold → dispute_case/dispute/refund`. ID được resolve read-only trước, state phải đọc lại dưới lock; không có flow nào được giữ listing rồi chờ wallet hoặc giữ sub-order rồi chờ wallet.
+Mọi workflow chạm reservation/tiền/case của một sub-order dùng cùng lock order: `wallet → shop → listings → return_packages theo ULID → order → sub_order → fund_hold → dispute_case/dispute/refund`. ID được resolve read-only trước, state phải đọc lại dưới lock; không có flow nào được giữ listing/package rồi chờ wallet hoặc giữ sub-order rồi chờ wallet.
 
 Redis chỉ được đề xuất lại khi metric chứng minh PostgreSQL là điểm nghẽn. Nếu thêm sau, Redis là cache/transport; PostgreSQL vẫn là nguồn sự thật.
 
 Quy tắc đúng là **không gọi HTTP bên ngoài trong database transaction**. Lookup chỉ đọc có thể gọi đồng bộ ngoài transaction khi UX cần, với timeout/circuit breaker/fallback. Side effect không cần trả ngay phải đi qua outbox.
 
-## 9. A06 — Nguồn catalog MVP
+## 9. A06 — Hai kênh nhập bản kê ngang hàng
 
-MVP hỗ trợ:
+UI có hai lựa chọn rõ ràng: **Import trực tiếp từ Shopee/TikTok** và **Import CSV/XLSX**. Đây là hai kênh ngang hàng do seller chủ động chọn, không phải chuỗi ưu tiên hay fallback tự động. Hiện chưa có partner approval, credential và contract API đã kiểm chứng, nên bản chạy đầu tiên chỉ bật spreadsheet; nút API hiển thị “Sắp có” hoặc nằm sau feature flag.
 
-1. nhập thủ công;
-2. import CSV do seller xuất;
-3. scan barcode/OCR để tìm trong dữ liệu local/CSV rồi mở form.
+Hai kênh phải trả cùng một contract chuẩn hóa `ReturnManifestDraft`: thông tin package, danh sách `ReturnLine`, nguồn dữ liệu và thời điểm lấy. Cả hai đi qua cùng preview → validate → commit; luồng scan/listing phía sau chỉ đọc package đã commit và không biết dữ liệu được nhập bằng kênh nào. Chỉ chừa **một seam nhỏ** ở ranh giới importer; chưa dựng plugin framework hoặc gọi API giả.
 
-Shopee/TikTok live API là GĐ3, chỉ làm sau khi có partner approval, credential và xác nhận ToS. Không code production adapter trong MVP chỉ để chờ credential. Khi triển khai thật, adapter phải lọc allowlist trước khi lưu và không được lưu PII của buyer gốc.
+Nếu cùng một package được nhập lại qua kênh khác, hệ thống giữ provenance và áp dụng cùng quy tắc idempotency/conflict; không tự ghi đè listing `ACTIVE` hoặc package `RESERVED/SOLD`. Cả hai kênh lọc allowlist trước khi lưu và không lưu PII của buyer gốc.
+
+Scan không gọi API sàn và không tự chuyển nguồn. Nếu không tìm thấy bản kê đã commit, UI đưa seller về màn hình chọn nguồn nhập. Đăng thủ công vẫn tồn tại như flow catalog riêng, nhưng không được giả thành scan-to-list tự động.
 
 ## 10. A07 — Checkout một seller
 
-Giỏ có thể chứa item từ nhiều shop để người dùng lưu lại, nhưng một request checkout chỉ nhận item của **một shop**. Nếu request lẫn seller, API trả `422 MULTI_SELLER_CHECKOUT_NOT_SUPPORTED` và UI yêu cầu chọn một nhóm shop.
+Giỏ có thể chứa nhiều listing để người dùng lưu lại, nhưng checkout package-backed ở MVP chỉ nhận **một listing, quantity 1**. Quy tắc này giữ đúng flow một kiện cũ → một vận đơn mới dán trực tiếp. Checkout lẫn seller vẫn trả `422 MULTI_SELLER_CHECKOUT_NOT_SUPPORTED`; nhiều package trả `422 ONE_PACKAGE_PER_CHECKOUT`.
 
 MVP giữ `orders` và `sub_orders`, nhưng quan hệ là một-một và phải có unique constraint trên `sub_orders.order_id`. Lý do giữ `sub_order`: đây là đơn vị fulfillment, fee, hold và dispute; nó cũng là seam mở rộng multi-seller sau này mà không làm checkout MVP phức tạp.
 
 Hệ quả:
 
-- một checkout, một hold, một QR hoặc một COD flow;
+- một checkout, một package, một hold, một QR/COD flow và một nhãn vận đơn mới;
 - không có trạng thái thanh toán một phần;
 - freeship và fee tính trên đúng seller/order;
 - multi-seller checkout chỉ mở lại khi PSP và state machine thanh toán một phần đã được thiết kế riêng.
@@ -364,11 +366,23 @@ Tham chiếu kỹ thuật chính thức:
 | Phân tích hàng hoàn theo SKU | GĐ3, sau khi có dữ liệu và nhu cầu seller đủ lớn |
 | Paid promotion/ranking | GĐ3, sau khi có traffic thật và Legal duyệt cơ chế quảng cáo/nhãn “Tài trợ” |
 
-## 19. Thứ tự triển khai sau khi tài liệu được chốt
+## 19. A16 — Grain kho hàng hoàn và storefront
+
+Một tracking xác định đúng một `ReturnPackage` trong phạm vi shop và platform. REBOX bán nguyên package đó, không mở kiện, không kiểm đếm và không sinh `ReturnUnit`. Một package có nhiều `ReturnLine`; các line chỉ là bản kê do CSV/API khai báo, không phải xác nhận vật lý.
+
+Cardinality: `ReturnPackage 1→N ReturnLine`; `ReturnPackage 1→0..1 Listing` ở MVP. Sau scan, package có đúng một listing hiện hành. Listing có `availableQuantity = 1` khi package `AVAILABLE`, và bằng `0` khi `RESERVED`, `SOLD` hoặc `VOID`. Reserve/sale khóa package cụ thể. Package nhiều SKU hoặc một line có `source_quantity > 1` vẫn là một listing bán cả kiện.
+
+Dedupe package bằng `(shop_id, source_platform, source_tracking_hash)` và line bằng `(return_package_id, source_item_ref)`. Tracking được mã hóa/HMAC ở package và không bao giờ xuất hiện trên storefront hoặc public API. Import lại cùng dữ liệu là idempotent; dữ liệu khác trên cùng khóa tạo phiên bản/conflict để review, không âm thầm thay listing đang bán.
+
+Mọi listing nguồn package phải công bố `UNOPENED_UNINSPECTED`. `SealStatus` chỉ mô tả vỏ/seal nhìn từ bên ngoài, không được đổi thành condition của sản phẩm. `source_quantity`, SKU, tên và giá là dữ liệu nguồn. Trùng SKU không chứng minh cùng sản phẩm và không được dùng để gom tồn.
+
+Trạng thái `ACCEPTED` ngày 2026-09-04; nội dung Package → Line → Unit trước đó bị rút lại cùng ngày sau khi chủ dự án xác nhận mục tiêu sản phẩm là bán nguyên kiện.
+
+## 20. Thứ tự triển khai sau khi tài liệu được chốt
 
 1. Baseline toolchain, Supabase local/dev, CI và migration policy.
 2. Vertical slice: Supabase Auth → shop profile/membership → manual listing → public listing page.
-3. CSV import, moderation và catalog hardening.
+3. Sau khi A16 được duyệt: schema/migration Package/Line/Listing, contract nguồn bản kê và CSV preview/commit; không tạo Unit/Product cho slice nguyên kiện.
 4. Ledger/hold với integration test trên PostgreSQL thật.
 5. Single-seller checkout, payment adapter đã được Legal duyệt và shipping.
 6. Manual dispute/evidence/admin.

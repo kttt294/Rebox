@@ -267,13 +267,13 @@ Tài liệu gốc đề xuất **dùng mã vận đơn làm ID sản phẩm côn
 1. ID công khai là ULID nội bộ, không liên quan mã vận đơn
 2. Mã vận đơn mã hóa tầng ứng dụng, không xuất hiện trong bất kỳ API công khai nào
 3. Dữ liệu người mua gốc từ API sàn: **chỉ lấy thông tin sản phẩm, tuyệt đối không lưu tên/SĐT/địa chỉ người mua gốc**. Bộ lọc allowlist trường dữ liệu ngay tại tầng ingest, trước khi ghi vào `raw_payload`
-4. **Không đồng bộ toàn bộ đơn hàng của shop** - chỉ đọc theo yêu cầu, xem §3.6.1
+4. **Không đồng bộ nền toàn bộ đơn hàng của shop** - chỉ import khi seller chủ động chọn phạm vi hữu hạn, xem §3.6.1
 
 #### 3.6.1. Giảm thiểu dữ liệu trong tích hợp API sàn
 
 Live API sàn là GĐ3. Các yêu cầu dưới đây là gate cho tương lai, không phải chức năng MVP.
 
-Thiết kế truy cập API đã đổi từ _đồng bộ nền toàn bộ đơn hoàn_ sang _tra cứu theo từng đơn khi seller quét mã trên kiện hàng vật lý_ (`01-SPEC` §7.1.1). Đây là một biện pháp **giảm thiểu dữ liệu** theo đúng nghĩa: REBOX chỉ xử lý dữ liệu của những đơn mà seller chủ động đưa ra, thay vì sao chép cơ sở dữ liệu đơn hàng của shop.
+Thiết kế truy cập API đã đổi từ _đồng bộ nền toàn bộ đơn hoàn_ sang _import do seller chủ động_ (`01-SPEC` §7.1.1): seller mở màn hình import, chọn một tập đơn hoàn hoặc khoảng thời gian hữu hạn, xem preview rồi mới commit. Danh sách dùng để chọn chỉ giữ tạm và chỉ chứa trường tối thiểu; REBOX không chạy đồng bộ nền hoặc sao chép cơ sở dữ liệu đơn hàng của shop.
 
 Điều này thu hẹp đáng kể bề mặt rủi ro đối với **dữ liệu của người mua gốc trên sàn khác** - nhóm chủ thể dữ liệu chưa từng có quan hệ nào với REBOX.
 
@@ -282,7 +282,7 @@ Thiết kế truy cập API đã đổi từ _đồng bộ nền toàn bộ đơ
 | Cách nói                                                                                                          | Đúng/Sai                                                                                                                                |
 | ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | _"Người bán kiểm soát REBOX được đọc đơn nào"_                                                       | ❌**Sai sự thật.** OAuth của Shopee/TikTok cấp quyền ở tầng shop theo scope; không có cơ chế giới hạn theo từng đơn |
-| _"REBOX chỉ đọc đơn mà người bán chủ động quét, và không sao chép cơ sở dữ liệu đơn hàng"_ | ✅ Đúng - đây là**tự giới hạn của REBOX**, thực thi bằng kỹ thuật và quy trình nội bộ                              |
+| _"REBOX chỉ import khi người bán chủ động chọn phạm vi hữu hạn, và không chạy đồng bộ nền toàn bộ đơn hàng"_ | ✅ Đúng - đây là **tự giới hạn của REBOX**, thực thi bằng kỹ thuật và quy trình nội bộ |
 
 Khác biệt này quan trọng cả trong Chính sách bảo mật, Quy chế sàn, lẫn tài liệu bán hàng. Mô tả sai một biện pháp bảo vệ dữ liệu là hành vi cung cấp thông tin không chính xác cho chủ thể dữ liệu.
 
@@ -292,11 +292,11 @@ Tự giới hạn không phải hình thức: **giảm thiểu dữ liệu là n
 
 | Yêu cầu                              | Cách làm                                                                                                                                                                                                                                                                                                     |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Chứng minh được sự tự giới hạn | Mỗi lần đọc đơn ghi`audit_logs`: shop nào, đơn nào, thời điểm, mục đích                                                                                                                                                                                                                      |
-| Minh bạch với seller                 | Trang**"REBOX đã đọc những đơn nào"** trong phần cài đặt kết nối                                                                                                                                                                                                                                 |
-| Quyền xoá                            | Nút**"Xoá dữ liệu đã đọc"**, xoá cache đơn-đã-quét                                                                                                                                                                                                                                               |
-| Giới hạn ở Đường B               | Khi phải quét danh sách đơn để đối chiếu mã vận đơn (`01-SPEC` §7.1.2), chỉ lấy cặp `(order_sn, tracking_number)`, giữ trong bộ nhớ, **không ghi xuống CSDL**. Nêu rõ giới hạn này trong chính sách - giảm thiểu ở tầng lưu trữ, **không** ở tầng đọc |
-| Thu hồi uỷ quyền                    | Seller ngắt kết nối ⇒ xoá token + cache trong 24h                                                                                                                                                                                                                                                         |
+| Chứng minh được sự tự giới hạn | Mỗi lần import/đọc đơn ghi `audit_logs`: shop nào, phạm vi nào, đơn nào, thời điểm, mục đích |
+| Minh bạch với seller | Trang **"REBOX đã đọc những đơn nào"** trong phần cài đặt kết nối |
+| Quyền xoá | Nút **"Xoá dữ liệu tạm"**; dữ liệu đã commit hoặc tham gia giao dịch theo retention nghiệp vụ tương ứng |
+| Giới hạn danh sách chọn | Chỉ lấy định danh và metadata tối thiểu để seller chọn đơn, giữ ngắn hạn, không ghi thành bản sao đơn hàng; chỉ lấy chi tiết cho đơn seller chọn |
+| Thu hồi uỷ quyền | Seller ngắt kết nối ⇒ xoá token + dữ liệu khám phá tạm trong 24h |
 
 ---
 
@@ -354,22 +354,25 @@ Ngoài ra, luật đặt ra **nghĩa vụ tăng cường cho nền tảng số l
 
 ### 5.3. Mô tả trung thực hàng hóa
 
-Sàn bán **hàng đã qua sử dụng / hàng hoàn** ⇒ nghĩa vụ mô tả trung thực rất quan trọng:
+REBOX bán **nguyên kiện hàng hoàn chưa mở kiểm tra**, nên nghĩa vụ mô tả giới hạn xác minh phải xuất hiện ngay trên card và trước thanh toán:
 
-- Trường `condition_notes` **bắt buộc không rỗng** khi publish
-- Thang tình trạng thống nhất, có định nghĩa công khai
-- Badge "MỚI 99% - ĐƠN HOÀN" trong prototype: chỉ được dùng khi đúng thực tế. **Không được đặt mặc định** cho mọi listing tạo từ luồng quét mã
+- Bắt buộc hiển thị `UNOPENED_UNINSPECTED`: seller/REBOX chưa mở, chưa kiểm đếm, chưa xác nhận nội dung và tình trạng sản phẩm bên trong
+- Bản kê CSV/API phải được ghi là **dữ liệu nguồn khai báo**, không phải kết quả kiểm định của REBOX
+- `SealStatus` chỉ mô tả seal/bao bì nhìn từ bên ngoài; không được suy thành “mới”, “như mới” hay “còn tốt” cho sản phẩm
+- Badge "MỚI 99% - ĐƠN HOÀN" không được dùng cho flow nguyên kiện
 - Cấm hành vi cung cấp thông tin sai lệch, gây nhầm lẫn
+
+Legal phải duyệt riêng cơ chế đồng ý của buyer, phạm vi đổi trả/khiếu nại và cách diễn đạt trước production. Việc công bố “chưa mở kiểm tra” không tự động loại bỏ trách nhiệm bảo vệ người tiêu dùng.
 
 #### 5.3.1. 🔴 Giá tham chiếu ảo trong luồng đăng bán thủ công
 
-Với listing tạo từ quét mã hoặc CSV, `original_price` lấy từ dữ liệu sàn - **đối chiếu được**. Với listing đăng thủ công, seller tự gõ **cả hai** con số `original_price` và `price`. REBOX không có cách nào kiểm chứng con số gốc đó.
+Với listing nguyên kiện từ API/CSV, `original_price` là tổng `source_quantity × đơn giá nguồn` của các dòng khai báo. Con số này đối chiếu được với bản kê, nhưng không chứng minh kiện thực tế có đủ hàng. Với listing đăng thủ công, seller tự gõ cả `original_price` lẫn `price`; REBOX không có cách kiểm chứng con số gốc đó.
 
 Nếu vẫn hiển thị giá gốc gạch ngang kèm % giảm cho trường hợp này, REBOX đang xuất bản một **giá tham chiếu không có căn cứ** ra cho người tiêu dùng - hành vi cung cấp thông tin gây nhầm lẫn về giá. Khác với các vi phạm khác trong tài liệu này vốn do hành vi của seller, ở đây **trách nhiệm thuộc về REBOX** với tư cách bên xuất bản thông tin, vì chính nền tảng in ra màn hình mức giảm giá không kiểm chứng được.
 
 Trần "giá bán tối đa 90% giá gốc" mà tài liệu gốc và `hosodangky.docx` mô tả cũng vô hiệu trong trường hợp này: seller chỉ cần khai giá gốc cao hơn thực tế để mức giảm luôn hiển thị "hợp lệ" trong khi giá bán thực chất không hề rẻ.
 
-**Bắt buộc:** phân biệt nguồn gốc giá bằng cột `price_source` (`01-SPEC` §4.2.1) và **không hiển thị** `original_price`, `discount_pct`, hay trần 90% cho listing có `price_source = SELLER_DECLARED`. Chỉ hiển thị `price`. Thực thi ở tầng response serializer của API, không phải quy ước ở giao diện - để không phụ thuộc vào việc từng client (web, mobile, đối tác Public API) có tuân thủ đúng hay không.
+**Bắt buộc:** phân biệt nguồn gốc giá bằng cột `price_source` (`01-SPEC` §4.2.2) và **không hiển thị** `original_price`, `discount_pct`, hay trần 90% cho listing có `price_source = SELLER_DECLARED`. Chỉ hiển thị `price`. Thực thi ở tầng response serializer của API, không phải quy ước ở giao diện - để không phụ thuộc vào việc từng client (web, mobile, đối tác Public API) có tuân thủ đúng hay không.
 
 #### 5.3.2. 🟡 Phân biệt: "giá tham chiếu ảo" (đã xử lý) khác với "chưa kiểm chứng độ cạnh tranh của giá" (không thể xử lý triệt để)
 

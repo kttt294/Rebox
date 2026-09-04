@@ -102,6 +102,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/shops/{shopId}/return-imports/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["previewReturnManifest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/shops/{shopId}/return-imports/{batchId}/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["commitReturnManifest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/shops/{shopId}/listings/{listingId}/publish": {
         parameters: {
             query?: never;
@@ -285,6 +317,57 @@ export interface components {
             listing: components["schemas"]["Listing"];
             policy: components["schemas"]["ListingPolicyResult"];
         };
+        ReturnManifestLineDraft: {
+            sourceItemRef: string;
+            sourceSku?: string;
+            sourceQuantity: number;
+            productName: string;
+            variantName?: string;
+            brand?: string;
+            sourceCategory?: string;
+            originalUnitPriceVnd?: number;
+            returnReason?: string;
+            productImageUrls: string[];
+            reboxCategoryId: string;
+        };
+        ReturnManifestDraft: {
+            /** @enum {string} */
+            source: "SPREADSHEET" | "PLATFORM_API";
+            /** @enum {string} */
+            sourcePlatform: "SHOPEE" | "TIKTOK";
+            sourceTrackingNo: string;
+            sourceOrderRef?: string;
+            sourceReturnRef?: string;
+            /** Format: date-time */
+            returnedAt?: string;
+            packageWeightGram?: number;
+            packageDimensionsCm?: {
+                length: number;
+                width: number;
+                height: number;
+            };
+            packageListingPriceVnd: number;
+            lines: components["schemas"]["ReturnManifestLineDraft"][];
+        };
+        /** @enum {string} */
+        ReturnManifestIssueCode: "INVALID_FIELD" | "INVALID_CATEGORY" | "PACKAGE_FIELD_CONFLICT" | "DUPLICATE_SOURCE_ITEM_REF";
+        ReturnManifestPreviewRow: {
+            rowIndex: number;
+            packageGroup: string;
+            warningCodes: components["schemas"]["ReturnManifestIssueCode"][];
+            errorCodes: components["schemas"]["ReturnManifestIssueCode"][];
+        };
+        ReturnManifestPreview: {
+            batchId: string;
+            rows: components["schemas"]["ReturnManifestPreviewRow"][];
+            drafts: components["schemas"]["ReturnManifestDraft"][];
+            canCommit: boolean;
+        };
+        CommitReturnManifestResult: {
+            batchId: string;
+            packageIds: string[];
+            lineCount: number;
+        };
         PublicListing: {
             id: string;
             shopId: string;
@@ -310,6 +393,7 @@ export interface components {
     parameters: {
         ShopId: string;
         ListingId: string;
+        BatchId: string;
     };
     requestBodies: never;
     headers: never;
@@ -469,6 +553,64 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Listing"];
+                };
+            };
+        };
+    };
+    previewReturnManifest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Parsed and allowlisted return manifest preview */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnManifestPreview"];
+                };
+            };
+        };
+    };
+    commitReturnManifest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shopId: components["parameters"]["ShopId"];
+                batchId: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    idempotencyKey: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Idempotently committed return packages and source lines */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommitReturnManifestResult"];
                 };
             };
         };

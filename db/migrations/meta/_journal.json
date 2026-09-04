@@ -29,6 +29,13 @@
       "when": 1788490001000,
       "tag": "0003_pretty_jean_grey",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788490002000,
+      "tag": "0004_return_manifest_import",
+      "breakpoints": true
     }
   ]
 }

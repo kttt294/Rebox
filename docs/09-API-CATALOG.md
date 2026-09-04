@@ -235,6 +235,16 @@ Không chuyển API planned sang bảng **API đã được tạo** cho đến k
 
 Các production API liên quan tiền thật bị chặn bởi A10. Evidence production bị chặn bởi A12. Production và dữ liệu thật trên Supabase Singapore bị chặn bởi A14.
 
+Theo A06/A16 đã `ACCEPTED`, contract hiện hành chưa có `ReturnPackage`, `ReturnLine`, manifest source hoặc `availableQuantity`. Slice kế tiếp chỉ dựng nền nhập manifest: hai lựa chọn nguồn trên UI, DTO chung, preview CSV/XLSX và commit idempotent. API sàn chỉ có nhánh contract/feature flag tới khi có credential; không dựng adapter giả. Scan và package-backed listing là slice sau. Public response sau này không được lộ tracking, source order/return ref hoặc internal package/line ID.
+
+Planned endpoints tối thiểu:
+
+- `POST /v1/shops/{shopId}/return-imports/preview`: parse CSV/XLSX, nhóm dòng theo tracking và trả lỗi theo dòng/package; chưa ghi DB.
+- `POST /v1/shops/{shopId}/return-imports/{previewId}/commit`: upsert manifest idempotent.
+- `POST /v1/shops/{shopId}/return-packages/scan`: slice sau; lookup package đã commit theo tracking và get-or-create một listing draft `UNOPENED_UNINSPECTED`.
+
+`ManifestImportSource = "SPREADSHEET" | "PLATFORM_API"`. Mỗi importer chuẩn hóa dữ liệu thành cùng `ReturnManifestDraft[]`, rồi dùng chung preview/validate/commit. Bản đầu chỉ implement `SpreadsheetManifestImporter` cho CSV/XLSX; không scaffold adapter API giả.
+
 ## 9. Checklist khi thêm hoặc sửa API
 
 - [ ] Xác định module nghiệp vụ sở hữu endpoint.
@@ -252,6 +262,7 @@ Các production API liên quan tiền thật bị chặn bởi A10. Evidence pro
 
 | Ngày | Thay đổi |
 |---|---|
+| 2026-09-04 | Chốt planned API cho hai kênh import dùng chung DTO; bản đầu làm CSV/XLSX, scan/listing để slice sau |
 | 2026-09-04 | Hoàn tất API presigned upload/complete ảnh catalog, Supabase Storage adapter, publish image gate và integration/E2E |
 | 2026-09-02 | Thêm public catalog/search cursor + PostgreSQL FTS và nối home/search vào API thật |
 | 2026-09-02 | Ghi nhận API sửa listing draft, authorization/state guard và kết quả test liên quan |

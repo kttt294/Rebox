@@ -105,3 +105,76 @@ export const publicListingPageSchema = z.object({
   nextCursor: z.string().nullable()
 });
 export type PublicListingPage = z.infer<typeof publicListingPageSchema>;
+
+export const manifestImportSourceSchema = z.enum(["SPREADSHEET", "PLATFORM_API"]);
+export type ManifestImportSource = z.infer<typeof manifestImportSourceSchema>;
+
+export const returnManifestLineDraftSchema = z.object({
+  sourceItemRef: z.string().trim().min(1).max(200),
+  sourceSku: z.string().trim().min(1).max(200).optional(),
+  sourceQuantity: z.number().int().positive().max(100_000),
+  productName: z.string().trim().min(1).max(500),
+  variantName: z.string().trim().min(1).max(500).optional(),
+  brand: z.string().trim().min(1).max(200).optional(),
+  sourceCategory: z.string().trim().min(1).max(500).optional(),
+  originalUnitPriceVnd: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
+  returnReason: z.string().trim().min(1).max(200).optional(),
+  productImageUrls: z.array(z.string().url()).max(20),
+  reboxCategoryId: z.string().trim().min(1).max(80)
+}).strict();
+
+export const returnManifestDraftSchema = z.object({
+  source: manifestImportSourceSchema,
+  sourcePlatform: z.enum(["SHOPEE", "TIKTOK"]),
+  sourceTrackingNo: z.string().trim().min(1).max(200),
+  sourceOrderRef: z.string().trim().min(1).max(200).optional(),
+  sourceReturnRef: z.string().trim().min(1).max(200).optional(),
+  returnedAt: z.string().datetime().optional(),
+  packageWeightGram: z.number().int().positive().max(100_000).optional(),
+  packageDimensionsCm: z.object({
+    length: z.number().positive().max(1_000),
+    width: z.number().positive().max(1_000),
+    height: z.number().positive().max(1_000)
+  }).strict().optional(),
+  packageListingPriceVnd: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+  lines: z.array(returnManifestLineDraftSchema).min(1).max(5_000)
+}).strict();
+export type ReturnManifestDraft = z.infer<typeof returnManifestDraftSchema>;
+
+export const returnManifestIssueCodeSchema = z.enum([
+  "INVALID_FIELD",
+  "INVALID_CATEGORY",
+  "PACKAGE_FIELD_CONFLICT",
+  "DUPLICATE_SOURCE_ITEM_REF"
+]);
+export type ReturnManifestIssueCode = z.infer<typeof returnManifestIssueCodeSchema>;
+
+export const returnManifestPreviewRowSchema = z.object({
+  rowIndex: z.number().int().positive(),
+  packageGroup: z.string(),
+  warningCodes: z.array(returnManifestIssueCodeSchema),
+  errorCodes: z.array(returnManifestIssueCodeSchema)
+});
+export type ReturnManifestPreviewRow = z.infer<typeof returnManifestPreviewRowSchema>;
+
+export const returnManifestPreviewSchema = z.object({
+  batchId: z.string(),
+  rows: z.array(returnManifestPreviewRowSchema),
+  drafts: z.array(returnManifestDraftSchema),
+  canCommit: z.boolean()
+});
+export type ReturnManifestPreview = z.infer<typeof returnManifestPreviewSchema>;
+
+export const commitReturnManifestSchema = z.object({
+  idempotencyKey: z.string().trim().min(8).max(200)
+}).strict();
+export type CommitReturnManifestInput = z.infer<typeof commitReturnManifestSchema>;
+
+export const commitReturnManifestResultSchema = z.object({
+  batchId: z.string(),
+  packageIds: z.array(z.string()),
+  lineCount: z.number().int().nonnegative()
+});
+export type CommitReturnManifestResult = z.infer<typeof commitReturnManifestResultSchema>;
+
+export const maxReturnManifestFileBytes = 5 * 1024 * 1024;

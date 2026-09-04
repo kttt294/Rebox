@@ -1,15 +1,20 @@
-import { Body, Controller, Get, Inject, Param, Patch, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Patch, Post, Query, UploadedFile, UseInterceptors } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { DomainError, type InventoryModule } from "@rebox/backend";
 import {
   completeCatalogImageUploadSchema,
+  commitReturnManifestSchema,
   createCatalogImageUploadSchema,
   createListingSchema,
   type CatalogImageUploadIntent,
   type Category,
+  type CommitReturnManifestResult,
   type Listing,
   type PublicListing,
   type PublicListingPage,
   type PublishListingResult,
+  type ReturnManifestPreview,
+  maxReturnManifestFileBytes,
   publicListingsQuerySchema,
   updateListingDraftSchema
 } from "@rebox/shared";
@@ -17,6 +22,11 @@ import { INVENTORY } from "../../backend.providers";
 import { CurrentActor } from "../decorators/current-actor";
 import { Public } from "../decorators/public";
 import type { Actor } from "../types/authenticated-request";
+
+type UploadedManifestFile = {
+  originalname: string;
+  buffer: Buffer;
+};
 
 @Controller("v1")
 export class ListingsController {
@@ -39,6 +49,31 @@ export class ListingsController {
       throw new DomainError("VALIDATION_FAILED", 422, parsed.error.issues[0]?.message ?? "Invalid listing");
     }
     return this.inventory.createDraft(actor.id, shopId, parsed.data);
+  }
+
+  @Post("shops/:shopId/return-imports/preview")
+  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: maxReturnManifestFileBytes, files: 1 } }))
+  previewReturnManifest(
+    @CurrentActor() actor: Actor,
+    @Param("shopId") shopId: string,
+    @UploadedFile() file?: UploadedManifestFile
+  ): Promise<ReturnManifestPreview> {
+    if (!file) throw new DomainError("SPREADSHEET_FORMAT_INVALID", 422, "A CSV or XLSX file is required");
+    return this.inventory.previewReturnManifest(actor.id, shopId, file.originalname, file.buffer);
+  }
+
+  @Post("shops/:shopId/return-imports/:batchId/commit")
+  commitReturnManifest(
+    @CurrentActor() actor: Actor,
+    @Param("shopId") shopId: string,
+    @Param("batchId") batchId: string,
+    @Body() body: unknown
+  ): Promise<CommitReturnManifestResult> {
+    const parsed = commitReturnManifestSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new DomainError("VALIDATION_FAILED", 422, parsed.error.issues[0]?.message ?? "Invalid commit request");
+    }
+    return this.inventory.commitReturnManifest(actor.id, shopId, batchId, parsed.data.idempotencyKey);
   }
 
   @Get("shops/:shopId/listings")

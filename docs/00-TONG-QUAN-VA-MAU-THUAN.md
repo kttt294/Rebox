@@ -22,19 +22,19 @@ Bộ tài liệu chính được đánh số từ `00` đến `08`:
 
 ## 1. Tóm tắt mô hình (đã chuẩn hóa từ tài liệu gốc)
 
-REBOX là **sàn giao dịch TMĐT B2B2C chuyên thanh lý hàng hoàn** (itemized liquidation marketplace).
+REBOX là **nền tảng TMĐT B2B2C bán lại nguyên kiện hàng hoàn chưa mở kiểm tra**.
 
 **Ba tác nhân:**
 
 | Tác nhân                              | Vai trò                                                                                                                         |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| **Seller** (chủ shop / tổng kho TMĐT) | Có hàng hoàn từ Shopee/TikTok Shop. Quét mã vận đơn → tự động tạo listing (tồn kho = 1). Nộp ký quỹ, chịu khấu trừ phí sàn 20%. |
+| **Seller** (chủ shop / tổng kho TMĐT) | Có kiện hoàn từ Shopee/TikTok Shop. Chủ động nhập bản kê bằng kết nối sàn hoặc CSV/XLSX, sau đó quét mã vận đơn để tạo listing bán nguyên kiện mà không mở/đếm/nhập từng món. Nộp ký quỹ, chịu khấu trừ phí sàn 20%. |
 | **Buyer** (người tiêu dùng)           | Săn hàng thanh lý giá rẻ. Thanh toán VietQR hoặc COD. Quay video khui hộp làm chứng cứ khiếu nại.                               |
 | **Admin REBOX**                       | GĐ1 phân xử tranh chấp thủ công, vận hành rủi ro và kiểm duyệt nội dung; AI Triage chỉ là target GĐ3.                           |
 
 **Ba trụ cột công nghệ tạo khác biệt:**
 
-1. **Scan-to-list** - MVP quét mã → tìm trong dữ liệu local/CSV → autofill hoặc mở form nhập tay; live API sàn là GĐ3. Tồn kho luôn = 1.
+1. **Import-to-scan-to-list nguyên kiện** - seller chọn import trực tiếp từ sàn hoặc import CSV/XLSX → cả hai cùng preview/commit → quét mã → tìm package đã nhập → tạo một listing số lượng 1 cho nguyên kiện. Bản đầu chỉ bật spreadsheet; API không thay thế spreadsheet khi được mở.
 2. **Deposit Wallet + Fund Hold** - ký quỹ, đóng băng theo giá trị đơn, chỉ ghi nhận phí khi đơn hoàn tất, tự động ẩn listing khi số dư không đủ. Đây không phải escrow tiền hàng.
 3. **Claims có chain of custody** - GĐ1 tiếp nhận evidence và phân xử thủ công; AI Triage/auto-approve chỉ được cân nhắc ở GĐ3 sau eval và legal gate.
 
@@ -55,7 +55,7 @@ REBOX là **sàn giao dịch TMĐT B2B2C chuyên thanh lý hàng hoàn** (itemiz
 | M3  | **Ngưỡng hư hỏng để hoàn tiền** | Mục 3.2c: "**>40%**"                                                                | UI mock buyer: "khác trên **30%**"                                                               | Chốt mặc định **30%**, lưu trong `system_configs`; snapshot giá trị áp dụng vào vụ việc.                                                                                                                                                                                      |
 | M4  | **Đơn/ngày tại điểm hòa vốn**   | Mục 6.2: "500 đơn/tháng ⇒**19–17 đơn/ngày**"                                        | 500 / 30 =**16,7**                                                                                | Sửa thành ~17 đơn/ngày.                                                                                                                                                                                                                                                      |
 | M5  | **Chi phí cố định GĐ2**         | Bảng tóm tắt: FC2 = **90.000.000**/6 tháng                                          | Mục 6.1: 5.000.000/tháng ⇒ **30.000.000**/6 tháng                                                 | Hai con số cũ đều **retired** sau khi chuyển sang Supabase. Lập lại bảng giá từ quotation tại thời điểm mua; không dùng chúng làm ngân sách phê duyệt.                                                                                                                        |
-| M6  | **Giá trần xả kho**             | Không nêu trong text                                                                | UI mock seller: "**Giá trần xả kho (90%)**"                                                       | Bổ sung vào spec:`max_price = 0,9 × original_price` khi listing tạo từ luồng scan. Phải nêu trong Quy chế sàn. Thiết kế đầy đủ (kể cả vì sao trần này KHÔNG áp dụng cho listing đăng thủ công) ở `01-SPEC` §4.2.1 và `05-PHAP-LY` §5.3.1.                                                                                                                                                               |
+| M6  | **Giá trần xả kho**             | Không nêu trong text                                                                | UI mock seller: "**Giá trần xả kho (90%)**"                                                       | Bổ sung vào spec:`max_price = 0,9 × original_price` khi listing tạo từ luồng scan. Phải nêu trong Quy chế sàn. Thiết kế đầy đủ (kể cả vì sao trần này KHÔNG áp dụng cho listing đăng thủ công) ở `01-SPEC` §4.2.2 và `05-PHAP-LY` §5.3.1.                                                                                                                                                               |
 | M7  | **Thời gian hoàn tiền tự động** | "trong vòng**10 giây**"                                                             | GĐ1 phân xử và refund thủ công/async; A10 còn chặn payout thật                                    | GĐ1 bỏ hoàn toàn cam kết tự động/thời gian. GĐ3 chỉ công bố SLO sau khi AI, PSP và dữ liệu vận hành thật đã qua gate/đo lường.                                                                                                                                                 |
 | M8  | **Ngưỡng auto-refund của AI**   | UI admin mobile (`luồng admin.png`): **70%**                                        | UI admin web (`image9`): **80%**                                                                  | Cùng một tham số, hai giá trị trên hai màn hình. Đưa vào `system_config` (`ai.auto_approve_score`), một nguồn duy nhất, hai UI cùng đọc từ API. Đề xuất mặc định **85** - xem `01-SPEC` §8.2.                                                                                |
 | M9  | **Bảng tính hoàn tiền mẫu**     | UI admin mobile: đơn 150.000đ ⇒ trừ ví 150.000 + ship 15.000 ⇒ hoàn **165.000đ** ✅ | UI admin web: cùng đơn ghi 150.000đ nhưng trừ ví **225.000** + ship 15.000 ⇒ hoàn **240.000đ** ❌ | Bản web lẫn giá váy 225.000đ vào đơn 150.000đ, và **cộng nhầm** phí ship vào tiền hoàn cho buyer thay vì trừ của seller. Công thức đúng ở `02-FLOWS` §5.5: buyer nhận `item_total + buyer_shipping_fee`; phí ship 2 chặng trừ **ví seller**, không cộng vào tiền buyer nhận. |
@@ -107,7 +107,7 @@ Tài liệu: _"ID sản phẩm trên REBOX được định danh trùng với m�
 
 Mã vận đơn Shopee/GHTK có thể bị dùng để tra cứu và làm lộ **tên, số điện thoại, địa chỉ** của người mua gốc trên sàn khác. Đây là rủi ro xử lý/lộ dữ liệu cá nhân bên thứ ba theo baseline hiện hành: Luật 91/2025/QH15 và Nghị định 356/2025/NĐ-CP; mapping điều khoản cụ thể do Legal chịu trách nhiệm.
 
-**Bắt buộc:** ID công khai là ULID nội bộ (`RBX-01J...`). Mã vận đơn lưu ở cột `source_tracking_enc`, **mã hóa ở tầng ứng dụng**, kèm HMAC hash để dedupe; chỉ seller sở hữu và admin có quyền mới đọc được, **không bao giờ** xuất ra API công khai.
+**Bắt buộc:** ID công khai là ULID nội bộ (`RBX-01J...`). Mã vận đơn thuộc `ReturnPackage`, lưu mã hóa ở tầng ứng dụng kèm HMAC hash để dedupe theo `(shop_id, source_platform, source_tracking_hash)`; chỉ seller sở hữu và admin có quyền mới đọc được, **không bao giờ** xuất ra storefront hoặc API công khai. Tracking không phải public ID của `ReturnLine` hoặc `Listing`.
 
 #### L5 - Điều khoản "video sai quy tắc ⇒ hủy quyền khiếu nại" có nguy cơ **vô hiệu**
 
@@ -128,14 +128,15 @@ Dùng Open API của Shopee/TikTok để rút dữ liệu đơn hàng sang một
 **Bắt buộc có Plan B ngay từ MVP:**
 
 1. **Web barcode/OCR có đường lùi** - dùng capability trình duyệt khi có, rồi nhập tay; ML Kit/VisionCamera chỉ thuộc mobile GĐ3.
-2. **Import CSV** - seller tự export "Đơn hoàn" từ Shopee Seller Center → upload lên REBOX → map theo mã vận đơn. Hợp pháp, không phụ thuộc API. **Đặt làm luồng chính của MVP.**
+2. **Import CSV/XLSX** - seller tự export "Đơn hoàn" từ Seller Center → upload lên REBOX → map theo mã vận đơn. Đây là một trong hai kênh nhập ngang hàng và là kênh được bật đầu tiên khi API chưa đủ gate.
 3. **Đăng thủ công** - chụp ảnh và tự nhập tên/danh mục/mô tả/giá ở GĐ1; VLM gợi ý chỉ thuộc GĐ3.
 
-Luồng API sàn xếp vào **GĐ3**, coi là tính năng tăng tốc, không phải nền móng.
+API sàn là kênh tiện hơn nhưng chỉ bật sau partner/ToS gate; CSV/XLSX vẫn tồn tại như lựa chọn độc lập. Hai kênh cùng sinh `ReturnManifestDraft[]`, nên phần preview/commit và flow bán nguyên kiện không đổi theo nguồn.
 
-#### L8 - Bán đơn chiếc (qty = 1) tạo bài toán oversell + phí ship gộp
+#### L8 - Một package chỉ được bán một lần
 
-- Hai buyer cùng mua 1 sản phẩm ⇒ reservation dùng row lock + trạng thái DB + TTL; MVP chưa cần Redis.
+- Hai buyer cùng mua một listing ⇒ reservation dùng row lock + trạng thái package + TTL để đúng một buyer giữ được kiện; MVP chưa cần Redis.
+- `availableQuantity` được suy ra từ trạng thái package và chỉ có `1` hoặc `0`; seller không nhập hoặc chỉnh counter này.
 - Giỏ có thể nhóm nhiều shop để lưu, nhưng **mỗi lần checkout chỉ một seller**. Một order có đúng một sub-order ở MVP; phí ship và ngưỡng 100k tính trên order đó.
 
 #### L9 - Thiếu định nghĩa "giao hàng thành công" làm mốc đếm 3 ngày
@@ -159,6 +160,6 @@ Hệ thống phải ghi nhận `actual_shipping_cost` per đơn (lấy từ API 
 | Q3 | Ngưỡng hư hỏng mặc định 30% | Chốt | `01` §4.3 |
 | Q4 | 100% tiền hàng đi thẳng seller; REBOX không giữ tiền hàng | Chốt có legal gate cho ví ký quỹ | `07` A10; `05` §2 |
 | Q5 | Vendor PSP và cấu trúc custody/refund | **BLOCKED** | Business + Legal, chặn tiền thật |
-| Q6 | MVP manual + CSV; live API sàn GĐ3 | Chốt | `07` A06 |
+| Q6 | CSV/XLSX và API sàn là hai kênh nhập ngang hàng, cùng trả `ReturnManifestDraft`; bản đầu chỉ bật spreadsheet | Chốt | `07` A06 |
 | Q7 | Danh mục hàng cấm/hạn chế | Còn 5 câu Legal | `06` §8 |
 | Q8 | Retention target từ case đóng: original 90 ngày; derivative/biên bản 3 năm; lock/hold có thể kéo dài | Chốt kỹ thuật, Legal duyệt văn bản | `07` A12; `05` §3.4.6 |

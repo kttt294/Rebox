@@ -33,7 +33,7 @@ Sáu module là ranh giới capability sâu, không phải sáu thư mục CRUD:
 | Module | Sở hữu | Giao diện cô đọng cho caller |
 |---|---|---|
 | `identity` | Profile, shop, membership/capability, eKYC, notice/processing record và privacy request | Xác định actor/shop, kiểm tra capability và cung cấp interface privacy/processing cho module khác |
-| `inventory` | Manual/CSV import, listing, moderation, catalog query | Tạo draft, publish, ẩn/hiện và truy vấn listing |
+| `inventory` | CSV manifest, scan lookup, sealed-package listing, moderation, catalog query | Nạp bản kê, tạo draft, publish, ẩn/hiện và truy vấn listing |
 | `commerce` | Cart, fee snapshot, checkout một seller, order state | Khởi tạo checkout, xác nhận payment result và chuyển trạng thái order |
 | `funds` | Wallet, ledger header/postings, hold, payment orchestration, reconciliation | Post transaction; create/release/capture hold; đối soát |
 | `fulfillment` | Shipping intent, carrier adapter, tracking, shipping settlement | Tạo shipment ngoài DB transaction và nhận carrier event idempotent |
@@ -105,7 +105,7 @@ Chỉ tạo interface cho biên thật: external provider, clock/ID cần test, 
 - Workflow chạm reservation/tiền/case khóa theo `wallet → listings → order → sub_order → hold → case/dispute/refund`; cùng idempotency key nhưng payload hash khác trả conflict, không replay như request cũ.
 - Mọi evidence read/delete/hold target đúng provider/bucket/key/version và verify checksum; appeal dùng chung một `dispute_case` nên không khởi động retention sớm theo từng round.
 - Payment provider và evidence provider còn là gate; không hardcode PayOS hoặc Supabase Storage như quyết định production.
-- Manual + CSV là catalog MVP; mobile, AI, API sàn, Public API ERP, loyalty/voucher và multi-seller checkout đều bị hoãn.
+- `SPREADSHEET` và `PLATFORM_API` là hai kênh nhập bản kê ngang hàng qua cùng contract chuẩn hóa. Bản đầu chỉ bật CSV/XLSX; nút API hiển thị “Sắp có” tới khi đủ partner/ToS gate. Mobile, AI, Public API ERP, loyalty/voucher và multi-seller checkout đều bị hoãn.
 
 ## Slice triển khai đầu tiên
 

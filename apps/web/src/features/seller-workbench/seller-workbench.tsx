@@ -1,9 +1,9 @@
 "use client";
 
 import { ApiClientError } from "@rebox/api-client";
-import { maxCatalogImageBytes, maxCatalogImages, type ActorContext, type Category, type Listing } from "@rebox/shared";
+import { maxCatalogImageBytes, maxCatalogImages, type ActorContext, type Category, type Listing, type ReturnManifestPreview } from "@rebox/shared";
 import Link from "next/link";
-import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { createBrowserApiClient } from "../../platform/api/browser";
 
 const api = createBrowserApiClient();
@@ -45,6 +45,11 @@ export function SellerWorkbench() {
   const [loading, setLoading] = useState(true);
   const [action, setAction] = useState<string>();
   const [editingListingId, setEditingListingId] = useState<string>();
+  const [manifestPreview, setManifestPreview] = useState<ReturnManifestPreview>();
+  const [manifestFileName, setManifestFileName] = useState<string>();
+  const [manifestIdempotencyKey, setManifestIdempotencyKey] = useState<string>();
+  const [manifestCommitted, setManifestCommitted] = useState(false);
+  const manifestFileInput = useRef<HTMLInputElement>(null);
   const shop = actor?.shops[0];
   const editingListing = listings.find((listing) => listing.id === editingListingId);
 
@@ -133,6 +138,50 @@ export function SellerWorkbench() {
         : caught instanceof ApiClientError && caught.code === "INVALID_LISTING_STATE"
           ? "Chỉ bản nháp mới có thể chỉnh sửa. Dữ liệu bạn vừa nhập vẫn được giữ nguyên."
           : "Không thể lưu bản nháp. Dữ liệu bạn vừa nhập vẫn được giữ nguyên để thử lại.");
+    } finally {
+      setAction(undefined);
+    }
+  }
+
+  async function previewManifest(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    if (!shop || !file) return;
+    setAction("preview-manifest");
+    setError(undefined);
+    setSuccess(undefined);
+    setManifestCommitted(false);
+    try {
+      const preview = await api.previewReturnManifest(shop.id, file);
+      setManifestPreview(preview);
+      setManifestFileName(file.name);
+      setManifestIdempotencyKey(crypto.randomUUID());
+    } catch (caught) {
+      setManifestPreview(undefined);
+      setError(caught instanceof ApiClientError && caught.code === "PII_COLUMN_FORBIDDEN"
+        ? "File có cột dữ liệu người mua/người nhận bị cấm. Hãy xóa cột đó rồi thử lại."
+        : "Không thể đọc bản kê. Hãy dùng đúng mẫu CSV/XLSX 24 cột.");
+    } finally {
+      input.value = "";
+      setAction(undefined);
+    }
+  }
+
+  async function commitManifest() {
+    if (!shop || !manifestPreview?.canCommit || !manifestIdempotencyKey) return;
+    setAction("commit-manifest");
+    setError(undefined);
+    setSuccess(undefined);
+    try {
+      const result = await api.commitReturnManifest(shop.id, manifestPreview.batchId, manifestIdempotencyKey);
+      setManifestCommitted(true);
+      setSuccess(`Đã nhập ${result.packageIds.length} kiện và ${result.lineCount} dòng khai báo.`);
+    } catch (caught) {
+      setError(caught instanceof ApiClientError && caught.code === "MANIFEST_PACKAGE_CONFLICT"
+        ? "Có kiện đã tồn tại với bản kê khác. Dữ liệu cũ không bị ghi đè."
+        : caught instanceof ApiClientError && caught.code === "MANIFEST_IDEMPOTENCY_CONFLICT"
+          ? "Mã retry đã được dùng cho một bản kê khác."
+          : "Không thể commit bản kê. Bạn có thể thử lại an toàn.");
     } finally {
       setAction(undefined);
     }
@@ -266,6 +315,76 @@ export function SellerWorkbench() {
 
       {error ? <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800" role="alert">{error}</p> : null}
       {success ? <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800" role="status">{success}</p> : null}
+
+      <section className="rounded-[18px] border border-[var(--line)] bg-white p-5 shadow-[0_12px_35px_rgba(35,63,101,0.06)] sm:p-7">
+        <h2 className="text-xl font-black tracking-tight">Nhập bản kê hàng hoàn</h2>
+        <p className="mt-1 text-sm leading-6 text-[var(--muted)]">Chọn một nguồn. Cả hai nguồn dùng chung màn preview trước khi tạo kiện.</p>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <button className="rounded-xl border border-[var(--line-strong)] bg-slate-100 px-5 py-4 text-left font-bold text-slate-500 disabled:cursor-not-allowed" disabled type="button">
+            Import trực tiếp từ Shopee/TikTok <span className="block text-xs font-semibold">Sắp có</span>
+          </button>
+          <button
+            className="rounded-xl bg-[var(--accent)] px-5 py-4 text-left font-bold text-white disabled:opacity-60"
+            disabled={action === "preview-manifest"}
+            onClick={() => manifestFileInput.current?.click()}
+            type="button"
+          >
+            {action === "preview-manifest" ? "Đang đọc file..." : "Import bằng CSV/XLSX"}
+            <span className="block text-xs font-semibold">Chọn file để xem trước</span>
+          </button>
+          <input
+            accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            aria-describedby="manifest-file-help"
+            aria-label="File bản kê CSV hoặc XLSX"
+            className="sr-only"
+            onChange={(event) => void previewManifest(event)}
+            ref={manifestFileInput}
+            type="file"
+          />
+        </div>
+        <p className="mt-3 text-xs leading-5 text-[var(--muted)]" id="manifest-file-help">Chấp nhận file .csv hoặc .xlsx theo mẫu 24 cột, tối đa 5 MiB. Không đưa thông tin người mua/người nhận vào file.</p>
+
+        {manifestPreview ? (
+          <div className="mt-6 border-t border-[var(--line)] pt-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="font-black">Preview {manifestFileName}</h3>
+                <p className="mt-1 text-sm text-[var(--muted)]">{manifestPreview.drafts.length} kiện · {manifestPreview.rows.length} dòng</p>
+              </div>
+              <button
+                className="rounded-xl bg-[var(--accent)] px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
+                disabled={!manifestPreview.canCommit || manifestCommitted || action === "commit-manifest"}
+                onClick={() => void commitManifest()}
+                type="button"
+              >
+                {manifestCommitted ? "Đã commit" : action === "commit-manifest" ? "Đang commit..." : "Commit bản kê"}
+              </button>
+            </div>
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[620px] border-collapse text-left text-sm">
+                <thead className="bg-slate-50 text-[var(--muted)]">
+                  <tr>
+                    <th className="px-4 py-3 font-bold">Dòng</th>
+                    <th className="px-4 py-3 font-bold">Nhóm kiện</th>
+                    <th className="px-4 py-3 font-bold">Kết quả</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {manifestPreview.rows.map((row) => (
+                    <tr className="border-t border-[var(--line)]" key={row.rowIndex}>
+                      <td className="px-4 py-3 tabular-nums">{row.rowIndex}</td>
+                      <td className="px-4 py-3 font-semibold">{row.packageGroup}</td>
+                      <td className={`px-4 py-3 ${row.errorCodes.length ? "text-red-700" : "text-emerald-700"}`}>
+                        {row.errorCodes.length ? row.errorCodes.join(", ") : "Hợp lệ"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
+      </section>
 
       <form id="listing-form" key={editingListing?.id ?? "new"} className="scroll-mt-28 rounded-[18px] border border-[var(--line)] bg-white shadow-[0_12px_35px_rgba(35,63,101,0.06)]" onSubmit={saveListing}>
         <div className="border-b border-[var(--line)] px-5 py-5 sm:px-7">

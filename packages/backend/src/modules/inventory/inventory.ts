@@ -1,6 +1,7 @@
 import type {
   CatalogImageUploadIntent,
   Category,
+  CommitReturnManifestResult,
   CreateCatalogImageUploadInput,
   CreateListingInput,
   Listing,
@@ -10,14 +11,18 @@ import type {
   PublicListingPage,
   PublicListingsQuery,
   PublishListingResult,
+  ReturnManifestDraft,
+  ReturnManifestPreview,
   UpdateListingDraftInput
 } from "@rebox/shared";
 import { catalogImageMimeTypes, maxCatalogImageBytes, maxCatalogImages } from "@rebox/shared";
+import { createCipheriv, createHash, createHmac, randomBytes } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import { ulid } from "ulid";
 import { DomainError } from "../../errors";
 import type { IdentityModule } from "../identity";
 import type { CatalogMediaStorage } from "./catalog-media-storage";
+import { packageGroupOfDraft, parseReturnManifestSpreadsheet } from "./return-manifest-spreadsheet";
 
 type StoredListingImage = Omit<ListingImage, "url">;
 
@@ -56,6 +61,28 @@ type PolicyRow = {
   rule_snapshot: Record<string, unknown>;
   effective_from: Date;
   effective_to: Date | null;
+};
+
+export type ReturnTrackingSecrets = {
+  encryptionSecret: string;
+  hmacSecret: string;
+};
+
+type StoredManifestDraft = Omit<ReturnManifestDraft, "sourceTrackingNo"> & {
+  sourceTrackingEnc: string;
+  sourceTrackingHash: string;
+  manifestHash: string;
+};
+
+type StoredManifestPayload = { drafts: StoredManifestDraft[] };
+
+type ImportBatchRow = {
+  id: string;
+  manifest_hash: string;
+  status: "PREVIEWED" | "COMMITTED";
+  can_commit: boolean;
+  normalized_payload: StoredManifestPayload;
+  commit_result: CommitReturnManifestResult | null;
 };
 
 const publicListingPageSize = 24;
@@ -120,11 +147,190 @@ function encodeCatalogCursor(row: ListingRow, sort: PublicListingsQuery["sort"])
 }
 
 export class InventoryModule {
+  private readonly trackingEncryptionKey: Buffer;
+
   constructor(
     private readonly pool: Pool,
     private readonly identity: IdentityModule,
-    private readonly mediaStorage: CatalogMediaStorage
-  ) {}
+    private readonly mediaStorage: CatalogMediaStorage,
+    private readonly trackingSecrets: ReturnTrackingSecrets
+  ) {
+    if (trackingSecrets.encryptionSecret.length < 32 || trackingSecrets.hmacSecret.length < 32) {
+      throw new Error("Return tracking secrets must contain at least 32 characters");
+    }
+    this.trackingEncryptionKey = createHash("sha256").update(trackingSecrets.encryptionSecret).digest();
+  }
+
+  async previewReturnManifest(
+    actorId: string,
+    shopId: string,
+    fileName: string,
+    file: Buffer
+  ): Promise<ReturnManifestPreview> {
+    const accessClient = await this.pool.connect();
+    try {
+      await this.identity.requireShopCapability(accessClient, actorId, shopId, "CREATE_LISTING");
+    } finally {
+      accessClient.release();
+    }
+
+    const parsed = await parseReturnManifestSpreadsheet(fileName, file);
+    if (parsed.rows.length === 0) {
+      throw new DomainError("SPREADSHEET_FORMAT_INVALID", 422, "The spreadsheet does not contain any manifest rows");
+    }
+
+    const allowedCategories = new Set((await this.listCategories()).map((category) => category.id));
+    const invalidGroups = new Set(parsed.drafts
+      .filter((draft) => draft.lines.some((line) => !allowedCategories.has(line.reboxCategoryId)))
+      .map(packageGroupOfDraft));
+    for (const row of parsed.rows) {
+      if (invalidGroups.has(row.packageGroup) && !row.errorCodes.includes("INVALID_CATEGORY")) {
+        row.errorCodes.push("INVALID_CATEGORY");
+      }
+    }
+    const drafts = parsed.drafts.filter((draft) => !invalidGroups.has(packageGroupOfDraft(draft)));
+    const canCommit = drafts.length > 0
+      && parsed.rows.every((row) => row.errorCodes.length === 0)
+      && drafts.reduce((count, draft) => count + draft.lines.length, 0) === parsed.rows.length;
+    const batchId = `RBX-${ulid()}`;
+    const manifestHash = hashJson(canonicalManifest(drafts));
+    const payload: StoredManifestPayload = {
+      drafts: drafts.map((draft) => {
+        const { sourceTrackingNo, ...allowlisted } = draft;
+        const protectedTracking = this.protectTracking(sourceTrackingNo);
+        return {
+          ...allowlisted,
+          ...protectedTracking,
+          manifestHash: hashJson(canonicalManifest([draft])[0])
+        };
+      })
+    };
+
+    await this.pool.query(
+      `INSERT INTO return_import_batches (
+         id, shop_id, source, file_hash, manifest_hash, status, can_commit, normalized_payload
+       ) VALUES ($1, $2, 'SPREADSHEET', $3, $4, 'PREVIEWED', $5, $6::jsonb)`,
+      [batchId, shopId, createHash("sha256").update(file).digest("hex"), manifestHash, canCommit, JSON.stringify(payload)]
+    );
+
+    return { batchId, rows: parsed.rows, drafts, canCommit };
+  }
+
+  async commitReturnManifest(
+    actorId: string,
+    shopId: string,
+    batchId: string,
+    idempotencyKey: string
+  ): Promise<CommitReturnManifestResult> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await this.identity.requireShopCapability(client, actorId, shopId, "CREATE_LISTING");
+      const batchResult = await client.query<ImportBatchRow>(
+        `SELECT id, manifest_hash, status, can_commit, normalized_payload, commit_result
+         FROM return_import_batches WHERE id = $1 AND shop_id = $2 FOR UPDATE`,
+        [batchId, shopId]
+      );
+      const batch = batchResult.rows[0];
+      if (!batch) throw new DomainError("RESOURCE_NOT_FOUND", 404, "Return import batch not found");
+      if (batch.status === "COMMITTED" && batch.commit_result) {
+        await client.query("COMMIT");
+        return batch.commit_result;
+      }
+      if (!batch.can_commit) {
+        throw new DomainError("MANIFEST_PREVIEW_NOT_COMMITTABLE", 409, "The return manifest preview contains errors");
+      }
+
+      await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`${shopId}:${idempotencyKey}`]);
+      const priorResult = await client.query<ImportBatchRow>(
+        `SELECT id, manifest_hash, status, can_commit, normalized_payload, commit_result
+         FROM return_import_batches
+         WHERE shop_id = $1 AND idempotency_key = $2 AND id <> $3`,
+        [shopId, idempotencyKey, batchId]
+      );
+      const prior = priorResult.rows[0];
+      if (prior) {
+        if (prior.manifest_hash !== batch.manifest_hash) {
+          throw new DomainError("MANIFEST_IDEMPOTENCY_CONFLICT", 409, "The idempotency key was used with a different manifest");
+        }
+        if (prior.status === "COMMITTED" && prior.commit_result) {
+          await client.query("COMMIT");
+          return prior.commit_result;
+        }
+      }
+
+      await client.query(
+        "UPDATE return_import_batches SET idempotency_key = $3 WHERE id = $1 AND shop_id = $2",
+        [batchId, shopId, idempotencyKey]
+      );
+      const packageIds: string[] = [];
+      let lineCount = 0;
+      const drafts = [...batch.normalized_payload.drafts]
+        .sort((left, right) => left.sourceTrackingHash.localeCompare(right.sourceTrackingHash));
+
+      for (const draft of drafts) {
+        await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+          `${shopId}:${draft.sourcePlatform}:${draft.sourceTrackingHash}`
+        ]);
+        const existingResult = await client.query<{ id: string; manifest_hash: string }>(
+          `SELECT id, manifest_hash FROM return_packages
+           WHERE shop_id = $1 AND source_platform = $2 AND source_tracking_hash = $3
+           FOR UPDATE`,
+          [shopId, draft.sourcePlatform, draft.sourceTrackingHash]
+        );
+        const existing = existingResult.rows[0];
+        if (existing && existing.manifest_hash !== draft.manifestHash) {
+          throw new DomainError("MANIFEST_PACKAGE_CONFLICT", 409, "A return package already exists with a different manifest");
+        }
+
+        const packageId = existing?.id ?? `RBX-${ulid()}`;
+        if (!existing) {
+          await this.insertReturnPackage(client, packageId, shopId, batchId, draft);
+          for (const line of draft.lines) {
+            await client.query(
+              `INSERT INTO return_lines (
+                 id, return_package_id, source_item_ref, source_sku, source_quantity,
+                 product_name, variant_name, brand, source_category, original_unit_price_vnd,
+                 return_reason, product_image_urls, rebox_category_id
+               ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13)`,
+              [
+                `RBX-${ulid()}`,
+                packageId,
+                line.sourceItemRef,
+                line.sourceSku ?? null,
+                line.sourceQuantity,
+                line.productName,
+                line.variantName ?? null,
+                line.brand ?? null,
+                line.sourceCategory ?? null,
+                line.originalUnitPriceVnd ?? null,
+                line.returnReason ?? null,
+                JSON.stringify(line.productImageUrls),
+                line.reboxCategoryId
+              ]
+            );
+          }
+        }
+        packageIds.push(packageId);
+        lineCount += draft.lines.length;
+      }
+
+      const result = { batchId, packageIds, lineCount };
+      await client.query(
+        `UPDATE return_import_batches
+         SET status = 'COMMITTED', commit_result = $3::jsonb, committed_at = now()
+         WHERE id = $1 AND shop_id = $2`,
+        [batchId, shopId, JSON.stringify(result)]
+      );
+      await client.query("COMMIT");
+      return result;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
 
   async createDraft(actorId: string, shopId: string, input: CreateListingInput): Promise<Listing> {
     const client = await this.pool.connect();
@@ -552,4 +758,65 @@ export class InventoryModule {
       throw new DomainError("VALIDATION_FAILED", 422, "Catalog image must be JPEG, PNG or WebP and at most 5 MiB");
     }
   }
+
+  private protectTracking(sourceTrackingNo: string): {
+    sourceTrackingEnc: string;
+    sourceTrackingHash: string;
+  } {
+    const nonce = randomBytes(12);
+    const cipher = createCipheriv("aes-256-gcm", this.trackingEncryptionKey, nonce);
+    const encrypted = Buffer.concat([cipher.update(sourceTrackingNo, "utf8"), cipher.final()]);
+    return {
+      sourceTrackingEnc: Buffer.concat([nonce, cipher.getAuthTag(), encrypted]).toString("base64"),
+      sourceTrackingHash: createHmac("sha256", this.trackingSecrets.hmacSecret)
+        .update(sourceTrackingNo)
+        .digest("hex")
+    };
+  }
+
+  private async insertReturnPackage(
+    client: PoolClient,
+    packageId: string,
+    shopId: string,
+    batchId: string,
+    draft: StoredManifestDraft
+  ): Promise<void> {
+    await client.query(
+      `INSERT INTO return_packages (
+         id, shop_id, source_platform, source_tracking_enc, source_tracking_hash,
+         source_order_ref, source_return_ref, returned_at, manifest_source,
+         manifest_fetched_at, manifest_hash, manifest_version, ingest_batch_ref,
+         package_weight_gram, package_dimensions_cm, package_listing_price_vnd,
+         inventory_status
+       ) VALUES (
+         $1, $2, $3, $4, $5, $6, $7, $8, 'SPREADSHEET',
+         now(), $9, 1, $10, $11, $12::jsonb, $13, 'AVAILABLE'
+       )`,
+      [
+        packageId,
+        shopId,
+        draft.sourcePlatform,
+        Buffer.from(draft.sourceTrackingEnc, "base64"),
+        draft.sourceTrackingHash,
+        draft.sourceOrderRef ?? null,
+        draft.sourceReturnRef ?? null,
+        draft.returnedAt ?? null,
+        draft.manifestHash,
+        batchId,
+        draft.packageWeightGram ?? null,
+        draft.packageDimensionsCm ? JSON.stringify(draft.packageDimensionsCm) : null,
+        draft.packageListingPriceVnd
+      ]
+    );
+  }
+}
+
+function hashJson(value: unknown): string {
+  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+
+function canonicalManifest(drafts: ReturnManifestDraft[]): ReturnManifestDraft[] {
+  return drafts
+    .map((draft) => ({ ...draft, lines: [...draft.lines].sort((left, right) => left.sourceItemRef.localeCompare(right.sourceItemRef)) }))
+    .sort((left, right) => packageGroupOfDraft(left).localeCompare(packageGroupOfDraft(right)));
 }

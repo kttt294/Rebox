@@ -30,7 +30,7 @@ Không cần tra lại trong tài liệu, dùng bảng này:
 | Q1 | Công thức hold | `hàng + ship buyer + hoa hồng + 45.000đ dự phòng ship`. Mức 22.000đ bị loại vì không đủ cho hoàn hai chặng |
 | Q2 | Ký quỹ | Shop kích hoạt khi số dư đã settle đạt **100.000đ**; không tier, không công thức AOV động. Năng lực bán suy ra từ số dư |
 | Q3 | Dòng tiền hàng | Không escrow tiền hàng. Mỗi checkout chỉ một seller; production chỉ dùng phương án dòng tiền được Legal/PSP phê duyệt |
-| Q4 | API sàn | MVP dùng nhập tay + CSV + scan local. Shopee/TikTok live API hoãn tới GĐ3 sau partner approval/ToS review |
+| Q4 | Nguồn bản kê | `SPREADSHEET` và `PLATFORM_API` là hai kênh nhập ngang hàng, cùng trả `ReturnManifestDraft`; bản đầu chỉ bật CSV/XLSX |
 | Q5 | Hàng cấm | Xem `06-DANH-MUC-HANG-CAM.md` |
 | Q6 | Thanh toán | **Chưa chốt vendor.** PayOS chỉ là ứng viên; production bị chặn tới khi Legal/PSP xác nhận bằng văn bản |
 | Q7 | Ngưỡng hư hỏng | **30%** |
@@ -47,11 +47,11 @@ Không cần tra lại trong tài liệu, dùng bảng này:
 | Sprint | Đọc | Bỏ qua phần còn lại |
 |---|---|---|
 | **1** — Nền tảng + vertical slice | `07` §4–§8 · `01` §2, §4, §9 · `CODEBASE.md` | Không dựng mobile/AI/Redis |
-| **2** — Catalog & kho hoàn | `00` §L4, §L7 · `01` §4.2.1, §6.2 · `02` §2 · `03` §2, §3 · `06` §7 | Live API sàn ở `01` §7.1 là target GĐ3; `06` §2–6 do Pháp lý sở hữu |
+| **2** — Catalog & kho hoàn | `CONTEXT.md` · `00` §L4, §L7 · `01` §4.2.1, §6.2 · `02` §2 · `03` §2, §3 · `06` §7 | Bán nguyên kiện, không tạo ReturnUnit; API ở `01` §7.1 chỉ là target adapter |
 | **3** — Ví & sổ cái ⭐ | `01` §5 (**đọc kỹ**) · `02` §1, §4 · `00` §L1, §L2, §L3 | |
 | **4** — Thanh toán | `01` §7.3 · `02` §3 | |
 | **5** — Vận chuyển | `01` §7.2 · `02` §3.4, §3.5 | |
-| **6** — Tranh chấp manual + Admin | `01` §4.2, §6.3, §9.2 · `02` §5 (bỏ §5.3 AI) · `03` §1.6, §2.6, §4 · `05` §3.4 | `01` §8 và AI UI là GĐ3 |
+| **6** — Tranh chấp manual + Admin | `01` §4.2, §6.3, §9.2 · `02` §5 (bỏ §5.3 AI) · `03` §1.6, §2.7, §4 · `05` §3.4 | `01` §8 và AI UI là GĐ3 |
 | **7** — Notice, retention, thông báo, trang pháp lý | `02` §5.2 · `03` §1.6 · `04` Sprint 7 · `05` §3.4.5–§3.4.6 | Không thêm loyalty/AI |
 | **8** — Làm cứng/pilot | `01` §9 · `04` §11 · `05` §10 | Public API ERP hoãn tới khi có nhu cầu thật |
 
@@ -81,7 +81,7 @@ Bảy điều này nên đưa thẳng vào checklist review code, không phải 
 
 | Việc | Ai lo | Trong lúc chờ thì làm gì |
 |---|---|---|
-| Đăng ký partner Shopee / TikTok | Trưởng dự án | MVP không phụ thuộc việc này; dùng manual/CSV, chỉ mở live adapter ở GĐ3 |
+| Đăng ký partner Shopee / TikTok | Trưởng dự án | Dùng CSV qua cùng contract trong lúc chờ; chỉ mở live adapter khi đủ gate |
 | PSP nào đáp ứng custody/top-up/payout/refund/withdrawal/webhook/AML/KYC và giấy phép phù hợp? | Trưởng dự án + Pháp lý | Giữ `PaymentProvider` và fake adapter cho test. **Không chạy tiền thật, không ghi cứng PayOS** |
 | Provider evidence có versioning + Object Lock compliance + region phù hợp | Tech + Pháp lý | Chỉ làm metadata/local adapter; không dùng Supabase Storage cho evidence production |
 | Supabase Singapore có được dùng dữ liệu thật/production không? | Tech + Pháp lý | Trước A14, dev/staging chỉ dùng synthetic/anonymized fixture; mọi dữ liệu thật cần DPA/subprocessor/data-transfer review và Legal go/no-go |

@@ -167,3 +167,88 @@ test("chooses a category, edits a draft and sends it to policy review", async ({
   await expect(page.getByRole("row", { name: /Draft E2E đã sửa/ })).toContainText("Chờ duyệt");
   await expect(page.getByRole("row", { name: /Draft E2E đã sửa/ })).not.toContainText("Xem công khai");
 });
+
+test("shows two manifest sources and previews the spreadsheet source only", async ({ page }) => {
+  let importRequests = 0;
+  await page.route("**/v1/**", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (path === "/v1/categories") {
+      await route.fulfill({ json: [{ id: "fashion", name: "Thời trang" }] });
+      return;
+    }
+    if (path === "/v1/me") {
+      await route.fulfill({ json: {
+        id: "10000000-0000-4000-8000-000000000001",
+        profileStatus: "ACTIVE",
+        shops: [{
+          id: shopId,
+          displayName: "REBOX Verified Fixture",
+          role: "OWNER",
+          membershipStatus: "ACTIVE",
+          kycStatus: "VERIFIED",
+          status: "ACTIVE"
+        }]
+      } });
+      return;
+    }
+    if (path === `/v1/shops/${shopId}/listings`) {
+      await route.fulfill({ json: [] });
+      return;
+    }
+    if (path === `/v1/shops/${shopId}/return-imports/preview`) {
+      importRequests += 1;
+      await route.fulfill({ status: 201, json: {
+        batchId: "RBX-01JTESTIMPORTBATCH000000000",
+        rows: [{
+          rowIndex: 2,
+          packageGroup: "SHOPEE:TRACK-001",
+          warningCodes: [],
+          errorCodes: []
+        }],
+        drafts: [{
+          source: "SPREADSHEET",
+          sourcePlatform: "SHOPEE",
+          sourceTrackingNo: "TRACK-001",
+          packageListingPriceVnd: 600000,
+          lines: [{
+            sourceItemRef: "LINE-01",
+            sourceQuantity: 3,
+            productName: "Áo thun cotton",
+            productImageUrls: [],
+            reboxCategoryId: "fashion"
+          }]
+        }],
+        canCommit: true
+      } });
+      return;
+    }
+    if (path.endsWith("/commit")) {
+      importRequests += 1;
+      await route.fulfill({ status: 201, json: {
+        batchId: "RBX-01JTESTIMPORTBATCH000000000",
+        packageIds: ["RBX-01JTESTPACKAGE00000000000"],
+        lineCount: 1
+      } });
+      return;
+    }
+    await route.fulfill({ status: 404, json: { error: { code: "RESOURCE_NOT_FOUND", message: "Not found", requestId: "e2e" } } });
+  });
+
+  await page.goto("/seller/inventory");
+  const platformButton = page.getByRole("button", { name: /Import trực tiếp từ Shopee\/TikTok/ });
+  await expect(platformButton).toBeDisabled();
+  await expect(platformButton).toContainText("Sắp có");
+  expect(importRequests).toBe(0);
+
+  const chooserPromise = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: /Import bằng CSV\/XLSX/ }).click();
+  const chooser = await chooserPromise;
+  await chooser.setFiles({ name: "manifest.csv", mimeType: "text/csv", buffer: Buffer.from("fixture") });
+
+  await expect(page.getByRole("heading", { name: "Preview manifest.csv" })).toBeVisible();
+  await expect(page.getByRole("row", { name: /SHOPEE:TRACK-001/ })).toContainText("Hợp lệ");
+  await page.getByRole("button", { name: "Commit bản kê" }).click();
+  await expect(page.getByRole("status")).toHaveText("Đã nhập 1 kiện và 1 dòng khai báo.");
+  expect(importRequests).toBe(2);
+});

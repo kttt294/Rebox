@@ -1,4 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { Pool } from "pg";
 import type { DomainError } from "../src/errors";
 import { IdentityModule } from "../src/modules/identity";
@@ -45,7 +47,10 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
   const pool = new Pool({ connectionString: databaseUrl });
   const identity = new IdentityModule(pool);
   const mediaStorage = new FakeCatalogMediaStorage();
-  const inventory = new InventoryModule(pool, identity, mediaStorage);
+  const inventory = new InventoryModule(pool, identity, mediaStorage, {
+    encryptionSecret: "test-encryption-secret-at-least-32-characters",
+    hmacSecret: "test-hmac-secret-at-least-32-characters"
+  });
   const outbox = new OutboxModule(pool);
 
   beforeAll(async () => {
@@ -53,6 +58,9 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
   });
 
   beforeEach(async () => {
+    await pool.query("DELETE FROM return_lines");
+    await pool.query("DELETE FROM return_packages");
+    await pool.query("DELETE FROM return_import_batches");
     await pool.query("DELETE FROM listings WHERE id NOT LIKE 'RBX-01JTEST%'");
     await pool.query("TRUNCATE outbox_events");
     mediaStorage.objects.clear();
@@ -395,6 +403,122 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
       .find((listing) => listing.id === draft.id)?.images).toHaveLength(6);
   });
 
+  it("commits a manifest once across 100 retries and never stores plaintext tracking", async () => {
+    const file = await returnManifestFixture();
+    const preview = await inventory.previewReturnManifest(verifiedActor, verifiedShop, "manifest.csv", file);
+
+    const results = await Promise.all(Array.from({ length: 100 }, () =>
+      inventory.commitReturnManifest(verifiedActor, verifiedShop, preview.batchId, "retry-manifest-100-times")));
+    const counts = await pool.query<{ packages: string; lines: string }>(
+      `SELECT (SELECT count(*) FROM return_packages)::text AS packages,
+              (SELECT count(*) FROM return_lines)::text AS lines`
+    );
+    const stored = await pool.query<{ tracking: string; payload: string }>(
+      `SELECT encode(p.source_tracking_enc, 'base64') AS tracking, b.normalized_payload::text AS payload
+       FROM return_packages p JOIN return_import_batches b ON b.id = p.ingest_batch_ref LIMIT 1`
+    );
+
+    expect(results).toEqual(Array.from({ length: 100 }, () => results[0]));
+    expect(counts.rows[0]).toEqual({ packages: "2", lines: "3" });
+    expect(stored.rows[0]?.tracking).not.toContain("TRACK-001");
+    expect(stored.rows[0]?.payload).not.toMatch(/TRACK-00[12]|Khách đổi ý/);
+  });
+
+  it("returns the first result for the same key and payload but rejects a changed payload", async () => {
+    const fixture = await returnManifestFixture();
+    const [first, same] = await Promise.all([
+      inventory.previewReturnManifest(verifiedActor, verifiedShop, "first.csv", fixture),
+      inventory.previewReturnManifest(verifiedActor, verifiedShop, "same.csv", fixture)
+    ]);
+    const committed = await inventory.commitReturnManifest(
+      verifiedActor,
+      verifiedShop,
+      first.batchId,
+      "same-key-and-payload"
+    );
+    expect(await inventory.commitReturnManifest(
+      verifiedActor,
+      verifiedShop,
+      same.batchId,
+      "same-key-and-payload"
+    )).toEqual(committed);
+
+    const changedFile = Buffer.from(fixture.toString("utf8").replaceAll(",600000", ",610000"));
+    const changed = await inventory.previewReturnManifest(verifiedActor, verifiedShop, "changed.csv", changedFile);
+    await expect(inventory.commitReturnManifest(
+      verifiedActor,
+      verifiedShop,
+      changed.batchId,
+      "same-key-and-payload"
+    )).rejects.toMatchObject<Partial<DomainError>>({ code: "MANIFEST_IDEMPOTENCY_CONFLICT", status: 409 });
+  });
+
+  it("keeps tracking uniqueness scoped to the shop and rejects a changed package manifest", async () => {
+    const fixture = await returnManifestFixture();
+    const verifiedPreview = await inventory.previewReturnManifest(verifiedActor, verifiedShop, "verified.csv", fixture);
+    const pendingPreview = await inventory.previewReturnManifest(pendingActor, pendingShop, "pending.csv", fixture);
+    await inventory.commitReturnManifest(verifiedActor, verifiedShop, verifiedPreview.batchId, "verified-shop-import");
+    await inventory.commitReturnManifest(pendingActor, pendingShop, pendingPreview.batchId, "pending-shop-import");
+
+    expect((await pool.query<{ count: string }>(
+      "SELECT count(*)::text AS count FROM return_packages"
+    )).rows[0]?.count).toBe("4");
+
+    const changed = await inventory.previewReturnManifest(
+      verifiedActor,
+      verifiedShop,
+      "changed.csv",
+      Buffer.from(fixture.toString("utf8").replaceAll(",600000", ",610000"))
+    );
+    await expect(inventory.commitReturnManifest(
+      verifiedActor,
+      verifiedShop,
+      changed.batchId,
+      "changed-package-manifest"
+    )).rejects.toMatchObject<Partial<DomainError>>({ code: "MANIFEST_PACKAGE_CONFLICT", status: 409 });
+  });
+
+  it("rolls back packages and lines when a later line insert fails", async () => {
+    const preview = await inventory.previewReturnManifest(
+      verifiedActor,
+      verifiedShop,
+      "rollback.csv",
+      await returnManifestFixture()
+    );
+    const stored = await pool.query<{ normalized_payload: { drafts: Array<{ lines: Array<{ reboxCategoryId: string }> }> } }>(
+      "SELECT normalized_payload FROM return_import_batches WHERE id = $1",
+      [preview.batchId]
+    );
+    const payload = stored.rows[0]!.normalized_payload;
+    payload.drafts[1]!.lines[0]!.reboxCategoryId = "missing-category";
+    await pool.query("UPDATE return_import_batches SET normalized_payload = $2::jsonb WHERE id = $1", [
+      preview.batchId,
+      JSON.stringify(payload)
+    ]);
+
+    await expect(inventory.commitReturnManifest(
+      verifiedActor,
+      verifiedShop,
+      preview.batchId,
+      "rollback-on-line-error"
+    )).rejects.toThrow();
+    expect((await pool.query<{ packages: string; lines: string }>(
+      `SELECT (SELECT count(*) FROM return_packages)::text AS packages,
+              (SELECT count(*) FROM return_lines)::text AS lines`
+    )).rows[0]).toEqual({ packages: "0", lines: "0" });
+  });
+
+  it("rejects a PII header without persisting a preview batch", async () => {
+    const fixture = await returnManifestFixture();
+    const withPii = Buffer.from(fixture.toString("utf8").replace("source_platform,", "recipient_address,source_platform,"));
+
+    await expect(inventory.previewReturnManifest(verifiedActor, verifiedShop, "pii.csv", withPii))
+      .rejects.toMatchObject<Partial<DomainError>>({ code: "PII_COLUMN_FORBIDDEN", status: 422 });
+    expect((await pool.query<{ count: string }>(
+      "SELECT count(*)::text AS count FROM return_import_batches"
+    )).rows[0]?.count).toBe("0");
+  });
+
   async function attachValidImage(listingId: string): Promise<void> {
     const intent = await inventory.createImageUploadIntent(
       verifiedActor,
@@ -412,6 +536,10 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
     await inventory.completeImageUpload(verifiedActor, verifiedShop, listingId, intent.key);
   }
 });
+
+function returnManifestFixture(): Promise<Buffer> {
+  return readFile(resolve(process.cwd(), "docs/fixtures/return-import/rebox-return-import-sample.csv"));
+}
 
 function listingInput(title: string) {
   return {

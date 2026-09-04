@@ -14,7 +14,7 @@ Mốc kiểm tra tài liệu là 25/08/2026. Luật Thương mại điện tử 
 |---|---|---|
 | `BANNED` | Cấm tuyệt đối trên REBOX | **Chặn cứng** khi đăng bán. Không có đường ngoại lệ. Gắn cờ tài khoản nếu cố tình lặp lại |
 | `MANUAL_REVIEW` | Cần điều kiện kinh doanh hoặc giấy tờ | Vào hàng đợi **admin duyệt tay**, yêu cầu nộp ảnh tem/nhãn/giấy tờ trước khi hiển thị |
-| `DISCLOSURE` | Được bán nhưng phải mô tả rõ | Bắt buộc điền `condition_notes` chi tiết + chọn `condition_grade` |
+| `DISCLOSURE` | Được bán nhưng phải mô tả rõ | Listing thủ công dùng `condition_notes/condition_grade`; package listing dùng `UNOPENED_UNINSPECTED`, `SealStatus` và disclosure riêng theo category |
 
 Bảng `restricted_categories` trong DB (`01-SPEC` §4.2, `02-FLOWS` §2.4) lưu danh mục này kèm `keywords[]`, `effective_from`, và người phê duyệt.
 
@@ -116,7 +116,7 @@ Bắt buộc chọn một, không cho nhập tự do:
 | `FAIR` | Khá | Lỗi ngoại hình rõ, vẫn dùng tốt |
 | `DEFECT` | Có lỗi | Lỗi chức năng — **bắt buộc mô tả cụ thể lỗi gì** |
 
-> ⚠️ **Ràng buộc sản phẩm quan trọng:** chỉ hàng bom, tức hàng bị từ chối nhận và chưa từng mở, mới được chọn `NEW_SEALED` và đăng từ dữ liệu quét mà không cần ảnh thật. Mọi trường hợp còn lại **bắt buộc có ảnh chụp thực tế**. Dùng ảnh studio của hàng mới để bán hàng khách đã trả là mô tả sai sự thật. Xem `05-PHAP-LY` §5.3 và `01-TECHNICAL-SPEC` §4.2.1.
+> ⚠️ **Ràng buộc sản phẩm quan trọng:** chỉ hàng bom, tức hàng bị từ chối nhận và chưa từng mở, mới được chọn `NEW_SEALED` và đăng từ dữ liệu quét mà không cần ảnh thật. Mọi trường hợp còn lại **bắt buộc có ảnh chụp thực tế**. Dùng ảnh studio của hàng mới để bán hàng khách đã trả là mô tả sai sự thật. Xem `05-PHAP-LY` §5.3 và `01-TECHNICAL-SPEC` §4.2.2.
 
 ---
 

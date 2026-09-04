@@ -58,7 +58,7 @@ Thứ tự ưu tiên: **full-stack dev** trước, **marketing** sau. Ba hình t
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Web trước, mobile sau**    | Next.js responsive dùng được trên điện thoại. Quét mã chạy bằng camera trình duyệt (`BarcodeDetector` / ZXing) - **có giới hạn trên iOS**, xem `01-SPEC` §2.6. Tiết kiệm ~4 người-tháng. Chiến lược tái sử dụng cho mobile: `01-SPEC` §2.3 |
 | **Con người trước, AI sau**  | GĐ1 admin xử lý 100% tranh chấp thủ công. Ở 500 đơn/tháng với ~3% khiếu nại = 15 vụ/tháng - một người xử lý thừa sức. AI chỉ đáng làm khi đạt ~2.000 đơn/tháng. |
-| **CSV trước, API sàn sau**   | Import CSV là 3 ngày công. Tích hợp Shopee Open API là 3–4 tuần cộng rủi ro không được duyệt (L7).                                                              |
+| **Hai kênh nhập, một contract** | `SPREADSHEET` và `PLATFORM_API` cùng trả `ReturnManifestDraft`. Bản đầu bật CSV/XLSX; nút API để “Sắp có” tới khi đủ partner/ToS gate. |
 | **Đúng tiền trước, đẹp sau** | Ví ký quỹ và sổ cái phải hoàn thiện từ ngày đầu. Sai sót ở đây không sửa được bằng bản vá.                                                                      |
 | **Mua thay vì tự xây**       | eKYC, cổng thanh toán và gửi SMS/ZNS dùng dịch vụ có sẵn sau provider gate. Phát hiện video giả chỉ xem xét cùng AI GĐ3.                                       |
 
@@ -153,15 +153,17 @@ Không tạo đủ mọi bảng hoặc abstraction ngay Sprint 1. `packages/shar
 
 | Việc                                                      | Nghiệm thu                                      |
 | --------------------------------------------------------- | ----------------------------------------------- |
-| CRUD listing + upload ảnh (presigned) + validate giá trần | Đăng được sản phẩm, ảnh lên storage             |
-| Import CSV hàng hoàn (Shopee + TikTok format)             | Upload 100 dòng, dedupe đúng, báo lỗi từng dòng |
-| Quét barcode trên web (BarcodeDetector + fallback ZXing)  | Quét được nhãn GHTK/GHN thật bằng webcam        |
+| ReturnPackage + ReturnLine + Listing + upload ảnh (presigned) | Một package chưa mở tạo đúng một card; tracking không ra public |
+| Chọn nguồn nhập                                          | Hai nút ngang hàng: Shopee/TikTok và CSV/XLSX; nút API hiện “Sắp có” khi chưa đủ gate |
+| Import/preview CSV/XLSX hàng hoàn                        | 100 dòng nguồn; nhóm theo tracking, dedupe Package/Line và báo lỗi từng dòng/package |
+| Contract `ReturnManifestDraft` + seam nguồn               | Hai kênh trả cùng DTO; chỉ spreadsheet có implementation, không dựng API adapter giả |
+| Scan lookup local tối thiểu                              | Quét package đã commit và get-or-create một listing draft số lượng 1 |
 | Danh mục + danh sách cấm/hạn chế                          | Chặn được sản phẩm thuộc danh mục cấm           |
 | Tìm kiếm PG FTS tiếng Việt (`unaccent` + `pg_trgm`)       | Tìm "vay lua" ra "Váy lụa"                      |
 | Trang chi tiết sản phẩm SSR                               | Lighthouse SEO ≥ 90                             |
 | eKYC integration: notice/record, provider session trực tiếp, webhook idempotent, trạng thái/manual review | Seller bên ngoài chỉ publish sau `VERIFIED`; không đưa CCCD/selfie base64 qua API; retention theo Legal |
 
-MVP chỉ đọc dữ liệu nhập tay/local/CSV. Nhánh Shopee/TikTok live API bị tắt đến GĐ3; không dựng adapter production để chờ credential.
+Bản chạy đầu chỉ bật CSV/XLSX vì chưa có credential. Đây là thứ tự giao hàng, không phải quy tắc ưu tiên nguồn: khi API sàn được bật, seller chủ động chọn một trong hai nút và cả hai dùng chung preview/commit. Chưa dựng adapter/OAuth giả. Không có intake/inspection hoặc `ReturnUnit` trong slice nguyên kiện.
 
 ### Sprint 3 - Ví ký quỹ & Sổ cái ⭐ sprint quan trọng nhất
 
@@ -380,7 +382,7 @@ Một hạng mục chỉ được coi là xong khi thỏa **toàn bộ**:
 | P1  | Hồ sơ đăng ký sàn chậm/bị từ chối                          | Trung bình | **Chặn ra mắt**        | Nộp ngay tháng 1; thuê tư vấn có kinh nghiệm hồ sơ sàn                                                                          |
 | P2  | Không tìm được đối tác thanh toán chấp nhận mô hình ký quỹ | Trung bình | **Chặn ra mắt**        | Giữ production payment tắt; chỉ demo/sandbox và xem lại mô hình kinh doanh với Legal, không tự chuyển sang luồng tiền chưa duyệt |
 | P3  | Technical Lead bận thi/ốm/nghỉ                             | **Cao**    | Trượt tiến độ          | Đệm 20% thời gian; tài liệu hóa; chuẩn bị phương án thuê freelancer 1–2 tháng                                                   |
-| P4  | Shopee/TikTok từ chối cấp API                              | Trung bình | Mất feature tăng tốc GĐ3 | Manual + CSV + local scan là luồng lõi độc lập; không ảnh hưởng MVP                                                            |
+| P4  | Shopee/TikTok từ chối cấp API                              | Trung bình | Không bật được nút import trực tiếp | Kênh CSV/XLSX hoạt động độc lập qua cùng contract nên flow bán nguyên kiện vẫn chạy |
 | P5  | Seller không chấp nhận ký quỹ                              | **Cao**    | Chặn mô hình           | Kiểm chứng bằng phỏng vấn 20 shop **trước Sprint 3**; nếu thất bại phải đổi policy/mô hình qua ADR mới, không âm thầm bỏ ký quỹ |
 | P6  | Buyer không chịu quay video                                | Trung bình | Tranh chấp khó xử      | Không bắt buộc (L5); dùng ưu đãi (xử lý nhanh hơn) thay vì ép buộc                                                              |
 | P7  | Sai lệch sổ cái sau khi lên production                     | Thấp       | **Rất nghiêm trọng**   | Đối soát hằng giờ + tự động chặn rút tiền khi lệch + backup mọi bút toán                                                        |

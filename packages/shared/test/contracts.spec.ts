@@ -5,6 +5,7 @@ import {
   createShopSchema,
   listingPolicyResultSchema,
   publicListingsQuerySchema,
+  returnManifestDraftSchema,
   updateListingDraftSchema
 } from "../src";
 
@@ -78,5 +79,27 @@ describe("Sprint 1 contracts", () => {
 
   it("normalizes shop names at the trust boundary", () => {
     expect(createShopSchema.parse({ displayName: "  Shop Mộc  ", legalType: "INDIVIDUAL" }).displayName).toBe("Shop Mộc");
+  });
+
+  it("accepts only the unopened-package manifest contract", () => {
+    const draft = {
+      source: "SPREADSHEET",
+      sourcePlatform: "SHOPEE",
+      sourceTrackingNo: "TRACK-001",
+      packageListingPriceVnd: 600_000,
+      lines: [{
+        sourceItemRef: "LINE-01",
+        sourceQuantity: 3,
+        productName: "Áo thun cotton",
+        productImageUrls: [],
+        reboxCategoryId: "fashion"
+      }]
+    };
+
+    expect(returnManifestDraftSchema.safeParse(draft).success).toBe(true);
+    expect(returnManifestDraftSchema.safeParse({ ...draft, received_quantity: 1 }).success).toBe(false);
+    expect(returnManifestDraftSchema.safeParse({ ...draft, buyer_phone: "0900000000" }).success).toBe(false);
+    expect(returnManifestDraftSchema.safeParse({ ...draft, lines: [{ ...draft.lines[0], returnUnit: {} }] }).success)
+      .toBe(false);
   });
 });

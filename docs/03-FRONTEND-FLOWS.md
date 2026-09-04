@@ -10,11 +10,11 @@ Bảng đối chiếu từng file trong `docs/REBOX-UI/` (và ảnh tương ứn
 
 | File prototype                                 | Ảnh trong docx | Màn hình                                                                               | Đặc tả tại             | Ghi chú khi hiện thực                                                                                         |
 | ---------------------------------------------- | -------------- | -------------------------------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `luồng đăng bán - seller.png`                  | Hình 2         | Seller mobile: quét mã → đồng bộ → xem trước → đăng bán (4 bước)                       | §2.2, §2.3             | Bổ sung state machine quét, chế độ offline, tự quay lại quét sau 1,5s, khối "Nếu bán được"                    |
-| `website-seller-đăng bán.png` (ảnh 1) + Hình 3 | Hình 3         | Seller web: tab **Đăng Bán** - khung quét + panel đồng bộ Shopee/TikTok + giá trần 90% | §3.1                   | Prototype đăng **từng món**; tổng kho cần **đăng hàng loạt** + máy quét cầm tay - đây là khoảng trống #4 ở §6 |
-| `luồng xem kho hàng và đối soát- seller.png`   | Hình 4         | Seller mobile: Kho hàng xả kho + Đối soát tài chính                                    | §2.4, §2.5             | Bổ sung trạng thái **BỊ ẨN** (thiếu quỹ) + tách 3 khối tiền                                                   |
+| `luồng đăng bán - seller.png`                  | Hình 2         | Seller mobile: quét mã → đồng bộ → xem trước → đăng bán (4 bước)                       | §2.3, §2.4             | Bổ sung chọn nguồn import, state machine quét local, tự quay lại quét sau 1,5s, khối "Nếu bán được"          |
+| `website-seller-đăng bán.png` (ảnh 1) + Hình 3 | Hình 3         | Seller web: tab **Đăng Bán** - chọn nguồn import + preview lô + giá trần 90%            | §3.1                   | Prototype đăng từng món; implementation phải bán nguyên package từ manifest đã commit |
+| `luồng xem kho hàng và đối soát- seller.png`   | Hình 4         | Seller mobile: Kho hàng xả kho + Đối soát tài chính                                    | §2.5, §2.6             | Bổ sung trạng thái **BỊ ẨN** (thiếu quỹ) + tách 3 khối tiền                                                   |
 | `website-seller-đăng bán.png` (ảnh 2, 3)       | Hình 5         | Seller web: Quản lý kho hàng + Đối soát tài chính & Ví ký quỹ                          | §3.2                   | Tab **Phân tích hàng hoàn theo SKU** là target GĐ3, chưa có trong prototype                                   |
-| `luồng mua hàng - buyer.png`                   | Hình 6         | Buyer: chi tiết SP → giỏ → QR → hồ sơ & khiếu nại                                      | §1.2, §1.3, §1.4, §1.5 | Giỏ nhóm theo shop; **mỗi lần checkout một shop/một QR**; sửa nhãn "ĐIỀU KIỆN BẮT BUỘC"                    |
+| `luồng mua hàng - buyer.png`                   | Hình 6         | Buyer: chi tiết SP → giỏ → QR → hồ sơ & khiếu nại                                      | §1.2, §1.3, §1.4, §1.5 | Giỏ lưu nhiều kiện; **mỗi checkout đúng một package/một QR**; sửa nhãn "ĐIỀU KIỆN BẮT BUỘC"                 |
 | -                                              | Hình 7         | Buyer web: chi tiết SP + giỏ bên phải + hồ sơ & lịch sử đơn                            | §1.2, §1.3             | Khối "Sàn REBOX Bảo Vệ Dòng Tiền 100%" ghi "hoàn tiền trong 10s" - xem M7                                     |
 | `luồng admin.png`                              | Hình 8         | Admin mobile: danh sách tranh chấp → chi tiết AI Tầng 1 → thống kê → tham số AI        | §4.1, §4.2, §4.3       | Bỏ nhánh **AI TỪ CHỐI** (L6); ngưỡng 70% ở đây vs 80% ở bản web (M8)                                          |
 | -                                              | Hình 9         | Admin web: AI Risk Triage & Arbitration Console                                        | §4.2, §4.3             | Bảng tính hoàn tiền trong mock **sai công thức** (M9); bỏ nhãn "Độ chính xác AI 99.8%"                        |
@@ -85,10 +85,10 @@ Supabase Realtime, nếu bật, chỉ invalidate query rồi client refetch Nest
 │ [Tất cả][Thời trang][Đồ GD] │
 ├─────────────────────────────┤
 │ ┌───────────────────────┐   │
-│ │ 🏷 MỚI 99% - ĐƠN HOÀN │   │  ← badge tình trạng
-│ │      [ảnh sản phẩm]   │   │
-│ │ Váy lụa dáng dài Satin│   │
-│ │ 225.000đ  2̶5̶0̶.̶0̶0̶0̶đ̶ -10%│   │
+│ │ KIỆN CHƯA MỞ KIỂM TRA │   │  ← disclosure bắt buộc
+│ │ [ảnh SP từ bản kê]    │   │
+│ │ Kiện hoàn: 4 SP khai báo│ │
+│ │ 600.000đ  8̶7̶0̶.̶0̶0̶0̶đ̶ -31%│   │
 │ │ 📍 Hà Nội · Shop ABC  │   │
 │ │ 🚚 Freeship            │   │  ← hiện khi giá ≥ 100k
 │ └───────────────────────┘   │
@@ -99,18 +99,18 @@ Supabase Realtime, nếu bật, chỉ invalidate query rồi client refetch Nest
 
 **Dữ liệu:** `GET /listings?cursor=&category=&sort=` - phân trang con trỏ, không dùng offset (danh sách thay đổi liên tục vì mỗi món chỉ có 1).
 
-**Đặc thù bắt buộc của sàn hàng đơn chiếc:**
+**Đặc thù bắt buộc của sàn bán nguyên kiện:**
 
 - Mỗi món chỉ có 1 ⇒ danh sách "hết hàng" rất nhanh. Dùng **polling nhẹ 30s**; nếu bật Supabase Realtime thì sự kiện chỉ invalidate cache để client gọi lại NestJS API. Không coi payload Realtime là nguồn trạng thái cuối cùng.
-- Badge **`condition_grade`** phải hiển thị nổi bật ở mọi nơi có ảnh sản phẩm. Đây vừa là yếu tố tin cậy, vừa là **nghĩa vụ pháp lý** về mô tả trung thực hàng đã qua sử dụng.
+- Package listing phải hiển thị nổi bật **`UNOPENED_UNINSPECTED`**; listing thủ công cũ mới dùng `condition_grade`. Không được hiển thị condition của sản phẩm cho kiện chưa mở.
 - Không hiển thị "còn X sản phẩm" - luôn là 1, hiển thị chỉ gây rối.
 
 **GĐ3 — khu vực quảng bá:** khi paid promotion được mở lại, listing trả phí phải gắn nhãn "Tài trợ" và qua Legal review (`05-PHAP-LY` §8). GĐ1 không có gói 20.000đ/tuần hoặc ranking trả phí.
 
-**Quy tắc hiển thị giá theo `price_source` (`01-SPEC` §4.2.1) - áp dụng ở MỌI nơi có giá, không chỉ trang chi tiết:**
+**Quy tắc hiển thị giá theo `price_source` (`01-SPEC` §4.2.2) - áp dụng ở MỌI nơi có giá, không chỉ trang chi tiết:**
 
 ```
-price_source = VERIFIED_PLATFORM / VERIFIED_CSV   →  price_source = SELLER_DECLARED
+price_source = VERIFIED_PLATFORM / VERIFIED_SPREADSHEET → price_source = SELLER_DECLARED
 ┌───────────────────────────┐                        ┌───────────────────────────┐
 │ 225.000đ  2̶5̶0̶.̶0̶0̶0̶đ̶ -10%   │                        │ 225.000đ                  │
 │ ✓ Giá gốc đối chiếu Shopee│                        │ (không gạch ngang,        │
@@ -118,7 +118,9 @@ price_source = VERIFIED_PLATFORM / VERIFIED_CSV   →  price_source = SELLER_DEC
                                                        └───────────────────────────┘
 ```
 
-Card sản phẩm ở trang chủ, kết quả tìm kiếm, và trang chi tiết đều đọc `original_price` + `discount_pct` từ response - **không tự tính** `% giảm` ở client dù có sẵn cả hai con số trong payload, vì API đã **không trả** `original_price` khi `price_source = SELLER_DECLARED` (xem `01-SPEC` §4.2.1). Nếu field đó vắng mặt, UI chỉ render `price`, tuyệt đối không fallback tự so sánh hay tự bịa % giảm.
+Card sản phẩm ở trang chủ, kết quả tìm kiếm, và trang chi tiết đều đọc `original_price` + `discount_pct` từ response - **không tự tính** `% giảm` ở client dù có sẵn cả hai con số trong payload, vì API đã **không trả** `original_price` khi `price_source = SELLER_DECLARED` (xem `01-SPEC` §4.2.2). Nếu field đó vắng mặt, UI chỉ render `price`, tuyệt đối không fallback tự so sánh hay tự bịa % giảm.
+
+Mỗi card nguồn hàng hoàn bán đúng một `ReturnPackage` chưa mở. Card hiển thị bản kê sản phẩm do CSV/API cung cấp, nhãn bắt buộc “Kiện chưa mở kiểm tra” và `availableQuantity` bằng 1 hoặc 0 theo trạng thái package. Tracking không được có trong payload public.
 
 ### 1.2. Chi tiết sản phẩm
 
@@ -145,7 +147,7 @@ Khối quan trọng nhất là **"Cam kết của REBOX"** (prototype đã có):
 Ngoài ra policy UI bắt buộc hiển thị các thông tin dưới đây; Legal phải map wording cuối cùng sang Luật TMĐT 122/2025 và văn bản thi hành hiện hành trước production:
 
 - Tên shop, trạng thái xác thực (đã eKYC), địa chỉ kho cấp tỉnh/thành
-- Tình trạng hàng chi tiết (`condition_notes` - không được để trống)
+- Cảnh báo `UNOPENED_UNINSPECTED`, tình trạng seal bên ngoài và bản kê nguồn chưa kiểm chứng
 - Chính sách đổi trả, quy trình khiếu nại (link tới Quy chế sàn)
 
 ### 1.3. Giỏ hàng - nhóm theo shop, checkout từng shop
@@ -172,9 +174,9 @@ Ngoài ra policy UI bắt buộc hiển thị các thông tin dưới đây; Leg
 └─────────────────────────────────┘
 ```
 
-**Khác biệt quan trọng so với prototype:** prototype hiển thị giỏ phẳng với một dòng "Phí vận chuyển: 15.000đ". Giỏ có thể chứa nhiều nhóm shop để người dùng lưu lựa chọn, nhưng **mỗi lần checkout chỉ chọn đúng một shop**. API từ chối request lẫn nhiều seller bằng `MULTI_SELLER_CHECKOUT_NOT_SUPPORTED`.
+**Khác biệt quan trọng so với prototype:** giỏ có thể lưu nhiều package, nhưng mỗi lần checkout package-backed chỉ chọn đúng một listing, quantity 1. Như vậy mỗi đơn tạo đúng một nhãn mới dán lên đúng kiện cũ. API từ chối nhiều package bằng `ONE_PACKAGE_PER_CHECKOUT` và lẫn seller bằng `MULTI_SELLER_CHECKOUT_NOT_SUPPORTED`.
 
-Gợi ý "mua thêm X để freeship" là đòn bẩy AOV mạnh và hoàn toàn khớp với mục tiêu chống tách đơn trong tài liệu.
+Không hiển thị gợi ý “mua thêm để freeship” trong flow nguyên kiện vì MVP không gộp nhiều kiện vào một shipment.
 
 ### 1.4. Thanh toán
 
@@ -186,7 +188,7 @@ Bước 1: Chọn phương thức
   │   ⚠ Có thể không khả dụng    │
   └──────────────────────────────┘
 
-Bước 2 (nếu QR): một checkout, một shop, một QR
+Bước 2 (nếu QR): một checkout, một package, một QR
   ┌──────────────────────────────┐
   │ Thanh toán - Shop ABC        │
   │        [QR CODE]             │
@@ -198,7 +200,7 @@ Bước 2 (nếu QR): một checkout, một shop, một QR
   └──────────────────────────────┘
 ```
 
-**Quy tắc GĐ1:** gợi ý mua thêm trong cùng shop và để các nhóm shop còn lại trong giỏ. Không có checkout đa seller, chuỗi nhiều QR hoặc thanh toán một phần giữa các shop. Mở rộng mô hình tiền chỉ được xem xét sau khi ADR thanh toán/pháp lý mới được phê duyệt.
+**Quy tắc GĐ1:** mỗi checkout package-backed chỉ có một kiện; các listing khác ở lại giỏ. Không có checkout đa seller, gộp nhiều kiện, chuỗi nhiều QR hoặc thanh toán một phần.
 
 **Polling trạng thái:** sau khi buyer bấm "Đã chuyển khoản", client poll `GET /orders/{id}/payment-status` mỗi 3s trong 2 phút, rồi giãn ra 10s. Realtime, nếu bật, chỉ là tín hiệu để refetch endpoint này.
 
@@ -362,7 +364,25 @@ Khóa (không phủ nổi listing nào)
 
 **Nguyên tắc:** không bao giờ chỉ báo "kho bị khóa". Luôn kèm **số tiền chính xác cần nạp** và **nút nạp ngay**. Chỉ dùng trạng thái khóa coverage khi shop có listing cần phủ nhưng không phủ nổi; shop chưa có listing không bị khóa. KYC, PAUSED, debt và activation là banner/gate riêng, không giả thành coverage thấp.
 
-### 2.2. Màn hình quét mã vận đơn
+### 2.2. Chọn nguồn nhập bản kê
+
+```text
+┌──────────────────────────────────────────────────┐
+│ Nhập các kiện hoàn                               │
+│                                                  │
+│ [Import trực tiếp từ Shopee/TikTok]              │
+│  Kết nối sàn và chọn đơn hoàn                    │
+│  Trạng thái bản đầu: Sắp có                      │
+│                                                  │
+│ [Import bằng CSV/XLSX]                           │
+│  Tải file export từ Seller Center                │
+│  Trạng thái bản đầu: Có thể sử dụng              │
+└──────────────────────────────────────────────────┘
+```
+
+Hai nút có cùng cấp bậc trên UI và cùng dẫn tới một màn preview package. Không gọi API thất bại rồi tự chuyển sang file, cũng không tải file thất bại rồi tự gọi API. Khi API chưa đủ gate, giữ nút để người dùng hiểu hướng sản phẩm nhưng disable rõ ràng với nhãn “Sắp có”.
+
+### 2.3. Màn hình quét mã vận đơn
 
 Prototype có 4 bước rất đúng: khung quét → "Đang đồng bộ sàn ngoài..." → hiện dữ liệu → "Đăng bán thành công". Cần bổ sung xử lý thực tế:
 
@@ -371,24 +391,23 @@ State machine của màn hình quét:
 
 IDLE ──quét được mã──► RESOLVING (hiện skeleton ngay, KHÔNG chặn màn hình)
                             │
-        ┌───────────────────┼──────────────────┬─────────────────┐
-        ▼                   ▼                  ▼                 ▼
-   FOUND_LOCAL         FOUND_CSV         FOUND_API*       NOT_FOUND
-   (~50ms)             (~100ms)          (1-3s)           (sau 8s)
-        │                   │                  │                 │
-        └───────────────────┴──────────────────┴─────────────────┘
+                    ┌───────┼──────────────┐
+                    ▼       ▼              ▼
+              FOUND_LOCAL DUPLICATE    NOT_FOUND
+                    │       │              │
+                    └───────┴──────────────┘
                             ▼
-                      REVIEW (form đã điền / form trống)
+                  PACKAGE_PREVIEW (package + bản kê nguồn)
                             │
-                   [CHỈNH SỬA]  [ĐĂNG BÁN]
+                    [XÁC NHẬN KIỆN CHƯA MỞ]
                             ▼
-                      PUBLISHING → PUBLISHED
+                  CREATE_DRAFT → PUBLISHING → PUBLISHED
                             │
                     tự động quay lại IDLE sau 1,5s
                     (nhân viên kho quét liên tục)
 ```
 
-`FOUND_API` là nhánh GĐ3 và bị tắt ở GĐ1. MVP dừng ở local/CSV/manual entry; không giả lập kết nối Shopee/TikTok khi chưa có partner approval.
+Scan chỉ đọc package đã commit trong REBOX, bất kể package được nhập từ API hay spreadsheet. `NOT_FOUND` đưa seller về §2.2 để tự chọn kênh import; scan không tự gọi nguồn ngoài.
 
 **Chi tiết bắt buộc cho môi trường kho:**
 
@@ -400,80 +419,76 @@ IDLE ──quét được mã──► RESOLVING (hiện skeleton ngay, KHÔNG c
 | **Đèn flash toggle**                                    | Kho tối, nhãn vận đơn hay bị mờ                                           |
 | **Nhập tay mã vận đơn**                                 | Nhãn rách/mờ là chuyện thường xuyên                                       |
 | **Lịch sử 20 mã vừa quét**                              | Để kiểm tra nhanh, phát hiện quét sót                                     |
-| **Cảnh báo quét trùng**                                 | "Mã này đã đăng bán ngày 20/8" + link tới listing                         |
+| **Cảnh báo quét trùng**                                 | "Kiện này đã được nhập" + link tới listing/package hiện có |
 
-**Khi mở API sàn ở GĐ3:** hiển thị form ngay ở mốc 1,5s với các trường đã có (từ CSV/local). Nếu API sàn trả về sau đó, **điền bù các trường còn trống** kèm hiệu ứng highlight, không ghi đè trường seller đã sửa.
+Nếu package được import lại qua nguồn khác, conflict được xử lý ở preview/commit chứ không ở màn scan. Không trộn field âm thầm hoặc thay listing đang bán.
 
-### 2.3. Form đăng bán
+### 2.4. Form đăng bán
+
+Flow scan không có form kiểm đếm sản phẩm. Seller chỉ xem bản kê nguồn, xác nhận kiện chưa mở, kiểm tra seal/bao bì bên ngoài và giá bán cả kiện đã có trong CSV/API. Nếu thiếu cân nặng/kích thước để tạo vận đơn mới, seller cân/đo bên ngoài mà không mở kiện.
 
 ```
 ┌──────────────────────────────────────┐
 │ ĐỒNG BỘ DỮ LIỆU SÀN SHOPEE/TIKTOK    │
-│ Sản phẩm:  Váy lụa dáng dài Satin    │
-│ SKU:       Màu Đen - Size M          │
-│ Giá gốc:   250.000 VNĐ               │
-│ Giá trần xả kho (90%): 225.000 VNĐ   │
+│ KIỆN HOÀN CHƯA MỞ                     │
+│ Bản kê: 3 áo Đen/M + 1 mũ Đen        │
+│ Tổng giá trị nguồn: 870.000 VNĐ       │
+│ Giá bán cả kiện: 600.000 VNĐ          │
 ├──────────────────────────────────────┤
-│ Giá bán *    [225.000        ] VNĐ   │
-│ ⓘ Tối đa 225.000đ (90% giá gốc)      │
+│ Công bố: Chưa mở và chưa kiểm tra    │
+│ Seal ngoài: [Nguyên / Hỏng / Không rõ]│
+│ Ghi chú vỏ kiện: [tuỳ chọn]           │
 │                                      │
-│ Tình trạng * ▼ Mới 99% - Đơn hoàn    │
-│ Mô tả tình trạng *  ← BẮT BUỘC       │
-│ [Hộp còn nguyên, chưa qua sử dụng]   │
-│ ⓘ Mô tả trung thực khuyết điểm là    │
-│   nghĩa vụ pháp lý và giảm khiếu nại │
-│                                      │
-│ Ảnh * (tối thiểu 1, tối đa 6)        │
-│ [📷 Chụp] [🖼 Chọn]                  │
-│                                      │
-│ Cân nặng * [500] g   ⓘ Cần để tính   │
-│ KT (cm) [30]x[20]x[5]   cước chính xác│
+│ Cân nặng kiện: 930 g                  │
+│ KT kiện: 35 × 25 × 15 cm             │
 ├──────────────────────────────────────┤
 │ 💰 Nếu bán được:                     │
-│    Bạn nhận:      225.000đ (về TK)   │
-│    Phí sàn dự kiến:  45.000đ          │
+│    Bạn nhận:      600.000đ (về TK)   │
+│    Phí sàn dự kiến: 120.000đ          │
 │    Dự phòng vận chuyển: 45.000đ       │
-│    Ví sẽ giữ tạm:  315.000đ          │
-│    ⚠ Số dư sau khi giữ: 85.000đ      │
+│    Ví sẽ giữ tạm:  765.000đ          │
+│    ⚠ Số dư sau khi giữ: 35.000đ      │
 ├──────────────────────────────────────┤
 │      [LƯU NHÁP]      [ĐĂNG BÁN]      │
 └──────────────────────────────────────┘
 ```
 
-**Khối "Nếu bán được" là thay đổi quan trọng nhất so với prototype.** Ví dụ giả định ví khả dụng 400.000đ và dùng công thức canonical: `225.000 + 45.000 commission + 45.000 reserve = 315.000đ`. Đây chỉ là hold ước tính; commission chỉ được ghi nhận khi đơn hoàn tất. UI phải render breakdown do API trả về, không tự tính.
+**Khối "Nếu bán được" là thay đổi quan trọng nhất so với prototype.** Ví dụ giả định ví khả dụng 800.000đ và dùng công thức canonical: `600.000 + 120.000 commission + 45.000 reserve = 765.000đ`. Đây chỉ là hold ước tính; commission chỉ được ghi nhận khi đơn hoàn tất. UI phải render breakdown do API trả về, không tự tính.
 
 **Cảnh báo trước:** nếu đăng thêm listing này khiến `coverage` xuống dưới ngưỡng, hiện cảnh báo vàng trước khi bấm đăng, không phải sau.
 
-### 2.4. Kho hàng xả kho
+### 2.5. Kho hàng xả kho
 
 Prototype đúng. Bổ sung bộ lọc và trạng thái thứ tư:
 
 ```
 ┌────────────────────────────────────┐
 │ Kho Hàng Xả Kho                    │
-│ [🔍 Tìm SKU, mã vận đơn...]        │
+│ [🔍 Tìm SKU...]                    │
 │ [Tất cả][Đang bán][Đã bán]         │
 │ [Khiếu nại][Bị ẩn 12]  ← MỚI       │
 ├────────────────────────────────────┤
-│ 👗 Váy lụa Satin       225.000đ    │
-│    SKU: Đen-M | Tồn: 1  [ĐANG BÁN] │
+│ 📦 Kiện hoàn RBX-01... 600.000đ    │
+│    4 SP khai báo | Tồn: 1 [ĐANG BÁN]│
 │                                    │
-│ 👟 Giày Jordan         850.000đ    │
-│    SKU: Đỏ-42 | Tồn: 1  [KHIẾU NẠI]│
+│ 📦 Kiện hoàn RBX-02... 850.000đ    │
+│    1 SP khai báo | Tồn: 0 [KHIẾU NẠI]│
 │    ⏱ Cần phản hồi trong 18h        │  ← MỚI: SLA phản hồi
 │                                    │
-│ 🎧 Sony XM4            950.000đ    │
-│    SKU: Bạc  | Tồn: 0    [ĐÃ BÁN]  │
+│ 📦 Kiện hoàn RBX-03... 950.000đ    │
+│    1 SP khai báo | Tồn: 0 [ĐÃ BÁN] │
 │                                    │
-│ 🧥 Áo khoác dạ         450.000đ    │
-│    SKU: Be-L | Tồn: 1   [BỊ ẨN]    │  ← MỚI
+│ 📦 Kiện hoàn RBX-04... 450.000đ    │
+│    2 SP khai báo | Tồn: 1 [BỊ ẨN]  │  ← MỚI
 │    ⚠ Thiếu ký quỹ 180.000đ         │
 └────────────────────────────────────┘
 ```
 
 Nhóm "Bị ẩn" phải nổi bật với **tổng số tiền cần nạp để mở lại tất cả** - biến một thông báo tiêu cực thành một lời kêu gọi hành động rõ ràng.
 
-### 2.5. Đối soát tài chính
+`Tồn` ở bảng này chỉ là 1 khi package `AVAILABLE`, ngược lại là 0. Seller không sửa trực tiếp con số này.
+
+### 2.6. Đối soát tài chính
 
 Prototype hiển thị 3 con số: Số dư ký quỹ / Tạm khóa đối soát / Tổng doanh thu thực nhận. Cần làm rõ nguồn của từng con số vì chúng đến từ **hai nơi khác nhau** - điểm dễ gây hiểu lầm nhất trong toàn bộ sản phẩm:
 
@@ -510,7 +525,7 @@ Prototype hiển thị 3 con số: Số dư ký quỹ / Tạm khóa đối soát
 
 Ba khối tách bạch, có chú thích ngắn cho từng khối. Kèm nút xuất CSV cho kế toán và trang "Đối chiếu với sao kê ngân hàng" hướng dẫn seller tự khớp.
 
-### 2.6. Phản hồi khiếu nại ← THIẾU TRONG PROTOTYPE, BẮT BUỘC BỔ SUNG
+### 2.7. Phản hồi khiếu nại ← THIẾU TRONG PROTOTYPE, BẮT BUỘC BỔ SUNG
 
 Màn hình này không có trong prototype nhưng bắt buộc phải có: seller có quyền được phản hồi trước khi bị trừ tiền. Đây cũng là nơi quy tắc bảo vệ dữ liệu bên thứ ba được thực thi trong sản phẩm.
 
@@ -567,34 +582,28 @@ Web App GĐ1 phục vụ **tổng kho xử lý lô lớn**. Layout 3 cột theo 
 ┌───────────────────────────────────────────────────────┐
 │ Đăng Bán Hàng Loạt                                    │
 ├───────────────────────────────────────────────────────┤
-│ Cách 1: Máy quét mã vạch cầm tay                      │
-│ ┌───────────────────────────────────────────────────┐ │
-│ │ 🔴 Đang lắng nghe máy quét...  Đã quét: 47        │ │
-│ │ [ô input ẩn nhận keystroke từ máy quét USB]       │ │
-│ └───────────────────────────────────────────────────┘ │
+│ Chọn một nguồn nhập                                   │
+│ [Shopee/TikTok · Sắp có]  [CSV/XLSX · Dùng ngay]     │
 │                                                       │
-│ Cách 2: Tải lên CSV từ Shopee/TikTok Seller Center    │
-│ [📁 Kéo thả file] [Tải mẫu CSV] [Hướng dẫn export]    │
+│ CSV/XLSX: [Kéo thả file] [Tải mẫu] [Hướng dẫn export] │
 ├───────────────────────────────────────────────────────┤
-│ ĐÃ QUÉT (47)         [Điền nhanh ▼] [Đăng tất cả]     │
-│ ┌──┬─────────┬────────┬──────┬────────┬─────────────┐ │
-│ │☑ │Mã VĐ    │Sản phẩm│Giá gốc│Giá bán│Tình trạng   │ │
-│ ├──┼─────────┼────────┼──────┼────────┼─────────────┤ │
-│ │☑ │SPX...821│Váy lụa │250.000│225.000│Mới 99% ▼   │ │
-│ │☑ │SPX...834│Giày J4 │950.000│855.000│Mới 99% ▼   │ │
-│ │⚠ │SPX...901│(trống) │  --   │       │Cần nhập tay │ │
-│ └──┴─────────┴────────┴──────┴────────┴─────────────┘ │
+│ PREVIEW KIỆN (47)                                     │
+│ ┌──┬─────────┬──────────┬─────────────┬─────────────┐ │
+│ │☑ │Mã VĐ    │Số line   │SL khai báo  │Trạng thái   │ │
+│ ├──┼─────────┼──────────┼─────────────┼─────────────┤ │
+│ │☑ │SPX...821│2         │4            │Sẵn sàng bán │ │
+│ │☑ │SPX...901│1         │2            │Sẵn sàng bán │ │
+│ │⚠ │SPX...777│--        │--           │Lỗi dữ liệu   │ │
+│ └──┴─────────┴──────────┴─────────────┴─────────────┘ │
 ├───────────────────────────────────────────────────────┤
-│ 📊 Đăng 47 sản phẩm, tổng giá trị 12.400.000đ         │
+│ 47 package → 47 listing nguyên kiện                   │
 │ Hold ước tính để phủ toàn bộ: [API trả về]            │
 │ Ví khả dụng: 800.000đ · [N] món có thể hiển thị       │
-│                              [ĐĂNG 47 SẢN PHẨM]       │
+│                              [XÁC NHẬN IMPORT]        │
 └───────────────────────────────────────────────────────┘
 ```
 
-**Chi tiết kỹ thuật cho máy quét cầm tay:** máy quét USB hoạt động như bàn phím, gửi chuỗi ký tự rồi `Enter`. Bắt bằng listener `keydown` toàn cục, phân biệt với gõ tay bằng **tốc độ gõ** (máy quét < 30ms/ký tự, người > 80ms). Không cần driver, không cần WebUSB.
-
-**Điền nhanh (bulk edit):** chọn nhiều dòng → đặt cùng tình trạng, cùng % giảm giá so với giá gốc, cùng cân nặng. Đây là tính năng tiết kiệm thời gian lớn nhất cho tổng kho - quan trọng hơn cả tốc độ quét.
+**Grain spreadsheet:** một dòng là một `ReturnLine`; nhiều dòng cùng tracking ghép thành một package. Field cấp package phải giống nhau trên mọi dòng. `source_quantity` chỉ là số nguồn khai báo. Mỗi package tạo đúng một listing; không gom/tách theo SKU.
 
 **Cảnh báo coverage ở cuối bảng** chỉ là ước tính hiển thị từ API. Publish không khóa tiền thật; hold chỉ phát sinh khi checkout. Nếu không phủ đủ, backend dùng thuật toán canonical để xác định listing nào hiển thị.
 
@@ -727,9 +736,9 @@ Theo prototype: tỷ lệ duyệt tự động, độ chính xác AI, tỷ lệ 
 | Buyer - Đơn của tôi     | `GET /orders?role=buyer`                                                        |
 | Buyer - Khiếu nại       | `POST /orders/{id}/disputes`, `POST /disputes/{id}/processing-record`, `POST /disputes/{id}/evidence/init`, `POST /disputes/{id}/evidence/complete` |
 | Buyer - Kháng nghị       | `POST /disputes/{id}/appeal`; evidence bổ sung vẫn qua processing/evidence init/complete |
-| Seller - Quét mã        | `POST /seller/scan`                                                             |
-| Seller - Đăng bán       | `POST /seller/listings`                                                         |
-| Seller - Đăng hàng loạt | `POST /seller/listings/bulk`, `POST /seller/imports/csv`                        |
+| Seller - Chọn nguồn + preview/commit | `POST /v1/shops/{shopId}/return-imports/preview`, `POST /v1/shops/{shopId}/return-imports/{previewId}/commit`; bản đầu nhận CSV/XLSX |
+| Seller - Quét mã        | `POST /v1/shops/{shopId}/return-packages/scan`                                  |
+| Seller - Đăng bán       | Dùng publish listing hiện có sau khi scan tạo draft package-backed              |
 | Seller - Kho            | `GET /seller/listings`                                                          |
 | Seller - Đối soát       | `GET /seller/wallet`, `GET /seller/wallet/transactions`                         |
 | Seller - Nạp/rút        | `POST /seller/wallet/topup`, `POST /seller/wallet/withdraw` — fake/sandbox tới khi A10 đóng |

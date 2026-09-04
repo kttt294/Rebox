@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "build": "nest build",
-    "dev": "nest start --watch",
-    "start": "node dist/main.js",
+    "dev": "node --env-file-if-exists=../../.env ../../node_modules/@nestjs/cli/bin/nest.js start --watch",
+    "start": "node --env-file-if-exists=../../.env dist/main.js",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

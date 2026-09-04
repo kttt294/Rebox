@@ -26,13 +26,14 @@ export function AuthBody({ children }: { children: ReactNode }) {
   );
 }
 
-export function AuthField({ autoComplete, name, placeholder, type = "text" }: { autoComplete: string; name: string; placeholder: string; type?: "email" | "password" | "text" }) {
+export function AuthField({ autoComplete, name, placeholder, required = false, type = "text" }: { autoComplete: string; name: string; placeholder: string; required?: boolean; type?: "email" | "password" | "text" }) {
   return (
     <input
       autoComplete={autoComplete}
       className="h-10 w-full border border-[var(--line)] bg-white px-3.5 text-sm outline-none"
       name={name}
       placeholder={placeholder}
+      required={required}
       type={type}
     />
   );

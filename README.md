@@ -1,6 +1,6 @@
 # REBOX
 
-Sàn giao dịch TMĐT B2B2C chuyên thanh lý hàng hoàn (itemized liquidation marketplace).
+Nền tảng TMĐT B2B2C cho phép seller bán lại **nguyên kiện hàng hoàn chưa mở kiểm tra**. Seller nhập bản kê bằng một trong hai kênh ngang hàng: kết nối trực tiếp Shopee/TikTok hoặc tải CSV/XLSX; cả hai cùng đi qua một luồng preview → commit. Sau đó seller quét mã vận đơn để tìm kiện đã nhập và đăng bán nguyên kiện.
 
 Repo này hiện chứa **tài liệu thiết kế hệ thống** và [skeleton monorepo](CODEBASE.md). Skeleton chưa có mã nguồn hoặc dependency; implementation sẽ được bổ sung theo lộ trình trong kế hoạch triển khai.
 
@@ -19,7 +19,7 @@ Repo này hiện chứa **tài liệu thiết kế hệ thống** và [skeleton 
 | 04  | [Kế hoạch triển khai](docs/04-IMPLEMENTATION-PLAN.md)      | Lộ trình theo sprint, tiêu chí nghiệm thu, hạ tầng & chi phí, phân công                                       |
 | 05  | [Pháp lý Việt Nam](docs/05-PHAP-LY-VIET-NAM.md)            | Giấy phép, thuế, dữ liệu cá nhân, bảo vệ người tiêu dùng, hàng hóa cấm                                        |
 | 06  | [Danh mục hàng cấm](docs/06-DANH-MUC-HANG-CAM.md)          | Ba mức kiểm soát BANNED / MANUAL_REVIEW / DISCLOSURE, quy trình xử lý xâm phạm SHTT                           |
-| 07  | [Quyết định kiến trúc](docs/07-ARCHITECTURE-DECISIONS.md)  | Nguồn canonical cho stack, module, Supabase, auth, outbox, tiền, evidence và phạm vi giai đoạn               |
+| 07  | [Quyết định kiến trúc](docs/07-ARCHITECTURE-DECISIONS.md)  | Nguồn canonical cho stack, module, Supabase, auth, kho nguyên kiện, outbox, tiền, evidence và phạm vi giai đoạn |
 | 08  | [Nhật ký hòa giải docs](docs/08-DOCUMENTATION-CHANGELOG.md) | Các file đã đổi, quyết định trước/sau và blocker còn mở                                                        |
 
 ## Ba vấn đề cần xử lý sớm nhất

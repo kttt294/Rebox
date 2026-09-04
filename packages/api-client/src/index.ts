@@ -2,6 +2,7 @@ import type {
   ActorContext,
   CatalogImageUploadIntent,
   Category,
+  CommitReturnManifestResult,
   CreateListingInput,
   CreateShopInput,
   ErrorResponse,
@@ -10,6 +11,7 @@ import type {
   PublicListingPage,
   PublicListingsQuery,
   PublishListingResult,
+  ReturnManifestPreview,
   UpdateListingDraftInput
 } from "@rebox/shared";
 
@@ -38,7 +40,7 @@ export function createApiClient(options: ApiClientOptions) {
     const headers = new Headers(init.headers);
     headers.set("accept", "application/json");
     headers.set("x-request-id", crypto.randomUUID());
-    if (init.body) {
+    if (init.body && !(init.body instanceof FormData)) {
       headers.set("content-type", "application/json");
     }
     if (token) {
@@ -69,6 +71,19 @@ export function createApiClient(options: ApiClientOptions) {
         method: "POST",
         body: JSON.stringify(input)
       }),
+    previewReturnManifest: (shopId: string, file: File) => {
+      const body = new FormData();
+      body.set("file", file);
+      return request<ReturnManifestPreview>(
+        `/v1/shops/${encodeURIComponent(shopId)}/return-imports/preview`,
+        { method: "POST", body }
+      );
+    },
+    commitReturnManifest: (shopId: string, batchId: string, idempotencyKey: string) =>
+      request<CommitReturnManifestResult>(
+        `/v1/shops/${encodeURIComponent(shopId)}/return-imports/${encodeURIComponent(batchId)}/commit`,
+        { method: "POST", body: JSON.stringify({ idempotencyKey }) }
+      ),
     updateListingDraft: (shopId: string, listingId: string, input: UpdateListingDraftInput) =>
       request<Listing>(
         `/v1/shops/${encodeURIComponent(shopId)}/listings/${encodeURIComponent(listingId)}`,

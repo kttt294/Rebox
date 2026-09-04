@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: REBOX API
-  version: 1.1.0
+  version: 1.2.0
 servers:
   - url: http://127.0.0.1:3001
 paths:
@@ -98,6 +98,53 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Listing"
+  /v1/shops/{shopId}/return-imports/preview:
+    post:
+      operationId: previewReturnManifest
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ShopId"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "201":
+          description: Parsed and allowlisted return manifest preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReturnManifestPreview"
+  /v1/shops/{shopId}/return-imports/{batchId}/commit:
+    post:
+      operationId: commitReturnManifest
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ShopId"
+        - $ref: "#/components/parameters/BatchId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [idempotencyKey]
+              properties:
+                idempotencyKey: { type: string, minLength: 8, maxLength: 200 }
+      responses:
+        "201":
+          description: Idempotently committed return packages and source lines
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommitReturnManifestResult"
   /v1/shops/{shopId}/listings/{listingId}/publish:
     post:
       operationId: publishListing
@@ -231,6 +278,11 @@ components:
       in: path
       required: true
       schema: { type: string }
+    BatchId:
+      name: batchId
+      in: path
+      required: true
+      schema: { type: string }
   schemas:
     Health:
       type: object
@@ -342,6 +394,88 @@ components:
       properties:
         listing: { $ref: "#/components/schemas/Listing" }
         policy: { $ref: "#/components/schemas/ListingPolicyResult" }
+    ReturnManifestLineDraft:
+      type: object
+      additionalProperties: false
+      required: [sourceItemRef, sourceQuantity, productName, productImageUrls, reboxCategoryId]
+      properties:
+        sourceItemRef: { type: string }
+        sourceSku: { type: string }
+        sourceQuantity: { type: integer, minimum: 1 }
+        productName: { type: string }
+        variantName: { type: string }
+        brand: { type: string }
+        sourceCategory: { type: string }
+        originalUnitPriceVnd: { type: integer, minimum: 1 }
+        returnReason: { type: string }
+        productImageUrls:
+          type: array
+          items: { type: string, format: uri }
+        reboxCategoryId: { type: string }
+    ReturnManifestDraft:
+      type: object
+      additionalProperties: false
+      required: [source, sourcePlatform, sourceTrackingNo, packageListingPriceVnd, lines]
+      properties:
+        source: { type: string, enum: [SPREADSHEET, PLATFORM_API] }
+        sourcePlatform: { type: string, enum: [SHOPEE, TIKTOK] }
+        sourceTrackingNo: { type: string }
+        sourceOrderRef: { type: string }
+        sourceReturnRef: { type: string }
+        returnedAt: { type: string, format: date-time }
+        packageWeightGram: { type: integer, minimum: 1, maximum: 100000 }
+        packageDimensionsCm:
+          type: object
+          additionalProperties: false
+          required: [length, width, height]
+          properties:
+            length: { type: number, exclusiveMinimum: 0 }
+            width: { type: number, exclusiveMinimum: 0 }
+            height: { type: number, exclusiveMinimum: 0 }
+        packageListingPriceVnd: { type: integer, minimum: 1 }
+        lines:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/ReturnManifestLineDraft" }
+    ReturnManifestIssueCode:
+      type: string
+      enum: [INVALID_FIELD, INVALID_CATEGORY, PACKAGE_FIELD_CONFLICT, DUPLICATE_SOURCE_ITEM_REF]
+    ReturnManifestPreviewRow:
+      type: object
+      additionalProperties: false
+      required: [rowIndex, packageGroup, warningCodes, errorCodes]
+      properties:
+        rowIndex: { type: integer, minimum: 1 }
+        packageGroup: { type: string }
+        warningCodes:
+          type: array
+          items: { $ref: "#/components/schemas/ReturnManifestIssueCode" }
+        errorCodes:
+          type: array
+          items: { $ref: "#/components/schemas/ReturnManifestIssueCode" }
+    ReturnManifestPreview:
+      type: object
+      additionalProperties: false
+      required: [batchId, rows, drafts, canCommit]
+      properties:
+        batchId: { type: string }
+        rows:
+          type: array
+          items: { $ref: "#/components/schemas/ReturnManifestPreviewRow" }
+        drafts:
+          type: array
+          items: { $ref: "#/components/schemas/ReturnManifestDraft" }
+        canCommit: { type: boolean }
+    CommitReturnManifestResult:
+      type: object
+      additionalProperties: false
+      required: [batchId, packageIds, lineCount]
+      properties:
+        batchId: { type: string }
+        packageIds:
+          type: array
+          items: { type: string }
+        lineCount: { type: integer, minimum: 0 }
     PublicListing:
       type: object
       required: [id, shopId, shopDisplayName, title, categoryId, conditionGrade, conditionNotes, price, images, publishedAt, createdAt]

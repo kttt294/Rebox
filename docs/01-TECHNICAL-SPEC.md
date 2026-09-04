@@ -1,6 +1,6 @@
 # REBOX - Technical Specification
 
-Phiên bản 1.1 · Trạng thái: Baseline kỹ thuật MVP · Quyết định canonical: `07-ARCHITECTURE-DECISIONS.md`
+Phiên bản 1.3 · Trạng thái: Baseline kỹ thuật MVP; A16 `ACCEPTED` · Quyết định canonical: `07-ARCHITECTURE-DECISIONS.md`
 
 ---
 
@@ -8,17 +8,17 @@ Phiên bản 1.1 · Trạng thái: Baseline kỹ thuật MVP · Quyết định 
 
 ### 1.1. Trong phạm vi (v1)
 
-Web responsive (Buyer + Seller), Admin Console web, Backend API, Worker, catalog manual/CSV, tích hợp ĐVVC, payment sau legal gate, ví/ledger và xử lý tranh chấp thủ công.
+Web responsive (Buyer + Seller), Admin Console web, Backend API, Worker, spreadsheet manifest + scan-to-list nguyên kiện, catalog manual hiện có, tích hợp ĐVVC, payment sau legal gate, ví/ledger và xử lý tranh chấp thủ công.
 
 ### 1.2. Ngoài phạm vi (v1)
 
-Mobile App, AI Triage tự động, live API Shopee/TikTok, Public API ERP, multi-seller checkout, loyalty/voucher, Redis/BullMQ, Kubernetes, Meilisearch, livestream, đấu giá, chat realtime, đa ngôn ngữ, đa tiền tệ, logistics tự vận hành và blind-box.
+Mobile App, AI Triage tự động, live API Shopee/TikTok khi chưa đủ partner gate, Public API ERP, multi-seller checkout, loyalty/voucher, Redis/BullMQ, Kubernetes, Meilisearch, livestream, đấu giá, chat realtime, đa ngôn ngữ, đa tiền tệ và logistics tự vận hành.
 
 ### 1.3. Ràng buộc thiết kế bắt buộc
 
 | #   | Ràng buộc                                               | Hệ quả kỹ thuật                                                  |
 | --- | ------------------------------------------------------- | ---------------------------------------------------------------- |
-| C1  | Mọi listing có `quantity = 1`, không tái tạo            | Cần reservation lock; không dùng mô hình kho số lượng            |
+| C1  | Một listing nguồn hàng hoàn bán đúng một `ReturnPackage` chưa mở | `availableQuantity` chỉ là 1/0 theo trạng thái package; checkout khóa package cụ thể |
 | C2  | Tiền bán hàng **không** đi qua REBOX                    | Không xây escrow tiền hàng; chỉ xây ledger ký quỹ                |
 | C3  | Phí sàn chỉ thu được từ ví ký quỹ                       | Ledger phải tuyệt đối chính xác, có kiểm toán                    |
 | C4  | Video khiếu nại là chứng cứ pháp lý                     | Lưu WORM, hash SHA-256, chain of custody, không sửa được         |
@@ -176,7 +176,7 @@ Nhân viên kho quét 50 kiện liên tiếp trên iPhone bằng web sẽ thấy
 | Module | Capability bên trong | Seam bên ngoài chính |
 |---|---|---|
 | **identity** | profile, shop, membership, role, eKYC, notice/processing record, privacy request | Supabase Auth và eKYC adapter |
-| **inventory** | catalog, return inventory, manual/CSV import, moderation | marketplace adapter chỉ ở GĐ3 |
+| **inventory** | nhập manifest, scan lookup local, sealed-package listing, catalog manual và moderation | `SPREADSHEET` và `PLATFORM_API` cùng trả `ReturnManifestDraft[]` |
 | **commerce** | cart, Fee Engine, checkout và order | gọi interface inventory/funds |
 | **funds** | wallet, hold, ledger, payment orchestration, reconciliation | `PaymentProvider` |
 | **fulfillment** | shipping, label, tracking, carrier settlement | `CarrierAdapter` |
@@ -307,7 +307,8 @@ CREATE INDEX idx_ledger_ref ON ledger_transactions(ref_type, ref_id);
 -- posting function/finalize step hoặc deferred constraint trigger; chỉ chuyển
 -- header sang POSTED khi SUM(postings.amount) = 0. Ledger là append-only.
 
--- ========== CATALOG ==========
+-- ========== CATALOG / RETURN INVENTORY ==========
+-- Target domain design để duyệt; chưa phải production migration.
 CREATE TABLE restricted_categories (
   id              TEXT PRIMARY KEY,
   category_code   TEXT NOT NULL,
@@ -320,44 +321,66 @@ CREATE TABLE restricted_categories (
   UNIQUE (category_code, policy_version)
 );
 
-CREATE TABLE return_items (
+CREATE TABLE return_packages (
   id                    TEXT PRIMARY KEY,
   shop_id               TEXT NOT NULL REFERENCES shops(id),
   source_platform       TEXT NOT NULL,   -- SHOPEE | TIKTOK | LAZADA
-  source_tracking_enc   BYTEA NOT NULL,  -- MÃ VẬN ĐƠN - mã hóa, không bao giờ ra API công khai
-  source_tracking_hash  TEXT NOT NULL,   -- HMAC để dedupe mà không cần giải mã
+  source_tracking_enc   BYTEA NOT NULL,  -- không bao giờ ra storefront/public API
+  source_tracking_hash  TEXT NOT NULL,   -- HMAC để dedupe mà không giải mã
   source_order_ref      TEXT,
-  source_sku            TEXT,
-  original_price        BIGINT,
-  return_reason         TEXT,            -- BOMB | CHANGE_MIND | DEFECT | WRONG_ITEM
+  source_return_ref     TEXT,
   returned_at           TIMESTAMPTZ,
-  ingest_method         TEXT NOT NULL,   -- SCAN | CSV | API; listing thuần manual không tạo row này
-  liquidation_status    TEXT NOT NULL,   -- IN_STOCK | LISTED | SOLD | DISCARDED
-  raw_payload           JSONB,
+  manifest_source       TEXT NOT NULL,   -- SPREADSHEET | PLATFORM_API
+  manifest_fetched_at   TIMESTAMPTZ NOT NULL,
+  manifest_hash         TEXT NOT NULL,
+  manifest_version      BIGINT NOT NULL DEFAULT 1,
+  ingest_batch_ref      TEXT,
+  seal_status           TEXT NOT NULL DEFAULT 'UNKNOWN', -- INTACT | DAMAGED | UNKNOWN
+  disclosure            TEXT NOT NULL DEFAULT 'UNOPENED_UNINSPECTED',
+  package_weight_gram   INT,
+  package_dim_cm        JSONB,
+  outer_package_notes   TEXT,
+  listing_price         BIGINT,
+  inventory_status      TEXT NOT NULL,   -- SOURCE_PENDING | AVAILABLE | RESERVED | SOLD | VOID
+  reserved_until        TIMESTAMPTZ,
   created_at            TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE UNIQUE INDEX uq_return_dedupe ON return_items(shop_id, source_tracking_hash);
+CREATE UNIQUE INDEX uq_return_package_dedupe
+  ON return_packages(shop_id, source_platform, source_tracking_hash);
+
+CREATE TABLE return_lines (
+  id                    TEXT PRIMARY KEY,
+  return_package_id     TEXT NOT NULL REFERENCES return_packages(id),
+  source_item_ref       TEXT NOT NULL,   -- source_line_ref được chuẩn hóa về tên này
+  source_sku            TEXT,
+  product_name          TEXT NOT NULL,
+  variant_name          TEXT,
+  brand                 TEXT,
+  source_category       TEXT,
+  rebox_category_id     TEXT NOT NULL,
+  source_quantity       INT NOT NULL CHECK (source_quantity >= 1),
+  original_price        BIGINT,          -- đơn giá nguồn, không phải tổng dòng
+  return_reason         TEXT,
+  product_image_urls    JSONB NOT NULL DEFAULT '[]',
+  UNIQUE (return_package_id, source_item_ref)
+);
 
 CREATE TABLE listings (
   id                   TEXT PRIMARY KEY,          -- ULID công khai, KHÔNG phải mã vận đơn
   shop_id              TEXT NOT NULL REFERENCES shops(id),
-  return_item_id       TEXT REFERENCES return_items(id),
-  title                TEXT NOT NULL,
+  return_package_id    TEXT UNIQUE REFERENCES return_packages(id), -- NULL chỉ cho listing manual cũ
   description          TEXT,
-  category_id          TEXT NOT NULL,
-  condition_grade      TEXT NOT NULL,   -- NEW_SEALED | LIKE_NEW_99 | GOOD | FAIR | DEFECT
-  condition_notes      TEXT NOT NULL,   -- mô tả trung thực khuyết điểm - bắt buộc
+  disclosure           TEXT,            -- package listing bắt buộc UNOPENED_UNINSPECTED
   price                BIGINT NOT NULL,
   original_price       BIGINT,
   price_cap            BIGINT,          -- 0.9 * original_price, chỉ ép khi price_source đã đối chiếu
-  price_source         TEXT NOT NULL,   -- VERIFIED_PLATFORM | VERIFIED_CSV | SELLER_DECLARED, xem §4.2.1
+  price_source         TEXT NOT NULL,   -- VERIFIED_PLATFORM | VERIFIED_SPREADSHEET | SELLER_DECLARED, xem §4.2.2
   weight_gram          INT NOT NULL,
   dim_cm               JSONB,           -- {l,w,h} - cần cho tính cước
   images               JSONB NOT NULL,  -- [{key, w, h, phash}]
   status               TEXT NOT NULL,   -- xem §6.2
   hidden_reason        TEXT,            -- INSUFFICIENT_FUND | POLICY | SELLER
   published_at         TIMESTAMPTZ,
-  reserved_until       TIMESTAMPTZ,
   search_tsv           TSVECTOR,
   created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT chk_price_cap CHECK (price_cap IS NULL OR price <= price_cap)
@@ -378,9 +401,50 @@ CREATE TABLE policy_complaints (
 );
 ```
 
-#### 4.2.1. `price_source` — vì sao cần tách nguồn gốc giá
+#### 4.2.1. Mô hình Catalog/Kho hàng hoàn
 
-Trần 90% chỉ có ý nghĩa khi `original_price` đến từ dữ liệu đã đối chiếu được (API sàn hoặc CSV do seller tự xuất, đối chiếu chéo với sản phẩm cùng SKU đã có trên hệ thống). Với listing tạo hoàn toàn thủ công, seller tự gõ cả `original_price` lẫn `price` — REBOX không có cách nào kiểm chứng con số gốc đó, nên ép trần 90% lên nó chỉ là ảo giác kiểm soát: seller có thể khai giá gốc cao hơn thực tế để mức giảm luôn "hợp lệ" mà giá bán thực chất không hề rẻ.
+| Khái niệm | Grain và ranh giới |
+|---|---|
+| `ReturnPackage` | Một kiện hàng hoàn vật lý chưa mở; giữ tracking riêng tư, bản kê nguồn, tình trạng vỏ kiện và trạng thái tồn. Đây là đơn vị được bán. |
+| `ReturnLine` | Một dòng mà spreadsheet/API khai báo nằm trong package; giữ `source_item_ref`, SKU/variant và `source_quantity`. Không phải món đã kiểm đếm. |
+| `ReturnManifestDraft` | Contract chuẩn hóa mà `SPREADSHEET` và `PLATFORM_API` cùng trả về trước khi commit package/lines. Scan-to-list chỉ đọc package đã commit từ contract này. |
+| `Listing` | Offer/card công khai bán nguyên một package, số lượng 1. Nội dung bên trong chỉ được trình bày là bản kê nguồn chưa kiểm chứng. |
+
+Cardinality canonical:
+
+```text
+ReturnPackage 1 ── N ReturnLine
+ReturnPackage 1 ── 0..1 Listing ở MVP
+```
+
+Không gom tồn theo SKU hoặc product. Package có nhiều SKU vẫn là một listing bán cả kiện. `availableQuantity` không phải cột seller chỉnh: API trả `1` khi package `AVAILABLE`, ngược lại trả `0`. Khi reserve/mua, backend khóa và chuyển trạng thái package cụ thể.
+
+Ví dụ canonical: package `TRACK-001` có `LINE-01 / AO-DEN-M / source_quantity=3` và `LINE-02 / MU-DEN / source_quantity=1`. REBOX không mở kiện để xác nhận bốn món. Kết quả là 1 package, 2 dòng khai báo và đúng 1 listing/card có `availableQuantity=1`; buyer mua toàn bộ kiện.
+
+**Dedupe và retry:**
+
+- Package: unique `(shop_id, source_platform, source_tracking_hash)`.
+- Line: unique `(return_package_id, source_item_ref)`.
+
+Import lại cùng file dùng hai khóa trên để upsert idempotent, không tạo package/line/listing mới. Nếu dữ liệu cùng khóa thay đổi, preview báo conflict; commit tăng `manifest_version`, cập nhật `manifest_hash` và ghi audit, nhưng không được đổi listing đang `ACTIVE` hoặc package đang `RESERVED/SOLD`.
+
+**Stress-test bắt buộc cho thiết kế triển khai sau khi được duyệt:**
+
+| Tình huống | Kết quả mong đợi |
+|---|---|
+| Một package có nhiều SKU | Một package, nhiều lines, một listing bán cả kiện. |
+| Một line có `source_quantity > 1` | Vẫn một package/listing; quantity chỉ mô tả bản kê. |
+| Hai package trùng SKU | Hai listing riêng; SKU không phải định danh package hay product. |
+| Import lại cùng file | Không tăng số package, line hoặc listing. |
+| File mới tăng quantity 2 → 3 | Báo manifest conflict; chỉ cập nhật khi seller xác nhận và package chưa bị reserve/sold. |
+| Không biết bên trong có đủ hàng | Hiển thị `UNOPENED_UNINSPECTED`; không tạo số lượng thực nhận giả. |
+| Package reserved/sold | `availableQuantity=0`; buyer khác không thể giữ cùng package. |
+| Hai seller có cùng tracking string | Hai package khác nhau vì khóa dedupe có `shop_id`. |
+| Tracking trên storefront/public API | Không được serialize, tìm kiếm hoặc dùng làm public ID. |
+
+#### 4.2.2. `price_source` — vì sao cần tách nguồn gốc giá
+
+Trần 90% chỉ có ý nghĩa khi `original_price` được tính từ bản kê API sàn hoặc CSV/XLSX seller tự xuất: tổng `source_quantity × original_price` của các line trong package. Con số này vẫn chỉ xác nhận dữ liệu nguồn, không xác nhận bên trong kiện có đủ hàng. Với listing tạo hoàn toàn thủ công, seller tự gõ cả `original_price` lẫn `price` — REBOX không có cách nào kiểm chứng con số gốc đó, nên ép trần 90% lên nó chỉ là ảo giác kiểm soát.
 
 Nghiêm trọng hơn: hiển thị `original_price` gạch ngang kèm % giảm cho một con số REBOX không kiểm chứng là đưa ra **giá tham chiếu không có căn cứ** — hành vi cung cấp thông tin gây nhầm lẫn cho người tiêu dùng, và trách nhiệm thuộc về REBOX với tư cách bên xuất bản, không thuộc về seller.
 
@@ -388,9 +452,9 @@ Nghiêm trọng hơn: hiển thị `original_price` gạch ngang kèm % giảm c
 
 | `price_source` | Sinh ra khi | `price_cap` | Trả về cho client |
 |---|---|---|---|
-| `VERIFIED_PLATFORM` | Listing tạo từ scan có đối chiếu API sàn thành công | `0.9 × original_price`, ép cứng bằng `CHECK` | `original_price`, `discount_pct`, nhãn "Giá gốc đối chiếu từ {sàn}" |
-| `VERIFIED_CSV` | Listing tạo từ dòng CSV seller tự xuất | `0.9 × original_price` | như trên, nhãn "Giá gốc đối chiếu từ dữ liệu người bán" |
-| `SELLER_DECLARED` | Listing tạo hoàn toàn thủ công, không có `return_item_id` liên kết | `NULL` — không ép | **chỉ `price`**. API không trả `original_price`, không trả `discount_pct`, dù seller có nhập |
+| `VERIFIED_PLATFORM` | Package manifest lấy từ API sàn thành công | `0.9 × tổng giá trị khai báo của package` | `original_price`, `discount_pct`, nhãn "Bản kê và giá gốc lấy từ {sàn}; kiện chưa mở kiểm tra" |
+| `VERIFIED_SPREADSHEET` | Package manifest lấy từ CSV/XLSX seller export | `0.9 × tổng giá trị khai báo của package` | như trên, nhãn "Bản kê từ file người bán; kiện chưa mở kiểm tra" |
+| `SELLER_DECLARED` | Listing tạo hoàn toàn thủ công, không có manifest nguồn đã đối chiếu | `NULL` — không ép | **chỉ `price`**. API không trả `original_price`, không trả `discount_pct`, dù seller có nhập |
 
 Endpoint public (`GET /listings/{id}`, danh sách tìm kiếm) **không serialize** `original_price` khi `price_source = SELLER_DECLARED`, kể cả khi cột đó có giá trị trong DB. Đây là quy tắc ở tầng response serializer, không phải quy ước ở frontend — tránh trường hợp một client khác (web, mobile, hoặc đối tác Public API) vô tình hiển thị con số chưa kiểm chứng.
 
@@ -418,6 +482,7 @@ CREATE TABLE carts (
 CREATE TABLE cart_items (
   cart_id           TEXT NOT NULL REFERENCES carts(id),
   listing_id        TEXT NOT NULL REFERENCES listings(id),
+  quantity          INT NOT NULL CHECK (quantity >= 1), -- package-backed listing bắt buộc = 1 ở service
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (cart_id, listing_id)
 );
@@ -495,6 +560,7 @@ CREATE TABLE sub_order_items (
   id            TEXT PRIMARY KEY,
   sub_order_id  TEXT NOT NULL REFERENCES sub_orders(id),
   listing_id    TEXT NOT NULL REFERENCES listings(id),
+  return_package_id TEXT NOT NULL UNIQUE REFERENCES return_packages(id), -- kiện đã phân bổ
   snapshot      JSONB NOT NULL,   -- ĐÓNG BĂNG title/ảnh/mô tả/giá tại thời điểm mua
   price         BIGINT NOT NULL
 );
@@ -1198,15 +1264,11 @@ stateDiagram-v2
 
 ```
 DRAFT → PENDING_REVIEW → ACTIVE ⇄ HIDDEN_BY_FUND
-                          ↓  ↑         ↓
-                       RESERVED       (seller nạp tiền → ACTIVE)
-                          ↓  └── expiry/cancel chưa trả tiền
-                        SOLD → (hàng thực sự về + inspection) → RELISTABLE → ACTIVE
 ANY → SUSPENDED (vi phạm chính sách)
 ANY → DELISTED (seller gỡ)
 ```
 
-`PENDING_REVIEW` là policy gate trước khi public. Ở MVP, rule xác định (category/keyword/contact/hash/metadata) xử lý trường hợp rõ ràng; danh mục nhạy cảm hoặc tín hiệu không chắc chắn đi duyệt tay. Không có ML classifier trong GĐ1. Legal phải map quy trình này sang Luật TMĐT 122/2025 và văn bản thi hành hiện hành trước production.
+`PENDING_REVIEW` là policy gate của listing. `AVAILABLE`, `RESERVED`, `SOLD`, `VOID` là trạng thái tồn của `ReturnPackage`. Public query chỉ trả listing `ACTIVE` có package `AVAILABLE`; reserve/sell package làm `availableQuantity` đổi từ 1 xuống 0, còn listing giữ trạng thái policy. Ở MVP, rule xác định (category/keyword/contact/hash/metadata của toàn bộ manifest) xử lý trường hợp rõ ràng; package chứa bất kỳ line cấm hoặc nhạy cảm phải áp mức policy nghiêm ngặt nhất. Không có ML classifier trong GĐ1.
 
 ### 6.3. Dispute
 
@@ -1242,67 +1304,41 @@ SLA MVP: `EVIDENCE_PENDING` theo deadline đã công bố; `ADMIN_REVIEW` ≤ 48
 
 ## 7. Đặc tả tích hợp bên thứ ba
 
-### 7.1. Shopee / TikTok Shop (GĐ3 — không thuộc MVP)
+### 7.1. Shopee / TikTok Shop (kênh nhập song song; chưa bật)
 
-MVP không triển khai live adapter. Phần dưới là target design chỉ được kích hoạt sau partner approval, ToS review và credential thật; manual/CSV luôn hoạt động độc lập.
+UI đích có hai nút ngang hàng: **Import trực tiếp từ Shopee/TikTok** và **Import CSV/XLSX**. Hai kênh cùng chuẩn hóa thành `ReturnManifestDraft[]` rồi đi qua preview → validate → commit. Bản đầu chỉ bật spreadsheet vì chưa có partner approval, ToS review, credential và contract API đã kiểm chứng; đây là thứ tự giao hàng, không phải ưu tiên dữ liệu.
 
-#### 7.1.1. Mô hình truy cập: TRA CỨU THEO YÊU CẦU, không đồng bộ toàn bộ
+#### 7.1.1. Mô hình truy cập: IMPORT DO SELLER CHỦ ĐỘNG, không đồng bộ nền
 
-> **Quyết định kiến trúc.** Phương án ban đầu là đồng bộ nền toàn bộ đơn hoàn của shop để xây chỉ mục ngược `tracking → product`. **Đã thay bằng tra cứu theo từng đơn khi seller quét.** Lý do bên dưới.
-
-```
-KHÔNG có tiến trình đồng bộ nền.
-KHÔNG sao chép cơ sở dữ liệu đơn hàng của shop.
-CHỈ đọc đúng đơn mà seller chủ động đưa ra bằng cách quét mã trên kiện hàng vật lý.
-```
-
-| Tiêu chí                             | Đồng bộ nền (đã loại)     | Tra cứu theo yêu cầu (chọn)                      |
-| ------------------------------------ | ------------------------- | ------------------------------------------------ |
-| Độ trễ khi quét                      | ~50ms                     | 2–4s (giảm bằng cache, xem dưới)                 |
-| Sàn sập / rate limit                 | Không ảnh hưởng           | Tính năng ngừng - **phải có đường lùi nhập tay** |
-| Dữ liệu lưu trữ                      | Toàn bộ đơn hoàn của shop | Chỉ đơn đã quét                                  |
-| Bề mặt rủi ro nếu bị xâm nhập        | Lớn                       | Nhỏ                                              |
-| Dữ liệu người mua gốc (§3.6 pháp lý) | Rộng                      | Hẹp                                              |
-| **Khả năng được duyệt partner app**  | Thấp                      | **Cao hơn đáng kể**                              |
-
-Dòng cuối là lý do quan trọng nhất. Hồ sơ đăng ký mô tả _"chỉ đọc thông tin từng đơn khi người bán chủ động quét mã, không sao chép cơ sở dữ liệu đơn hàng, không lưu thông tin người mua"_ có khả năng được chấp nhận cao hơn nhiều so với _"đồng bộ toàn bộ đơn hàng sang nền tảng của chúng tôi"_ - và nó **là sự thật**, nên bền vững. Giảm được một phần rủi ro L7.
-
-**⚠️ Giới hạn phải nói đúng:** OAuth của Shopee/TikTok cấp quyền ở **tầng shop theo scope**, không có cơ chế giới hạn theo từng đơn. Đây là **REBOX tự giới hạn mình**, không phải sàn kỹ thuật chặn. Tuyệt đối không mô tả với seller là _"bạn kiểm soát REBOX đọc gì"_ - mô tả sai sự thật. Thực thi bằng code + `audit_logs` + trang minh bạch cho seller xem lại đã đọc những đơn nào.
-
-#### 7.1.2. Ba đường tra cứu, theo thứ tự ưu tiên
-
-Nút thắt: API có `order_sn → tracking_number`, **không có chiều ngược lại**.
+> **Quyết định kiến trúc.** Không có tiến trình nền sao chép toàn bộ đơn hoàn. Seller phải chủ động mở màn hình import, chọn sàn và chọn một tập đơn hoàn hoặc khoảng thời gian có giới hạn trước khi REBOX đọc dữ liệu.
 
 ```
-ĐƯỜNG A - nhãn có MÃ ĐƠN HÀNG           ← ưu tiên, chờ kiểm chứng vật lý
-  quét/OCR order_sn → get_order_detail(order_sn)
-  Tối thiểu hoá triệt để. Một lần gọi.
+Nút Shopee/TikTok → chọn phạm vi hữu hạn → lấy danh sách tối thiểu
+→ seller chọn đơn → lấy chi tiết được allowlist → preview
+→ seller xác nhận → commit ReturnPackage + ReturnLine
 
-ĐƯỜNG B - nhãn CHỈ có mã vận đơn
-  1. get_order_list(status=RETURNED, 60 ngày gần nhất)
-     → CHỈ lấy cặp (order_sn, tracking_number), không lấy chi tiết
-  2. đối chiếu trong bộ nhớ, tìm đơn khớp
-  3. CHỈ gọi get_order_detail cho đúng đơn đó
-  4. cặp đối chiếu ở bước 1 giữ trong cache ngắn hạn, KHÔNG ghi xuống DB
-  → giảm thiểu ở tầng LƯU TRỮ, không giảm được ở tầng ĐỌC. Phải nói rõ, không che.
-
-ĐƯỜNG C - nhập tay / CSV vài đơn
-  Không cần API. LUÔN phải có làm đường lùi.
+Nút CSV/XLSX → tải file → parse + allowlist → cùng preview
+→ seller xác nhận → cùng commit
 ```
 
-**Đường A hay B phụ thuộc vào việc nhãn thật in những trường gì** - không suy luận được, phải kiểm chứng vật lý. Xem `04-IMPLEMENTATION-PLAN` Sprint 1.
+Danh sách khám phá tạm thời từ API chỉ giữ các định danh tối thiểu cần chọn đơn và không được ghi như một bản sao đơn hàng. Chỉ các manifest seller xác nhận commit mới được lưu. Scan shipper label là bước sau import và chỉ tra dữ liệu local đã commit; scan không tự gọi API và không tự đổi sang nguồn khác.
 
-#### 7.1.3. Cache - khác hoàn toàn với chỉ mục
+**Giới hạn phải nói đúng:** OAuth của Shopee/TikTok cấp quyền ở **tầng shop theo scope**, không giới hạn kỹ thuật theo từng đơn. Phạm vi import hữu hạn là **REBOX tự giới hạn mình**, phải được thực thi bằng code, allowlist, audit và giao diện minh bạch; không được quảng cáo rằng seller kiểm soát tuyệt đối dữ liệu API có thể đọc.
 
-```
-Quét mã → tra cache (CHỈ chứa đơn ĐÃ TỪNG được quét, TTL 30 ngày)
-   ├─ HIT  → trả tức thì
-   └─ MISS → gọi API theo đường A/B
-             → ghi cache CHỈ các trường sản phẩm (allowlist §3.6 pháp lý)
-             → KHÔNG BAO GIỜ ghi tên/SĐT/địa chỉ người mua gốc
-```
+#### 7.1.2. Hai kênh, một pipeline
 
-Cache chỉ chứa thứ seller **đã chủ động đưa ra**, không phải thứ REBOX tự đi lấy. Nó xử lý các tình huống thật ở kho - quét trùng, quét lại sau lỗi, mất mạng giữa chừng - mà không mở rộng phạm vi dữ liệu. Seller có nút **"Xoá dữ liệu đã đọc"**.
+| Kênh seller chọn | Input | Output trước commit | Khi kênh lỗi |
+|---|---|---|---|
+| `PLATFORM_API` | kết nối shop + tập đơn/phạm vi hữu hạn | `ReturnManifestDraft[]` có provenance API | báo lỗi ngay tại kênh; seller có thể tự chọn nút spreadsheet |
+| `SPREADSHEET` | file `.csv` hoặc `.xlsx` | `ReturnManifestDraft[]` có provenance file/batch | báo lỗi theo dòng/package; không tự gọi API |
+
+Hệ thống không tự chuyển từ API sang spreadsheet hoặc ngược lại. Việc seller chọn kênh là rõ ràng; cùng khóa package nhưng nội dung khác phải báo conflict, không âm thầm ghi đè.
+
+#### 7.1.3. Provenance và dữ liệu tạm
+
+- Lưu `manifest_source`, thời điểm, hash/version và batch/reference đủ để audit lần commit.
+- Dữ liệu khám phá API chưa được seller xác nhận chỉ tồn tại ngắn hạn và không chứa PII ngoài allowlist.
+- Seller có trang xem lịch sử import và quyền xóa dữ liệu tạm theo chính sách; package/listing đã tham gia giao dịch tuân theo retention nghiệp vụ tương ứng.
 
 #### 7.1.4. Thông số kỹ thuật
 
@@ -1311,10 +1347,10 @@ Cache chỉ chứa thứ seller **đã chủ động đưa ra**, không phải t
 | Xác thực      | OAuth2 authorization code; `shop_id` + `access_token` (4h) + `refresh_token` (30 ngày); ký request HMAC-SHA256 `partner_id + path + timestamp`                                                    |
 | API dùng      | `get_order_detail`, `get_order_list`, `get_return_list`, `get_return_detail`, `get_item_base_info`, `get_model_list` - **tên và hành vi endpoint phải kiểm chứng lại với tài liệu API hiện hành** |
 | Refresh token | Job chạy trước hạn 1h; hết hạn ⇒ `NEEDS_REAUTH`, thông báo seller                                                                                                                                 |
-| Rate limit    | Token bucket per shop; quét lô ở web app phải **xếp hàng + backoff**, hiển thị điền dần thay vì chặn màn hình                                                                                     |
+| Rate limit    | Token bucket per shop; API import phải **xếp hàng + backoff**, hiển thị tiến độ thay vì chặn màn hình                                                                                              |
 | Lưu trữ       | `raw_payload` đi qua **bộ lọc allowlist trường dữ liệu ngay tại tầng ingest**, trước khi ghi                                                                                                      |
-| Audit         | Mỗi lần đọc đơn ghi `audit_logs`, hiển thị lại cho seller                                                                                                                                         |
-| **Rủi ro**    | ToS + partner approval - xem L7. **Không để MVP phụ thuộc luồng này**; đường C luôn hoạt động độc lập                                                                                             |
+| Audit         | Mỗi lần import/đọc đơn ghi `audit_logs`, hiển thị lại cho seller                                                                                                                                  |
+| **Rủi ro**    | ToS + partner approval - xem L7. **Không để MVP phụ thuộc luồng này**; kênh spreadsheet hoạt động độc lập                                                                                       |
 
 ### 7.2. Đơn vị vận chuyển (GHN / GHTK)
 
@@ -1323,7 +1359,7 @@ Abstraction bắt buộc: `CarrierAdapter` với các phương thức `quote()`,
 | Sự kiện            | Xử lý                                                                                                                                                                                     |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `quote`            | Gọi ngoài DB transaction khi cần hiển thị cước dự kiến. Hold MVP vẫn dùng reserve policy 45.000đ; không phụ thuộc carrier đang online                                                   |
-| `createOrder`      | Sau khi seller xác nhận; **gộp nhiều listing cùng shop cùng đơn vào 1 vận đơn**                                                                                                           |
+| `createOrder`      | Sau khi seller xác nhận; package-backed MVP tạo đúng một shipment/nhãn mới cho một ReturnPackage                                                                                         |
 | Webhook trạng thái | **Bắt buộc verify chữ ký**. Idempotent theo provider event ID; fallback dùng HMAC tracking chuẩn hóa + status + event time, không raw tracking trong key/log. Lookup bằng `tracking_no_hash`; event trễ chỉ nhận nếu tiến state |
 | `DELIVERED`        | Ghi `delivered_at`, tính `claim_deadline_at`, đặt job settle tại thời điểm đó                                                                                                             |
 | Đối soát           | Job hằng ngày cập nhật đúng `shipments(direction).actual_cost/cost_status/source_ref` và settlement fields; outbound/return finalize độc lập, cảnh báo lệch ước tính >20% |
@@ -1362,8 +1398,8 @@ POST   /inventory/sync                       # đồng bộ 2 chiều tồn kho
 
 | Event              | Payload                                                     |
 | ------------------ | ----------------------------------------------------------- |
-| `listing.sold`     | `{listing_id, source_sku, sold_at, price}` - để ERP trừ tồn |
-| `listing.relisted` | hàng hoàn về sau tranh chấp, ERP cộng lại tồn               |
+| `inventory.package_sold` | `{listing_id, return_package_ref, sold_at, price}` - để ERP đánh dấu đúng kiện |
+| `inventory.package_available` | package được release về `AVAILABLE`; ERP mở lại đúng kiện |
 | `order.completed`  | chốt doanh thu                                              |
 | `dispute.resolved` | kết quả xử lý                                               |
 
@@ -1478,7 +1514,7 @@ Bản ghi này là căn cứ khi buyer/seller khiếu nại quyết định, khi
 | Checkout init (có hold)        | 800ms          | có DB lock, chấp nhận chậm hơn   |
 | Webhook thanh toán → xác nhận  | 2s             |                                  |
 | Quét mã → autofill (CSV/local) | 1s             |                                  |
-| Quét mã → autofill (API sàn)   | GĐ3            | không thuộc SLO MVP               |
+| Import trực tiếp → preview (API sàn) | Chưa đặt SLO | chỉ đo sau khi có API sandbox thật |
 | AI triage end-to-end           | GĐ3            | không thuộc SLO MVP               |
 
 Mục tiêu kiểm thử v1: 10.000 đơn/tháng, 50.000 listing active, 200 CCU. Chọn compute sau load test; không suy ra trước rằng một cấu hình VPS cụ thể chắc chắn đủ.
@@ -1521,7 +1557,7 @@ Mục tiêu kiểm thử v1: 10.000 đơn/tháng, 50.000 listing active, 200 CCU
 
 | #   | Rủi ro                                      | Mức        | Giảm thiểu                                                                       |
 | --- | ------------------------------------------- | ---------- | -------------------------------------------------------------------------------- |
-| R1  | Không được cấp quyền API Shopee/TikTok      | **Cao**    | MVP dựa trên CSV + OCR; API là tính năng cộng thêm (L7)                          |
+| R1  | Không được cấp quyền API Shopee/TikTok      | **Cao**    | Kênh CSV/XLSX dùng cùng manifest contract và hoạt động độc lập; nút API chỉ bật sau gate |
 | R2  | Chưa có giấy phép/đối tác thanh toán hợp lệ | **Cao**    | Chốt PSP trước sprint 4; thiết kế `PaymentProvider` thay được (`05-PHAP-LY` §2)  |
 | R3  | Sai lệch sổ cái tiền                        | **Cao**    | Sổ cái kép + idempotency + job đối soát + chặn rút khi lệch                      |
 | R4  | AI false-positive gây thất thoát cho seller | Trung bình | Ngưỡng 85 + trần giá trị + không auto-reject + kháng nghị                        |
