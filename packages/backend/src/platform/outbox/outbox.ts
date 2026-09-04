@@ -23,7 +23,7 @@ export class OutboxModule {
       );
 
       for (const event of claimed.rows) {
-        if (event.topic !== "listing.published") {
+        if (event.topic !== "listing.published" && event.topic !== "listing.pending_review") {
           await client.query(
             `UPDATE outbox_events
              SET status = 'DEAD', attempts = attempts + 1,

@@ -47,6 +47,23 @@ test("finds and opens a listing after the seller publishes it", async ({ page, r
   });
   expect(createdResponse.ok()).toBe(true);
   const listing = await createdResponse.json() as { id: string };
+  const image = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+    "base64"
+  );
+  const intentResponse = await request.post(
+    `http://127.0.0.1:3001/v1/shops/RBX-01JTESTVERIFIED0000000000/listings/${listing.id}/images/init`,
+    { headers, data: { mimeType: "image/png", sizeBytes: image.byteLength } }
+  );
+  expect(intentResponse.ok()).toBe(true);
+  const intent = await intentResponse.json() as { key: string; uploadUrl: string; headers: Record<string, string> };
+  const uploadResponse = await request.put(intent.uploadUrl, { headers: intent.headers, data: image });
+  expect(uploadResponse.ok()).toBe(true);
+  const completeResponse = await request.post(
+    `http://127.0.0.1:3001/v1/shops/RBX-01JTESTVERIFIED0000000000/listings/${listing.id}/images/complete`,
+    { headers, data: { key: intent.key } }
+  );
+  expect(completeResponse.ok()).toBe(true);
   const publishResponse = await request.post(
     `http://127.0.0.1:3001/v1/shops/RBX-01JTESTVERIFIED0000000000/listings/${listing.id}/publish`,
     { headers }
@@ -56,4 +73,5 @@ test("finds and opens a listing after the seller publishes it", async ({ page, r
   await page.goto(`/search?q=${encodeURIComponent(title)}`);
   await page.getByRole("link", { name: `Xem ${title}` }).click();
   await expect(page.getByRole("heading", { name: title })).toBeVisible();
+  await expect(page.getByRole("img", { name: title })).toBeVisible();
 });

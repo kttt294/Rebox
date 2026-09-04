@@ -15,6 +15,20 @@
       "when": 1788359818430,
       "tag": "0001_public_catalog_search",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788490000000,
+      "tag": "0002_catalog_media_bucket",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788490001000,
+      "tag": "0003_pretty_jean_grey",
+      "breakpoints": true
     }
   ]
 }

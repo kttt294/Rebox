@@ -1,9 +1,9 @@
 "use client";
 
 import { ApiClientError } from "@rebox/api-client";
-import type { ActorContext, Listing } from "@rebox/shared";
+import { maxCatalogImageBytes, maxCatalogImages, type ActorContext, type Category, type Listing } from "@rebox/shared";
 import Link from "next/link";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { createBrowserApiClient } from "../../platform/api/browser";
 
 const api = createBrowserApiClient();
@@ -37,6 +37,9 @@ function statusClass(status: Listing["status"]): string {
 export function SellerWorkbench() {
   const [actor, setActor] = useState<ActorContext>();
   const [listings, setListings] = useState<Listing[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [categoriesError, setCategoriesError] = useState(false);
   const [error, setError] = useState<string>();
   const [success, setSuccess] = useState<string>();
   const [loading, setLoading] = useState(true);
@@ -44,6 +47,18 @@ export function SellerWorkbench() {
   const [editingListingId, setEditingListingId] = useState<string>();
   const shop = actor?.shops[0];
   const editingListing = listings.find((listing) => listing.id === editingListingId);
+
+  const loadCategories = useCallback(async () => {
+    setCategoriesLoading(true);
+    setCategoriesError(false);
+    try {
+      setCategories(await api.listCategories());
+    } catch {
+      setCategoriesError(true);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  }, []);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -62,7 +77,10 @@ export function SellerWorkbench() {
     }
   }, []);
 
-  useEffect(() => { void reload(); }, [reload]);
+  useEffect(() => {
+    void reload();
+    void loadCategories();
+  }, [loadCategories, reload]);
 
   async function createShop(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -108,7 +126,9 @@ export function SellerWorkbench() {
       else form.reset();
       setSuccess(currentEditingId ? "Đã cập nhật bản nháp." : "Đã lưu bản nháp.");
     } catch (caught) {
-      setError(caught instanceof ApiClientError && caught.code === "VALIDATION_FAILED"
+      setError(caught instanceof ApiClientError && caught.code === "INVALID_CATEGORY"
+        ? "Danh mục đã chọn không còn khả dụng. Dữ liệu bạn vừa nhập vẫn được giữ nguyên."
+        : caught instanceof ApiClientError && caught.code === "VALIDATION_FAILED"
         ? "Thông tin sản phẩm chưa hợp lệ. Vui lòng kiểm tra lại các trường bắt buộc."
         : caught instanceof ApiClientError && caught.code === "INVALID_LISTING_STATE"
           ? "Chỉ bản nháp mới có thể chỉnh sửa. Dữ liệu bạn vừa nhập vẫn được giữ nguyên."
@@ -125,17 +145,63 @@ export function SellerWorkbench() {
     requestAnimationFrame(() => document.getElementById("listing-form")?.scrollIntoView({ behavior: "smooth" }));
   }
 
+  async function uploadImages(listing: Listing, event: ChangeEvent<HTMLInputElement>) {
+    if (!shop) return;
+    const input = event.currentTarget;
+    const files = Array.from(input.files ?? []);
+    if (files.length === 0) return;
+    if (listing.images.length + files.length > maxCatalogImages
+      || files.some((file) => file.size > maxCatalogImageBytes)) {
+      setError(`Mỗi sản phẩm có tối đa ${maxCatalogImages} ảnh; mỗi ảnh không quá 5 MiB.`);
+      input.value = "";
+      return;
+    }
+
+    setAction(`upload-${listing.id}`);
+    setError(undefined);
+    setSuccess(undefined);
+    try {
+      let updated = listing;
+      for (const file of files) {
+        updated = await api.uploadCatalogImage(shop.id, listing.id, file);
+      }
+      setListings((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setSuccess(files.length === 1 ? "Đã thêm ảnh sản phẩm." : `Đã thêm ${files.length} ảnh sản phẩm.`);
+    } catch (caught) {
+      setError(caught instanceof ApiClientError && caught.code === "CATALOG_IMAGE_LIMIT"
+        ? `Sản phẩm chỉ được có tối đa ${maxCatalogImages} ảnh.`
+        : caught instanceof ApiClientError && caught.code === "VALIDATION_FAILED"
+          ? "Ảnh phải là JPEG, PNG hoặc WebP và không quá 5 MiB."
+          : "Không thể tải ảnh lên. Vui lòng thử lại.");
+    } finally {
+      input.value = "";
+      setAction(undefined);
+    }
+  }
+
   async function publish(listingId: string) {
     if (!shop) return;
     setAction(`publish-${listingId}`);
     setError(undefined);
     setSuccess(undefined);
     try {
-      await api.publishListing(shop.id, listingId);
-      await reload();
+      const published = await api.publishListing(shop.id, listingId);
+      setListings((current) => current.map((listing) =>
+        listing.id === published.listing.id ? published.listing : listing));
+      setSuccess(published.policy.outcome === "PENDING_REVIEW"
+        ? "Sản phẩm đã được gửi duyệt và chưa xuất hiện công khai."
+        : "Sản phẩm đã được đăng bán.");
     } catch (caught) {
       setError(caught instanceof ApiClientError && caught.code === "SHOP_NOT_VERIFIED"
         ? "Shop đang chờ xác minh nên chưa thể đăng công khai. Bản nháp của bạn vẫn được giữ nguyên."
+        : caught instanceof ApiClientError && caught.code === "LISTING_CATEGORY_BANNED"
+          ? "Danh mục này bị cấm trên REBOX. Listing vẫn được giữ ở bản nháp."
+        : caught instanceof ApiClientError && caught.code === "LISTING_DISCLOSURE_REQUIRED"
+          ? "Danh mục này yêu cầu mô tả tình trạng chi tiết hơn. Listing vẫn được giữ ở bản nháp."
+        : caught instanceof ApiClientError && caught.code === "INVALID_CATEGORY"
+          ? "Danh mục không còn khả dụng. Hãy chọn danh mục khác trước khi đăng bán."
+        : caught instanceof ApiClientError && caught.code === "LISTING_IMAGE_REQUIRED"
+          ? "Cần ít nhất một ảnh sản phẩm trước khi đăng bán."
         : "Không thể đăng sản phẩm. Vui lòng thử lại.");
     } finally {
       setAction(undefined);
@@ -213,10 +279,34 @@ export function SellerWorkbench() {
             <input className="rounded-xl border border-[var(--line-strong)] px-4 py-3.5 font-normal transition-colors hover:border-slate-400" defaultValue={editingListing?.title} id="title" name="title" minLength={3} maxLength={180} placeholder="Nhập tên sản phẩm rõ ràng, dễ tìm kiếm" required />
           </label>
 
-          <label className="grid gap-2 text-sm font-bold" htmlFor="categoryId">
-            Mã danh mục *
-            <input className="rounded-xl border border-[var(--line-strong)] px-4 py-3.5 font-normal transition-colors hover:border-slate-400" defaultValue={editingListing?.categoryId} id="categoryId" name="categoryId" maxLength={80} placeholder="Ví dụ: fashion-women" required />
-          </label>
+          <div className="grid gap-2 text-sm font-bold">
+            <label htmlFor="categoryId">Danh mục *</label>
+            <select
+              className="rounded-xl border border-[var(--line-strong)] bg-white px-4 py-3.5 font-normal transition-colors hover:border-slate-400 disabled:bg-slate-100"
+              defaultValue={editingListing?.categoryId ?? ""}
+              disabled={categoriesLoading || categoriesError || categories.length === 0}
+              id="categoryId"
+              name="categoryId"
+              required
+            >
+              <option disabled value="">
+                {categoriesLoading ? "Đang tải danh mục..." : categories.length === 0 ? "Chưa có danh mục khả dụng" : "Chọn danh mục"}
+              </option>
+              {editingListing && !categories.some((category) => category.id === editingListing.categoryId)
+                ? <option value={editingListing.categoryId}>Danh mục hiện tại không còn khả dụng</option>
+                : null}
+              {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+            </select>
+            {categoriesError ? (
+              <span className="font-normal text-red-700" role="alert">
+                Không tải được danh mục.{" "}
+                <button className="font-bold underline" onClick={() => void loadCategories()} type="button">Thử lại</button>
+              </span>
+            ) : null}
+            {!categoriesLoading && !categoriesError && categories.length === 0
+              ? <span className="font-normal text-[var(--muted)]">Hiện chưa có danh mục đang hoạt động.</span>
+              : null}
+          </div>
 
           <label className="grid gap-2 text-sm font-bold" htmlFor="conditionGrade">
             Tình trạng *
@@ -295,8 +385,18 @@ export function SellerWorkbench() {
                 {listings.map((listing) => (
                   <tr className="border-t border-[var(--line)]" key={listing.id}>
                     <td className="px-6 py-4">
-                      <p className="font-bold text-[var(--ink)]">{listing.title}</p>
-                      <p className="mt-1 max-w-sm truncate text-xs text-[var(--muted)]">Mã: {listing.id}</p>
+                      <div className="flex items-center gap-3">
+                        {listing.images[0] ? (
+                          <img alt="" className="size-14 shrink-0 rounded-lg object-cover" height={56} src={listing.images[0].url} width={56} />
+                        ) : (
+                          <div className="grid size-14 shrink-0 place-items-center rounded-lg bg-slate-100 text-xs font-bold text-slate-400">Chưa có ảnh</div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="font-bold text-[var(--ink)]">{listing.title}</p>
+                          <p className="mt-1 max-w-sm truncate text-xs text-[var(--muted)]">Mã: {listing.id}</p>
+                          <p className="mt-1 text-xs text-[var(--muted)]">{listing.images.length}/{maxCatalogImages} ảnh</p>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-[var(--muted)]">{conditionLabels[listing.conditionGrade]}</td>
                     <td className="px-6 py-4 font-bold tabular-nums">{listing.price.toLocaleString("vi-VN")}đ</td>
@@ -306,6 +406,18 @@ export function SellerWorkbench() {
                     <td className="px-6 py-4 text-right">
                       {listing.status === "DRAFT" ? (
                         <div className="flex justify-end gap-2">
+                          <label className={`cursor-pointer rounded-lg border border-[var(--line-strong)] bg-white px-4 py-2 text-sm font-bold text-[var(--ink)] ${action === `upload-${listing.id}` || listing.images.length >= maxCatalogImages ? "pointer-events-none opacity-60" : ""}`}>
+                            {action === `upload-${listing.id}` ? "Đang tải..." : "Thêm ảnh"}
+                            <input
+                              accept="image/jpeg,image/png,image/webp"
+                              aria-label={`Thêm ảnh cho ${listing.title}`}
+                              className="sr-only"
+                              disabled={action === `upload-${listing.id}` || listing.images.length >= maxCatalogImages}
+                              multiple
+                              onChange={(event) => void uploadImages(listing, event)}
+                              type="file"
+                            />
+                          </label>
                           <button className="rounded-lg border border-[var(--line-strong)] bg-white px-4 py-2 text-sm font-bold text-[var(--ink)]" onClick={() => startEditing(listing.id)} type="button">
                             Chỉnh sửa
                           </button>
@@ -313,8 +425,10 @@ export function SellerWorkbench() {
                             {action === `publish-${listing.id}` ? "Đang đăng..." : "Đăng bán"}
                           </button>
                         </div>
-                      ) : (
+                      ) : listing.status === "ACTIVE" ? (
                         <Link className="text-sm font-bold text-[var(--accent)] hover:underline" href={`/listings/${listing.id}`}>Xem công khai</Link>
+                      ) : (
+                        <span className="text-sm text-[var(--muted)]">Chờ quản trị viên duyệt</span>
                       )}
                     </td>
                   </tr>

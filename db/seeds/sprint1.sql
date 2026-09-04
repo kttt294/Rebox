@@ -51,6 +51,99 @@ VALUES
   ('10000000-0000-4000-8000-000000000002', 'ACTIVE')
 ON CONFLICT (id) DO NOTHING;
 
+INSERT INTO categories (id, name, active, sort_order)
+VALUES
+  ('fashion', 'Thời trang', true, 10),
+  ('electronics', 'Điện tử đã qua sử dụng', true, 20),
+  ('home', 'Nhà cửa và đời sống', true, 30),
+  ('accessories', 'Phụ kiện', true, 40),
+  ('lifestyle', 'Tiện ích đời sống', true, 50),
+  ('beauty', 'Mỹ phẩm và chăm sóc cá nhân', true, 60),
+  ('cosmetics', 'Mỹ phẩm', true, 70),
+  ('supplements', 'Thực phẩm chức năng', true, 80),
+  ('packaged-food', 'Thực phẩm bao gói sẵn', true, 90),
+  ('infant-nutrition', 'Dinh dưỡng cho trẻ dưới 24 tháng', true, 100),
+  ('medical-devices', 'Trang thiết bị y tế', true, 110),
+  ('childrens-toys', 'Đồ chơi trẻ em', true, 120),
+  ('regulated-electronics', 'Thiết bị điện cần chứng nhận hợp quy', true, 130),
+  ('motorcycle-helmets', 'Mũ bảo hiểm mô tô, xe máy', true, 140),
+  ('luxury-goods', 'Hàng hiệu và thương hiệu cao cấp', true, 150),
+  ('alcohol', 'Rượu và đồ uống có cồn', true, 160),
+  ('jewelry-gemstones', 'Vàng trang sức và đá quý', true, 170),
+  ('publications', 'Sách và ấn phẩm', true, 180),
+  ('used-electronics', 'Đồ điện tử đã qua sử dụng', true, 190),
+  ('tried-fashion', 'Quần áo, giày dép đã thử', true, 200),
+  ('missing-accessories', 'Hàng thiếu phụ kiện hoặc hộp', true, 210),
+  ('cosmetic-defect', 'Hàng lỗi ngoại hình', true, 220),
+  ('near-expiry', 'Hàng cận hạn sử dụng', true, 230),
+  ('banned-drugs', 'Ma túy và tiền chất', true, 1000),
+  ('banned-wildlife', 'Mẫu vật động thực vật hoang dã nguy cấp', true, 1010),
+  ('banned-human-body', 'Mô và bộ phận cơ thể người', true, 1020),
+  ('banned-weapons-explosives', 'Vũ khí, pháo và vật liệu nổ', true, 1030),
+  ('banned-illegal-content', 'Văn hóa phẩm bất hợp pháp', true, 1040),
+  ('banned-medicines', 'Thuốc chữa bệnh', true, 1050),
+  ('banned-tobacco-vape', 'Thuốc lá và thuốc lá điện tử', true, 1060),
+  ('banned-counterfeit-illicit', 'Hàng giả, nhập lậu hoặc không rõ nguồn gốc', true, 1070),
+  ('banned-financial-identity', 'Tiền tệ, tài khoản và giấy tờ định danh', true, 1080),
+  ('banned-spyware-jammers', 'Thiết bị gián điệp hoặc phá sóng', true, 1090),
+  ('banned-live-animals-hazardous', 'Động vật sống và chất nguy hại', true, 1100),
+  ('banned-cold-chain-hazardous', 'Hàng cần chuỗi lạnh hoặc dễ cháy nổ', true, 1110),
+  ('banned-expired-products', 'Sản phẩm đã quá hạn sử dụng', true, 1120)
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  active = EXCLUDED.active,
+  sort_order = EXCLUDED.sort_order;
+
+INSERT INTO restricted_categories (
+  id, category_id, policy_level, rule_snapshot, policy_version,
+  effective_from, effective_to, approved_by
+)
+SELECT
+  'RP-' || category_id || '-20260825', category_id, policy_level, rule_snapshot,
+  '2026-08-25-dev', '2026-08-25T00:00:00+07'::timestamptz, NULL,
+  '10000000-0000-4000-8000-000000000001'::uuid
+FROM (VALUES
+  ('fashion', 'DISCLOSURE', '{"requiredFields":["conditionGrade","conditionNotes"],"minimumConditionNotesLength":20,"source":"docs/06-DANH-MUC-HANG-CAM.md#4"}'::jsonb),
+  ('electronics', 'DISCLOSURE', '{"requiredFields":["conditionGrade","conditionNotes"],"minimumConditionNotesLength":20,"source":"docs/06-DANH-MUC-HANG-CAM.md#4"}'::jsonb),
+  ('used-electronics', 'DISCLOSURE', '{"requiredFields":["conditionGrade","conditionNotes"],"minimumConditionNotesLength":20,"source":"docs/06-DANH-MUC-HANG-CAM.md#4"}'::jsonb),
+  ('tried-fashion', 'DISCLOSURE', '{"requiredFields":["conditionGrade","conditionNotes"],"minimumConditionNotesLength":20,"source":"docs/06-DANH-MUC-HANG-CAM.md#4"}'::jsonb),
+  ('missing-accessories', 'DISCLOSURE', '{"requiredFields":["conditionGrade","conditionNotes"],"minimumConditionNotesLength":20,"source":"docs/06-DANH-MUC-HANG-CAM.md#4"}'::jsonb),
+  ('cosmetic-defect', 'DISCLOSURE', '{"requiredFields":["conditionGrade","conditionNotes"],"minimumConditionNotesLength":20,"source":"docs/06-DANH-MUC-HANG-CAM.md#4"}'::jsonb),
+  ('near-expiry', 'DISCLOSURE', '{"requiredFields":["conditionGrade","conditionNotes"],"minimumConditionNotesLength":20,"source":"docs/06-DANH-MUC-HANG-CAM.md#4"}'::jsonb),
+  ('beauty', 'MANUAL_REVIEW', '{"requiredEvidence":["Ảnh nhãn, số công bố và hạn sử dụng"],"source":"docs/06-DANH-MUC-HANG-CAM.md#3"}'::jsonb),
+  ('cosmetics', 'MANUAL_REVIEW', '{"requiredEvidence":["Ảnh nhãn, số công bố và hạn sử dụng"],"source":"docs/06-DANH-MUC-HANG-CAM.md#3"}'::jsonb),
+  ('supplements', 'MANUAL_REVIEW', '{"requiredEvidence":["Ảnh bản công bố và hạn sử dụng"],"source":"docs/06-DANH-MUC-HANG-CAM.md#3"}'::jsonb),
+  ('packaged-food', 'MANUAL_REVIEW', '{"requiredEvidence":["Ảnh nhãn và hạn sử dụng"],"source":"docs/06-DANH-MUC-HANG-CAM.md#3"}'::jsonb),
+  ('infant-nutrition', 'MANUAL_REVIEW', '{"legalDecisionPending":true,"source":"docs/06-DANH-MUC-HANG-CAM.md#8"}'::jsonb),
+  ('medical-devices', 'MANUAL_REVIEW', '{"legalDecisionPending":true,"requiredEvidence":["Phân loại thiết bị và giấy tờ phù hợp"],"source":"docs/06-DANH-MUC-HANG-CAM.md#3"}'::jsonb),
+  ('childrens-toys', 'MANUAL_REVIEW', '{"requiredEvidence":["Ảnh dấu hợp quy CR"],"source":"docs/06-DANH-MUC-HANG-CAM.md#3"}'::jsonb),
+  ('regulated-electronics', 'MANUAL_REVIEW', '{"requiredEvidence":["Ảnh dấu hợp quy CR"],"source":"docs/06-DANH-MUC-HANG-CAM.md#3"}'::jsonb),
+  ('motorcycle-helmets', 'MANUAL_REVIEW', '{"requiredEvidence":["Ảnh dấu hợp quy CR"],"source":"docs/06-DANH-MUC-HANG-CAM.md#3"}'::jsonb),
+  ('luxury-goods', 'MANUAL_REVIEW', '{"requiredEvidence":["Ảnh tem, mã, hộp hoặc phiếu bảo hành"],"source":"docs/06-DANH-MUC-HANG-CAM.md#3"}'::jsonb),
+  ('alcohol', 'MANUAL_REVIEW', '{"legalDecisionPending":true,"source":"docs/06-DANH-MUC-HANG-CAM.md#8"}'::jsonb),
+  ('jewelry-gemstones', 'MANUAL_REVIEW', '{"requiredEvidence":["Giấy tờ nguồn gốc và điều kiện kinh doanh"],"source":"docs/06-DANH-MUC-HANG-CAM.md#3"}'::jsonb),
+  ('publications', 'MANUAL_REVIEW', '{"requiredEvidence":["Thông tin nhà xuất bản và nguồn gốc"],"source":"docs/06-DANH-MUC-HANG-CAM.md#3"}'::jsonb),
+  ('banned-drugs', 'BANNED', '{"reason":"Ma túy và tiền chất","source":"docs/06-DANH-MUC-HANG-CAM.md#2"}'::jsonb),
+  ('banned-wildlife', 'BANNED', '{"reason":"Mẫu vật động thực vật hoang dã nguy cấp","source":"docs/06-DANH-MUC-HANG-CAM.md#2"}'::jsonb),
+  ('banned-human-body', 'BANNED', '{"reason":"Mô và bộ phận cơ thể người","source":"docs/06-DANH-MUC-HANG-CAM.md#2"}'::jsonb),
+  ('banned-weapons-explosives', 'BANNED', '{"reason":"Vũ khí, pháo và vật liệu nổ","source":"docs/06-DANH-MUC-HANG-CAM.md#2"}'::jsonb),
+  ('banned-illegal-content', 'BANNED', '{"reason":"Văn hóa phẩm bất hợp pháp","source":"docs/06-DANH-MUC-HANG-CAM.md#2"}'::jsonb),
+  ('banned-medicines', 'BANNED', '{"reason":"Thuốc chữa bệnh không phù hợp mô hình REBOX","source":"docs/06-DANH-MUC-HANG-CAM.md#2"}'::jsonb),
+  ('banned-tobacco-vape', 'BANNED', '{"reason":"Thuốc lá và thuốc lá điện tử","source":"docs/06-DANH-MUC-HANG-CAM.md#2"}'::jsonb),
+  ('banned-counterfeit-illicit', 'BANNED', '{"reason":"Hàng giả, nhập lậu hoặc không rõ nguồn gốc","source":"docs/06-DANH-MUC-HANG-CAM.md#2"}'::jsonb),
+  ('banned-financial-identity', 'BANNED', '{"reason":"Tiền tệ, tài khoản và giấy tờ định danh","source":"docs/06-DANH-MUC-HANG-CAM.md#2"}'::jsonb),
+  ('banned-spyware-jammers', 'BANNED', '{"reason":"Thiết bị gián điệp hoặc phá sóng","source":"docs/06-DANH-MUC-HANG-CAM.md#2"}'::jsonb),
+  ('banned-live-animals-hazardous', 'BANNED', '{"reason":"Động vật sống hoặc chất nguy hại","source":"docs/06-DANH-MUC-HANG-CAM.md#2"}'::jsonb),
+  ('banned-cold-chain-hazardous', 'BANNED', '{"reason":"Không đáp ứng chuỗi lạnh hoặc vận chuyển an toàn","source":"docs/06-DANH-MUC-HANG-CAM.md#2"}'::jsonb),
+  ('banned-expired-products', 'BANNED', '{"reason":"Sản phẩm đã quá hạn sử dụng","source":"docs/06-DANH-MUC-HANG-CAM.md#2"}'::jsonb)
+) AS policy(category_id, policy_level, rule_snapshot)
+ON CONFLICT (category_id, policy_version) DO UPDATE SET
+  policy_level = EXCLUDED.policy_level,
+  rule_snapshot = EXCLUDED.rule_snapshot,
+  effective_from = EXCLUDED.effective_from,
+  effective_to = EXCLUDED.effective_to,
+  approved_by = EXCLUDED.approved_by;
+
 INSERT INTO shops (id, display_name, legal_type, kyc_status, kyc_verified_at, status)
 VALUES
   ('RBX-01JTESTVERIFIED0000000000', 'REBOX Verified Fixture', 'INDIVIDUAL', 'VERIFIED', now(), 'ACTIVE'),

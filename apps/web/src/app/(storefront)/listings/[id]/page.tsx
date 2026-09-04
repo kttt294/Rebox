@@ -42,11 +42,15 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
         </nav>
 
         <section className="mt-4 grid gap-8 rounded-[10px] border border-[var(--line)] bg-white p-6 xl:min-h-[500px] xl:grid-cols-[500px_1fr]">
-          <ProductVisual
-            className="h-[430px] w-full rounded-[10px] bg-[linear-gradient(139deg,#3769b2_14%,#b8d5f7_86%)]"
-            label={listing.categoryId.toUpperCase()}
-            labelClassName="text-[44px]"
-          />
+          {listing.images[0] ? (
+            <img alt={listing.title} className="h-[430px] w-full rounded-[10px] object-contain" src={listing.images[0].url} />
+          ) : (
+            <ProductVisual
+              className="h-[430px] w-full rounded-[10px] bg-[linear-gradient(139deg,#3769b2_14%,#b8d5f7_86%)]"
+              label={listing.categoryId.toUpperCase()}
+              labelClassName="text-[44px]"
+            />
+          )}
 
           <div className="flex flex-col gap-4">
             <ReboxBadge className="h-[25px] w-fit px-2 font-bold">{listing.conditionGrade.replaceAll("_", " ")}</ReboxBadge>

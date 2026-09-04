@@ -38,22 +38,29 @@ Khi thay đổi API, controller, OpenAPI contract, generated types, API client, 
 
 ## 3. API đã được tạo
 
-Hiện có **10 endpoint**, đều ở trạng thái `IMPLEMENTED` trên local.
+Hiện có **13 endpoint**, đều ở trạng thái `IMPLEMENTED` trên local.
 
 | Method | Path | Auth | Module | Trạng thái | Mục đích |
 |---|---|---|---|---|---|
 | `GET` | `/health/live` | Public | Platform | `IMPLEMENTED` | Kiểm tra process API còn hoạt động |
 | `GET` | `/health/ready` | Public | Platform | `IMPLEMENTED` | Kiểm tra API kết nối được PostgreSQL |
 | `GET` | `/v1/me` | Supabase JWT | Identity | `IMPLEMENTED` | Lấy actor hiện tại và danh sách shop membership |
+| `GET` | `/v1/categories` | Public | Inventory | `IMPLEMENTED` | Lấy danh mục active, không bị cấm, dùng cho seller picker |
 | `POST` | `/v1/shops` | Supabase JWT | Identity | `IMPLEMENTED` | Tạo profile/shop và membership `OWNER` trong transaction |
 | `GET` | `/v1/shops/{shopId}/listings` | Supabase JWT | Inventory | `IMPLEMENTED` | Lấy listing thuộc shop mà actor có quyền truy cập |
 | `POST` | `/v1/shops/{shopId}/listings` | Supabase JWT | Inventory | `IMPLEMENTED` | Tạo manual listing ở trạng thái draft |
 | `PATCH` | `/v1/shops/{shopId}/listings/{listingId}` | Supabase JWT | Inventory | `IMPLEMENTED` | Sửa listing thuộc đúng shop khi còn ở trạng thái `DRAFT` |
+| `POST` | `/v1/shops/{shopId}/listings/{listingId}/images/init` | Supabase JWT | Inventory | `IMPLEMENTED` | Cấp signed upload URL cho ảnh catalog hợp lệ của draft |
+| `POST` | `/v1/shops/{shopId}/listings/{listingId}/images/complete` | Supabase JWT | Inventory | `IMPLEMENTED` | Kiểm tra metadata Storage rồi gắn ảnh vào draft, tối đa 6 ảnh |
 | `POST` | `/v1/shops/{shopId}/listings/{listingId}/publish` | Supabase JWT | Inventory | `IMPLEMENTED` | Publish listing và ghi outbox event trong cùng transaction |
 | `GET` | `/v1/listings` | Public | Inventory | `IMPLEMENTED` | Tìm listing public bằng cursor, từ khóa, danh mục và sắp xếp |
 | `GET` | `/v1/listings/{listingId}` | Public | Inventory | `IMPLEMENTED` | Lấy listing công khai; chỉ trả listing và shop đang active |
 
 ## 4. Request chính
+
+### `GET /v1/categories`
+
+Trả `{id, name}[]` đã sắp xếp cho category picker. Không trả policy/version và không trả category có policy `BANNED` đang hiệu lực.
 
 ### `POST /v1/shops`
 
@@ -76,7 +83,7 @@ Hiện có **10 endpoint**, đều ở trạng thái `IMPLEMENTED` trên local.
 {
   "title": "Hộp carton tái sử dụng",
   "description": "Fixture synthetic dùng cho dev/staging",
-  "categoryId": "synthetic-category",
+  "categoryId": "home",
   "conditionGrade": "GOOD",
   "conditionNotes": "Đã qua sử dụng, còn nguyên kết cấu",
   "price": 45000,
@@ -96,6 +103,44 @@ Hiện có **10 endpoint**, đều ở trạng thái `IMPLEMENTED` trên local.
 
 Dùng cùng payload editable với API tạo draft. Request không nhận các field do server sở hữu như `shopId`, `status`, `priceSource` hoặc ownership. Chỉ listing `DRAFT` thuộc đúng shop mới được cập nhật.
 
+### `POST /v1/shops/{shopId}/listings/{listingId}/images/init`
+
+```json
+{
+  "mimeType": "image/webp",
+  "sizeBytes": 42000
+}
+```
+
+API chỉ nhận `image/jpeg`, `image/png`, `image/webp`, kích thước từ 1 byte đến 5 MiB. Listing phải thuộc đúng shop, còn `DRAFT` và chưa đủ 6 ảnh. Response trả key do server sinh, signed upload URL có hạn và các header cần gửi khi `PUT` bytes trực tiếp lên Supabase Storage:
+
+```json
+{
+  "key": "catalog/RBX-SHOP/RBX-LISTING/01K....webp",
+  "uploadUrl": "https://PROJECT.supabase.co/storage/v1/object/upload/sign/catalog-media/...",
+  "expiresAt": "2026-09-04T09:00:00.000Z",
+  "headers": {
+    "content-type": "image/webp"
+  }
+}
+```
+
+### `POST /v1/shops/{shopId}/listings/{listingId}/images/complete`
+
+```json
+{
+  "key": "catalog/RBX-SHOP/RBX-LISTING/01K....webp"
+}
+```
+
+Backend xác minh lại membership, ownership và trạng thái `DRAFT`; key phải nằm đúng namespace shop/listing. Sau đó backend đọc metadata authoritative từ Supabase Storage, kiểm tra MIME, kích thước, định dạng bytes và chiều ảnh trước khi gắn vào `listings.images`. Cập nhật dùng điều kiện atomically nên các request complete đồng thời vẫn không thể vượt quá 6 ảnh. Response là `Listing` đã có `images[].{key,url,width,height}`.
+
+### `POST /v1/shops/{shopId}/listings/{listingId}/publish`
+
+Backend tự lấy policy đang hiệu lực; client không được gửi policy level, version hoặc kết quả moderation. `BANNED` trả `LISTING_CATEGORY_BANNED`, `DISCLOSURE` thiếu mô tả trả `LISTING_DISCLOSURE_REQUIRED`; cả hai giữ listing ở `DRAFT`. `MANUAL_REVIEW` chuyển sang `PENDING_REVIEW` và phát `listing.pending_review`; chỉ listing hợp lệ chuyển `ACTIVE` và phát `listing.published`. Version và rule snapshot đã áp dụng được lưu cùng listing.
+
+Manual listing có `priceSource=SELLER_DECLARED` vẫn phải có ít nhất một ảnh. Thiếu ảnh trả `LISTING_IMAGE_REQUIRED` và không tạo outbox event.
+
 ### `GET /v1/listings`
 
 Query hỗ trợ `cursor`, `q`, `category`, `shopId` và `sort=newest|price_asc|price_desc`. API trả tối đa 24 listing mỗi trang cùng `nextCursor`; chỉ listing `ACTIVE` của shop `ACTIVE` xuất hiện. Tìm kiếm dùng PostgreSQL FTS với chuẩn hóa dấu tiếng Việt.
@@ -113,6 +158,8 @@ NestJS xác định actor từ claim `sub` trong JWT. Client không được g�
 JWT chỉ chứng minh danh tính. Quyền nghiệp vụ vẫn được backend kiểm tra bằng shop membership, role, membership status, KYC status và shop status.
 
 Sửa draft yêu cầu capability `CREATE_LISTING`; `OWNER`, `MANAGER` và `WAREHOUSE` có thể sửa listing `DRAFT` thuộc shop của mình. Listing không thuộc shop trả `404`; listing đã rời trạng thái `DRAFT` trả `INVALID_LISTING_STATE`.
+
+Init/complete ảnh dùng cùng capability và chống IDOR như sửa draft. Trần 6 ảnh được kiểm tra lại trong câu `UPDATE`, không chỉ dựa vào số lượng client gửi hoặc kết quả kiểm tra trước upload.
 
 Publish listing yêu cầu tối thiểu:
 
@@ -172,16 +219,17 @@ Vì vậy OpenAPI là **contract**, còn controller/backend là **implementation
 |---|---|
 | JWT/JWKS | Token hợp lệ được chấp nhận; sai audience bị từ chối; public route không cần token |
 | Identity | Tạo shop/profile/OWNER membership thành công |
-| Inventory | VERIFIED publish được; PENDING bị chặn; update draft persist; non-draft bị chặn; IDOR trả `404` |
-| Public listing | Search không dấu; draft/shop inactive bị ẩn; active listing mở được bằng SSR |
+| Inventory | VERIFIED publish được khi có ảnh; manual draft thiếu ảnh bị chặn; update draft persist; non-draft bị chặn; IDOR trả `404` |
+| Catalog media | Signed upload chạy với Supabase local; complete kiểm tra metadata thật; MIME/kích thước sai bị chặn; 7 complete đồng thời chỉ gắn 6 ảnh |
+| Public listing | Search không dấu; draft/shop inactive bị ẩn; active listing mở được bằng SSR và hiển thị ảnh Storage |
 | Outbox | Hai worker concurrent không xử lý trùng; runtime xử lý thành `PROCESSED:1` |
-| Quality gates | Lint, typecheck, 19 test, build và 6 Playwright E2E đều đạt ở lần kiểm tra gần nhất |
+| Quality gates | Lint, typecheck, 24 test, build và 7 Playwright E2E đều đạt ở lần kiểm tra gần nhất |
 
 Các kết quả trên là local verification, không phải staging/production verification.
 
 ## 8. Planned APIs
 
-Chưa có API payment, wallet, order, fulfillment, claims/evidence production, mobile, AI hoặc live marketplace integration. Upload ảnh catalog mới có storage port và fake contract test; endpoint chờ adapter Supabase Storage cùng giới hạn MIME/kích thước/số ảnh được chốt.
+Chưa có API payment, wallet, order, fulfillment, claims/evidence production, mobile, AI hoặc live marketplace integration. Catalog media dùng Supabase Storage; pipeline này không được dùng cho evidence WORM.
 
 Không chuyển API planned sang bảng **API đã được tạo** cho đến khi có đủ implementation, authorization, validation và test.
 
@@ -204,6 +252,7 @@ Các production API liên quan tiền thật bị chặn bởi A10. Evidence pro
 
 | Ngày | Thay đổi |
 |---|---|
+| 2026-09-04 | Hoàn tất API presigned upload/complete ảnh catalog, Supabase Storage adapter, publish image gate và integration/E2E |
 | 2026-09-02 | Thêm public catalog/search cursor + PostgreSQL FTS và nối home/search vào API thật |
 | 2026-09-02 | Ghi nhận API sửa listing draft, authorization/state guard và kết quả test liên quan |
 | 2026-08-25 | Tạo API catalog; ghi nhận 8 endpoint Sprint 1 đã implement và test local |

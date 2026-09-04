@@ -17,4 +17,5 @@ export interface CatalogMediaStorage {
   createUploadIntent(input: { key: string; mimeType: string; sizeBytes: number }): Promise<CatalogImageUploadIntent>;
   inspectObject(key: string): Promise<CatalogImageObject | null>;
   deleteObject(key: string): Promise<void>;
+  publicUrl(key: string): string;
 }

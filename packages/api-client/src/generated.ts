@@ -52,6 +52,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listCategories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/shops": {
         parameters: {
             query?: never;
@@ -96,6 +112,38 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["publishListing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/shops/{shopId}/listings/{listingId}/images/init": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createCatalogImageUploadIntent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/shops/{shopId}/listings/{listingId}/images/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["completeCatalogImageUpload"];
         delete?: never;
         options?: never;
         head?: never;
@@ -158,6 +206,10 @@ export interface components {
             /** @constant */
             status: "ok";
         };
+        Category: {
+            id: string;
+            name: string;
+        };
         ShopAccess: {
             shopId: string;
             displayName: string;
@@ -189,15 +241,49 @@ export interface components {
             weightGram: number;
         };
         UpdateListingDraft: components["schemas"]["CreateListing"];
+        CreateCatalogImageUpload: {
+            /** @enum {string} */
+            mimeType: "image/jpeg" | "image/png" | "image/webp";
+            sizeBytes: number;
+        };
+        CatalogImageUploadIntent: {
+            key: string;
+            /** Format: uri */
+            uploadUrl: string;
+            /** Format: date-time */
+            expiresAt: string;
+            headers: {
+                [key: string]: string;
+            };
+        };
+        ListingImage: {
+            key: string;
+            /** Format: uri */
+            url: string;
+            width: number;
+            height: number;
+        };
         Listing: components["schemas"]["CreateListing"] & {
             id: string;
             shopId: string;
             shopDisplayName: string;
-            images: Record<string, never>[];
-            status: string;
+            images: components["schemas"]["ListingImage"][];
+            /** @enum {string} */
+            status: "DRAFT" | "PENDING_REVIEW" | "ACTIVE" | "HIDDEN_BY_FUND" | "RESERVED" | "SOLD" | "RELISTABLE" | "SUSPENDED" | "DELISTED";
             publishedAt: string | null;
             /** Format: date-time */
             createdAt: string;
+        };
+        ListingPolicyResult: {
+            /** @enum {string} */
+            outcome: "ACTIVE" | "PENDING_REVIEW";
+            policyLevel: ("BANNED" | "MANUAL_REVIEW" | "DISCLOSURE") | null;
+            policyVersion: string | null;
+            message: string;
+        };
+        PublishListingResult: {
+            listing: components["schemas"]["Listing"];
+            policy: components["schemas"]["ListingPolicyResult"];
         };
         PublicListing: {
             id: string;
@@ -210,6 +296,7 @@ export interface components {
             conditionGrade: "NEW_SEALED" | "LIKE_NEW_99" | "GOOD" | "FAIR" | "DEFECT";
             conditionNotes: string;
             price: number;
+            images: components["schemas"]["ListingImage"][];
             publishedAt: string | null;
             /** Format: date-time */
             createdAt: string;
@@ -286,6 +373,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActorContext"];
+                };
+            };
+        };
+    };
+    listCategories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active categories available to the seller picker */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Category"][];
                 };
             };
         };
@@ -378,7 +485,63 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Listing published */
+            /** @description Policy evaluated; listing activated or sent to manual review */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishListingResult"];
+                };
+            };
+        };
+    };
+    createCatalogImageUploadIntent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shopId: components["parameters"]["ShopId"];
+                listingId: components["parameters"]["ListingId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCatalogImageUpload"];
+            };
+        };
+        responses: {
+            /** @description Signed catalog image upload intent */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogImageUploadIntent"];
+                };
+            };
+        };
+    };
+    completeCatalogImageUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shopId: components["parameters"]["ShopId"];
+                listingId: components["parameters"]["ListingId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    key: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Uploaded image metadata verified and attached to the draft */
             201: {
                 headers: {
                     [name: string]: unknown;

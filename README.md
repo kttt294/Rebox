@@ -45,8 +45,9 @@ corepack pnpm db:migrate
 corepack pnpm db:seed
 ```
 
-Lấy `PUBLISHABLE_KEY` từ `corepack pnpm supabase status -o env`, rồi tạo
-`.env` ở root và `apps/web/.env.local` theo `.env.example`. API/worker tự đọc
+Lấy `PUBLISHABLE_KEY` và `SECRET_KEY` từ `corepack pnpm supabase status -o env`, đặt chúng vào
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` và `SUPABASE_SECRET_KEY` theo `.env.example`, rồi tạo
+`.env` ở root và `apps/web/.env.local`. API/worker tự đọc
 `.env`; Next.js tự đọc `apps/web/.env.local`. Khi chuyển sang Supabase Cloud,
 thay `DATABASE_URL`, issuer/JWKS và các biến public theo khối mẫu Cloud trong
 `.env.example`. Không đưa `SECRET_KEY`,

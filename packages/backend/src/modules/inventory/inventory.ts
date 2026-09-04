@@ -1,15 +1,25 @@
 import type {
+  CatalogImageUploadIntent,
+  Category,
+  CreateCatalogImageUploadInput,
   CreateListingInput,
   Listing,
+  ListingImage,
+  ListingPolicyLevel,
   PublicListing,
   PublicListingPage,
   PublicListingsQuery,
+  PublishListingResult,
   UpdateListingDraftInput
 } from "@rebox/shared";
+import { catalogImageMimeTypes, maxCatalogImageBytes, maxCatalogImages } from "@rebox/shared";
 import type { Pool, PoolClient } from "pg";
 import { ulid } from "ulid";
 import { DomainError } from "../../errors";
 import type { IdentityModule } from "../identity";
+import type { CatalogMediaStorage } from "./catalog-media-storage";
+
+type StoredListingImage = Omit<ListingImage, "url">;
 
 type ListingRow = {
   id: string;
@@ -22,13 +32,31 @@ type ListingRow = {
   condition_notes: string;
   price: string;
   weight_gram: number;
-  images: Listing["images"];
+  images: StoredListingImage[];
   status: Listing["status"];
   published_at: Date | null;
   created_at: Date;
 };
 
 type CatalogCursor = { sort: PublicListingsQuery["sort"]; value: string; id: string };
+
+type PublishListingRow = {
+  status: Listing["status"];
+  category_id: string;
+  category_active: boolean | null;
+  condition_notes: string;
+  price_source: string;
+  image_count: number;
+};
+
+type PolicyRow = {
+  id: string;
+  policy_level: ListingPolicyLevel;
+  policy_version: string;
+  rule_snapshot: Record<string, unknown>;
+  effective_from: Date;
+  effective_to: Date | null;
+};
 
 const publicListingPageSize = 24;
 
@@ -40,7 +68,11 @@ const listingSelect = `
   FROM listings l
   JOIN shops s ON s.id = l.shop_id`;
 
-function presentPublicListing(row: ListingRow): PublicListing {
+function presentImages(row: ListingRow, storage: CatalogMediaStorage): ListingImage[] {
+  return row.images.map((image) => ({ ...image, url: storage.publicUrl(image.key) }));
+}
+
+function presentPublicListing(row: ListingRow, storage: CatalogMediaStorage): PublicListing {
   const listing: PublicListing = {
     id: row.id,
     shopId: row.shop_id,
@@ -50,6 +82,7 @@ function presentPublicListing(row: ListingRow): PublicListing {
     conditionGrade: row.condition_grade,
     conditionNotes: row.condition_notes,
     price: Number(row.price),
+    images: presentImages(row, storage),
     publishedAt: row.published_at?.toISOString() ?? null,
     createdAt: row.created_at.toISOString()
   };
@@ -59,11 +92,10 @@ function presentPublicListing(row: ListingRow): PublicListing {
   return listing;
 }
 
-function presentListing(row: ListingRow): Listing {
+function presentListing(row: ListingRow, storage: CatalogMediaStorage): Listing {
   return {
-    ...presentPublicListing(row),
+    ...presentPublicListing(row, storage),
     weightGram: row.weight_gram,
-    images: row.images,
     status: row.status
   };
 }
@@ -90,7 +122,8 @@ function encodeCatalogCursor(row: ListingRow, sort: PublicListingsQuery["sort"])
 export class InventoryModule {
   constructor(
     private readonly pool: Pool,
-    private readonly identity: IdentityModule
+    private readonly identity: IdentityModule,
+    private readonly mediaStorage: CatalogMediaStorage
   ) {}
 
   async createDraft(actorId: string, shopId: string, input: CreateListingInput): Promise<Listing> {
@@ -98,6 +131,7 @@ export class InventoryModule {
     try {
       await client.query("BEGIN");
       const access = await this.identity.requireShopCapability(client, actorId, shopId, "CREATE_LISTING");
+      await this.requireActiveCategory(client, input.categoryId);
       const listingId = `RBX-${ulid()}`;
       await client.query(
         `INSERT INTO listings (
@@ -137,10 +171,26 @@ export class InventoryModule {
          ORDER BY l.created_at DESC`,
         [shopId]
       );
-      return result.rows.map(presentListing);
+      return result.rows.map((row) => presentListing(row, this.mediaStorage));
     } finally {
       client.release();
     }
+  }
+
+  async listCategories(): Promise<Category[]> {
+    const result = await this.pool.query<Category>(
+      `SELECT c.id, c.name
+       FROM categories c
+       WHERE c.active
+         AND NOT EXISTS (
+           SELECT 1 FROM restricted_categories p
+           WHERE p.category_id = c.id AND p.policy_level = 'BANNED'
+             AND p.effective_from <= now()
+             AND (p.effective_to IS NULL OR p.effective_to > now())
+         )
+       ORDER BY c.sort_order, c.name`
+    );
+    return result.rows;
   }
 
   async updateDraft(
@@ -153,6 +203,7 @@ export class InventoryModule {
     try {
       await client.query("BEGIN");
       await this.identity.requireShopCapability(client, actorId, shopId, "CREATE_LISTING");
+      await this.requireActiveCategory(client, input.categoryId);
       const updated = await client.query(
         `UPDATE listings
          SET title = $3, description = $4, category_id = $5,
@@ -193,8 +244,10 @@ export class InventoryModule {
     }
   }
 
-  async publish(actorId: string, shopId: string, listingId: string): Promise<Listing> {
+  async publish(actorId: string, shopId: string, listingId: string): Promise<PublishListingResult> {
     const client = await this.pool.connect();
+    let rejection: DomainError | undefined;
+    let result: PublishListingResult | undefined;
     try {
       await client.query("BEGIN");
       const access = await this.identity.requireShopCapability(client, actorId, shopId, "PUBLISH_LISTING");
@@ -205,29 +258,181 @@ export class InventoryModule {
         throw new DomainError("SHOP_NOT_ACTIVE", 409, "Shop is not active");
       }
 
-      const updated = await client.query(
-        `UPDATE listings
-         SET status = 'ACTIVE', published_at = now()
-         WHERE id = $1 AND shop_id = $2 AND status = 'DRAFT'
-         RETURNING id`,
+      const currentResult = await client.query<PublishListingRow>(
+        `SELECT l.status, l.category_id, c.active AS category_active, l.condition_notes,
+                l.price_source, jsonb_array_length(l.images)::int AS image_count
+         FROM listings l
+         LEFT JOIN categories c ON c.id = l.category_id
+         WHERE l.id = $1 AND l.shop_id = $2
+         FOR UPDATE OF l`,
         [listingId, shopId]
       );
-      if (updated.rowCount === 0) {
-        const current = await client.query<{ status: string }>(
-          "SELECT status FROM listings WHERE id = $1 AND shop_id = $2",
-          [listingId, shopId]
-        );
-        if (!current.rows[0]) {
-          throw new DomainError("RESOURCE_NOT_FOUND", 404, "Listing not found");
-        }
+      const current = currentResult.rows[0];
+      if (!current) throw new DomainError("RESOURCE_NOT_FOUND", 404, "Listing not found");
+      if (current.status !== "DRAFT") {
         throw new DomainError("INVALID_LISTING_STATE", 409, "Only a draft listing can be published");
       }
+      if (!current.category_active) {
+        throw new DomainError("INVALID_CATEGORY", 422, "Category is not active");
+      }
 
-      await client.query(
-        `INSERT INTO outbox_events (id, topic, aggregate_id, payload)
-         VALUES ($1, 'listing.published', $2, $3::jsonb)`,
-        [`RBX-${ulid()}`, listingId, JSON.stringify({ listingId, shopId })]
+      const policyResult = await client.query<PolicyRow>(
+        `SELECT id, policy_level, policy_version, rule_snapshot, effective_from, effective_to
+         FROM restricted_categories
+         WHERE category_id = $1 AND effective_from <= now()
+           AND (effective_to IS NULL OR effective_to > now())
+         ORDER BY effective_from DESC
+         LIMIT 1`,
+        [current.category_id]
       );
+      const policy = policyResult.rows[0];
+      const policySnapshot = policy ? JSON.stringify({
+        id: policy.id,
+        categoryId: current.category_id,
+        policyLevel: policy.policy_level,
+        effectiveFrom: policy.effective_from.toISOString(),
+        effectiveTo: policy.effective_to?.toISOString() ?? null,
+        rules: policy.rule_snapshot
+      }) : null;
+
+      if (policy?.policy_level === "BANNED") {
+        rejection = new DomainError("LISTING_CATEGORY_BANNED", 422, "This category is prohibited on REBOX");
+      } else if (policy?.policy_level === "DISCLOSURE") {
+        const configuredMinimum = policy.rule_snapshot.minimumConditionNotesLength;
+        const minimum = typeof configuredMinimum === "number" && Number.isInteger(configuredMinimum)
+          ? Math.max(3, configuredMinimum)
+          : 20;
+        if (current.condition_notes.trim().length < minimum) {
+          rejection = new DomainError(
+            "LISTING_DISCLOSURE_REQUIRED",
+            422,
+            `Condition notes must contain at least ${minimum} characters for this category`
+          );
+        }
+      }
+
+      if (rejection) {
+        await client.query(
+          `UPDATE listings
+           SET applied_policy_version = $3, applied_policy_snapshot = $4::jsonb, policy_evaluated_at = now()
+           WHERE id = $1 AND shop_id = $2`,
+          [listingId, shopId, policy?.policy_version ?? null, policySnapshot]
+        );
+      } else {
+        if (current.price_source === "SELLER_DECLARED" && current.image_count === 0) {
+          throw new DomainError("LISTING_IMAGE_REQUIRED", 409, "At least one catalog image is required");
+        }
+
+        const nextStatus = policy?.policy_level === "MANUAL_REVIEW" ? "PENDING_REVIEW" : "ACTIVE";
+        await client.query(
+          `UPDATE listings
+           SET status = $3, published_at = CASE WHEN $3 = 'ACTIVE' THEN now() ELSE NULL END,
+               applied_policy_version = $4, applied_policy_snapshot = $5::jsonb, policy_evaluated_at = now()
+           WHERE id = $1 AND shop_id = $2`,
+          [listingId, shopId, nextStatus, policy?.policy_version ?? null, policySnapshot]
+        );
+
+        const topic = nextStatus === "ACTIVE" ? "listing.published" : "listing.pending_review";
+        await client.query(
+          `INSERT INTO outbox_events (id, topic, aggregate_id, payload)
+           VALUES ($1, $2, $3, $4::jsonb)`,
+          [`RBX-${ulid()}`, topic, listingId, JSON.stringify({
+            listingId,
+            shopId,
+            status: nextStatus,
+            policyVersion: policy?.policy_version ?? null
+          })]
+        );
+        result = {
+          listing: await this.selectOwnedListing(client, listingId, shopId),
+          policy: {
+            outcome: nextStatus,
+            policyLevel: policy?.policy_level ?? null,
+            policyVersion: policy?.policy_version ?? null,
+            message: nextStatus === "ACTIVE" ? "Listing is active" : "Listing is pending manual review"
+          }
+        };
+      }
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+    if (rejection) throw rejection;
+    if (!result) throw new DomainError("INTERNAL_ERROR", 500, "Publish result is missing");
+    return result;
+  }
+
+  async createImageUploadIntent(
+    actorId: string,
+    shopId: string,
+    listingId: string,
+    input: CreateCatalogImageUploadInput
+  ): Promise<CatalogImageUploadIntent> {
+    this.validateImageMetadata(input);
+    const imageCount = await this.requireOwnedDraft(actorId, shopId, listingId);
+    if (imageCount >= maxCatalogImages) {
+      throw new DomainError("CATALOG_IMAGE_LIMIT", 409, `A listing can have at most ${maxCatalogImages} images`);
+    }
+
+    const extension = input.mimeType === "image/jpeg" ? "jpg" : input.mimeType.slice("image/".length);
+    const key = `catalog/${shopId}/${listingId}/${ulid()}.${extension}`;
+    return this.mediaStorage.createUploadIntent({ key, ...input });
+  }
+
+  async completeImageUpload(
+    actorId: string,
+    shopId: string,
+    listingId: string,
+    key: string
+  ): Promise<Listing> {
+    await this.requireOwnedDraft(actorId, shopId, listingId);
+    if (!key.startsWith(`catalog/${shopId}/${listingId}/`)) {
+      throw new DomainError("RESOURCE_NOT_FOUND", 404, "Catalog image not found");
+    }
+
+    const object = await this.mediaStorage.inspectObject(key);
+    if (!object || object.key !== key) {
+      throw new DomainError("RESOURCE_NOT_FOUND", 404, "Catalog image not found");
+    }
+    this.validateImageMetadata(object);
+    if (!Number.isInteger(object.width) || object.width <= 0 || !Number.isInteger(object.height) || object.height <= 0) {
+      throw new DomainError("VALIDATION_FAILED", 422, "Uploaded object is not a readable image");
+    }
+
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await this.identity.requireShopCapability(client, actorId, shopId, "CREATE_LISTING");
+      const image = JSON.stringify([{ key, width: object.width, height: object.height }]);
+      const updated = await client.query(
+        `UPDATE listings
+         SET images = images || $4::jsonb
+         WHERE id = $1 AND shop_id = $2 AND status = 'DRAFT'
+           AND jsonb_array_length(images) < $3
+           AND NOT images @> $4::jsonb
+         RETURNING id`,
+        [listingId, shopId, maxCatalogImages, image]
+      );
+      if (updated.rowCount === 0) {
+        const current = await client.query<{ status: string; image_count: number; attached: boolean }>(
+          `SELECT status, jsonb_array_length(images)::int AS image_count,
+                  images @> $3::jsonb AS attached
+           FROM listings WHERE id = $1 AND shop_id = $2`,
+          [listingId, shopId, image]
+        );
+        const row = current.rows[0];
+        if (!row) throw new DomainError("RESOURCE_NOT_FOUND", 404, "Listing not found");
+        if (row.status !== "DRAFT") {
+          throw new DomainError("INVALID_LISTING_STATE", 409, "Only a draft listing can be updated");
+        }
+        if (!row.attached && row.image_count >= maxCatalogImages) {
+          throw new DomainError("CATALOG_IMAGE_LIMIT", 409, `A listing can have at most ${maxCatalogImages} images`);
+        }
+      }
+
       const listing = await this.selectOwnedListing(client, listingId, shopId);
       await client.query("COMMIT");
       return listing;
@@ -249,7 +454,7 @@ export class InventoryModule {
     if (!row) {
       throw new DomainError("RESOURCE_NOT_FOUND", 404, "Listing not found");
     }
-    return presentPublicListing(row);
+    return presentPublicListing(row, this.mediaStorage);
   }
 
   async listPublicListings(input: PublicListingsQuery): Promise<PublicListingPage> {
@@ -295,7 +500,7 @@ export class InventoryModule {
     const pageRows = result.rows.slice(0, publicListingPageSize);
     const last = pageRows.at(-1);
     return {
-      items: pageRows.map(presentPublicListing),
+      items: pageRows.map((row) => presentPublicListing(row, this.mediaStorage)),
       nextCursor: result.rows.length > publicListingPageSize && last
         ? encodeCatalogCursor(last, input.sort)
         : null
@@ -312,6 +517,39 @@ export class InventoryModule {
     if (!row) {
       throw new DomainError("RESOURCE_NOT_FOUND", 404, "Listing not found");
     }
-    return presentListing(row);
+    return presentListing(row, this.mediaStorage);
+  }
+
+  private async requireActiveCategory(client: PoolClient, categoryId: string): Promise<void> {
+    const result = await client.query("SELECT 1 FROM categories WHERE id = $1 AND active", [categoryId]);
+    if (result.rowCount === 0) {
+      throw new DomainError("INVALID_CATEGORY", 422, "Category is not active");
+    }
+  }
+
+  private async requireOwnedDraft(actorId: string, shopId: string, listingId: string): Promise<number> {
+    const client = await this.pool.connect();
+    try {
+      await this.identity.requireShopCapability(client, actorId, shopId, "CREATE_LISTING");
+      const result = await client.query<{ status: string; image_count: number }>(
+        "SELECT status, jsonb_array_length(images)::int AS image_count FROM listings WHERE id = $1 AND shop_id = $2",
+        [listingId, shopId]
+      );
+      const row = result.rows[0];
+      if (!row) throw new DomainError("RESOURCE_NOT_FOUND", 404, "Listing not found");
+      if (row.status !== "DRAFT") {
+        throw new DomainError("INVALID_LISTING_STATE", 409, "Only a draft listing can be updated");
+      }
+      return row.image_count;
+    } finally {
+      client.release();
+    }
+  }
+
+  private validateImageMetadata(input: { mimeType: string; sizeBytes: number }): void {
+    if (!(catalogImageMimeTypes as readonly string[]).includes(input.mimeType)
+      || !Number.isInteger(input.sizeBytes) || input.sizeBytes <= 0 || input.sizeBytes > maxCatalogImageBytes) {
+      throw new DomainError("VALIDATION_FAILED", 422, "Catalog image must be JPEG, PNG or WebP and at most 5 MiB");
+    }
   }
 }

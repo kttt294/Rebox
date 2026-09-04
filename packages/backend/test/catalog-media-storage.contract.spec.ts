@@ -25,6 +25,10 @@ class FakeCatalogMediaStorage implements CatalogMediaStorage {
   async deleteObject(key: string): Promise<void> {
     this.objects.delete(key);
   }
+
+  publicUrl(key: string): string {
+    return `https://storage.test/public/${key}`;
+  }
 }
 
 describe("CatalogMediaStorage contract", () => {
@@ -34,6 +38,7 @@ describe("CatalogMediaStorage contract", () => {
 
     const intent = await storage.createUploadIntent(input);
     expect(intent).toMatchObject({ key: input.key, headers: { "content-type": input.mimeType } });
+    expect(storage.publicUrl(input.key)).toBe(`https://storage.test/public/${input.key}`);
     await expect(storage.inspectObject(input.key)).resolves.toMatchObject(input);
 
     await storage.deleteObject(input.key);

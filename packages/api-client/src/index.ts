@@ -1,5 +1,7 @@
 import type {
   ActorContext,
+  CatalogImageUploadIntent,
+  Category,
   CreateListingInput,
   CreateShopInput,
   ErrorResponse,
@@ -7,6 +9,7 @@ import type {
   PublicListing,
   PublicListingPage,
   PublicListingsQuery,
+  PublishListingResult,
   UpdateListingDraftInput
 } from "@rebox/shared";
 
@@ -56,6 +59,7 @@ export function createApiClient(options: ApiClientOptions) {
   }
 
   return {
+    listCategories: () => request<Category[]>("/v1/categories", { cache: "no-store" }),
     getMe: () => request<ActorContext>("/v1/me"),
     createShop: (input: CreateShopInput) =>
       request<{ shopId: string }>("/v1/shops", { method: "POST", body: JSON.stringify(input) }),
@@ -70,8 +74,33 @@ export function createApiClient(options: ApiClientOptions) {
         `/v1/shops/${encodeURIComponent(shopId)}/listings/${encodeURIComponent(listingId)}`,
         { method: "PATCH", body: JSON.stringify(input) }
       ),
-    publishListing: (shopId: string, listingId: string) =>
+    createCatalogImageUploadIntent: (shopId: string, listingId: string, file: Blob) =>
+      request<CatalogImageUploadIntent>(
+        `/v1/shops/${encodeURIComponent(shopId)}/listings/${encodeURIComponent(listingId)}/images/init`,
+        { method: "POST", body: JSON.stringify({ mimeType: file.type, sizeBytes: file.size }) }
+      ),
+    completeCatalogImageUpload: (shopId: string, listingId: string, key: string) =>
       request<Listing>(
+        `/v1/shops/${encodeURIComponent(shopId)}/listings/${encodeURIComponent(listingId)}/images/complete`,
+        { method: "POST", body: JSON.stringify({ key }) }
+      ),
+    uploadCatalogImage: async (shopId: string, listingId: string, file: Blob) => {
+      const path = `/v1/shops/${encodeURIComponent(shopId)}/listings/${encodeURIComponent(listingId)}`;
+      const intent = await request<CatalogImageUploadIntent>(`${path}/images/init`, {
+        method: "POST",
+        body: JSON.stringify({ mimeType: file.type, sizeBytes: file.size })
+      });
+      const upload = await fetch(intent.uploadUrl, { method: "PUT", headers: intent.headers, body: file });
+      if (!upload.ok) {
+        throw new ApiClientError(upload.status, "CATALOG_UPLOAD_FAILED", "Catalog image upload failed");
+      }
+      return request<Listing>(`${path}/images/complete`, {
+        method: "POST",
+        body: JSON.stringify({ key: intent.key })
+      });
+    },
+    publishListing: (shopId: string, listingId: string) =>
+      request<PublishListingResult>(
         `/v1/shops/${encodeURIComponent(shopId)}/listings/${encodeURIComponent(listingId)}/publish`,
         { method: "POST" }
       ),

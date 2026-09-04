@@ -2,7 +2,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { Pool } from "pg";
 import type { DomainError } from "../src/errors";
 import { IdentityModule } from "../src/modules/identity";
-import { InventoryModule } from "../src/modules/inventory";
+import {
+  InventoryModule,
+  type CatalogImageObject,
+  type CatalogImageUploadIntent,
+  type CatalogMediaStorage
+} from "../src/modules/inventory";
 import { OutboxModule } from "../src/platform/outbox";
 
 const databaseUrl = process.env.DATABASE_URL ?? "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
@@ -11,10 +16,36 @@ const pendingActor = "10000000-0000-4000-8000-000000000002";
 const verifiedShop = "RBX-01JTESTVERIFIED0000000000";
 const pendingShop = "RBX-01JTESTPENDING00000000000";
 
+class FakeCatalogMediaStorage implements CatalogMediaStorage {
+  readonly objects = new Map<string, CatalogImageObject>();
+
+  async createUploadIntent(input: { key: string; mimeType: string; sizeBytes: number }): Promise<CatalogImageUploadIntent> {
+    return {
+      key: input.key,
+      uploadUrl: `https://storage.test/${input.key}`,
+      expiresAt: "2026-09-04T12:00:00.000Z",
+      headers: { "content-type": input.mimeType }
+    };
+  }
+
+  async inspectObject(key: string): Promise<CatalogImageObject | null> {
+    return this.objects.get(key) ?? null;
+  }
+
+  async deleteObject(key: string): Promise<void> {
+    this.objects.delete(key);
+  }
+
+  publicUrl(key: string): string {
+    return `https://storage.test/public/${key}`;
+  }
+}
+
 describe("Sprint 1 PostgreSQL vertical slice", () => {
   const pool = new Pool({ connectionString: databaseUrl });
   const identity = new IdentityModule(pool);
-  const inventory = new InventoryModule(pool, identity);
+  const mediaStorage = new FakeCatalogMediaStorage();
+  const inventory = new InventoryModule(pool, identity, mediaStorage);
   const outbox = new OutboxModule(pool);
 
   beforeAll(async () => {
@@ -24,6 +55,7 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
   beforeEach(async () => {
     await pool.query("DELETE FROM listings WHERE id NOT LIKE 'RBX-01JTEST%'");
     await pool.query("TRUNCATE outbox_events");
+    mediaStorage.objects.clear();
   });
 
   afterAll(async () => {
@@ -32,6 +64,7 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
 
   it("publishes a verified shop listing and commits one outbox event", async () => {
     const draft = await inventory.createDraft(verifiedActor, verifiedShop, listingInput("Verified item"));
+    await attachValidImage(draft.id);
     const published = await inventory.publish(verifiedActor, verifiedShop, draft.id);
     const publicListing = await inventory.getPublicListing(draft.id);
     const events = await pool.query<{ count: string }>(
@@ -39,7 +72,8 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
       [draft.id]
     );
 
-    expect(published.status).toBe("ACTIVE");
+    expect(published.listing.status).toBe("ACTIVE");
+    expect(published.policy).toMatchObject({ outcome: "ACTIVE", policyLevel: null });
     expect(publicListing.id).toBe(draft.id);
     expect(events.rows[0]?.count).toBe("1");
   });
@@ -71,7 +105,7 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
     const input = {
       ...listingInput("Updated title"),
       description: "Updated description",
-      categoryId: "updated-category",
+      categoryId: "accessories",
       conditionGrade: "LIKE_NEW_99" as const,
       conditionNotes: "Updated condition notes",
       price: 135_000,
@@ -87,6 +121,7 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
 
   it("rejects updating a listing after it leaves draft state", async () => {
     const draft = await inventory.createDraft(verifiedActor, verifiedShop, listingInput("Published item"));
+    await attachValidImage(draft.id);
     await inventory.publish(verifiedActor, verifiedShop, draft.id);
 
     await expect(
@@ -108,10 +143,130 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
     });
   });
 
+  it("rejects an unknown category on create and update", async () => {
+    await expect(inventory.createDraft(
+      verifiedActor,
+      verifiedShop,
+      { ...listingInput("Unknown category"), categoryId: "does-not-exist" }
+    )).rejects.toMatchObject<Partial<DomainError>>({ code: "INVALID_CATEGORY", status: 422 });
+
+    const draft = await inventory.createDraft(verifiedActor, verifiedShop, listingInput("Known category"));
+    await expect(inventory.updateDraft(
+      verifiedActor,
+      verifiedShop,
+      draft.id,
+      { ...listingInput("Unknown category update"), categoryId: "does-not-exist" }
+    )).rejects.toMatchObject<Partial<DomainError>>({ code: "INVALID_CATEGORY", status: 422 });
+  });
+
+  it("keeps a banned category in draft and stores the policy snapshot", async () => {
+    const draft = await inventory.createDraft(
+      verifiedActor,
+      verifiedShop,
+      { ...listingInput("Banned item"), categoryId: "banned-weapons-explosives" }
+    );
+
+    await expect(inventory.publish(verifiedActor, verifiedShop, draft.id))
+      .rejects.toMatchObject<Partial<DomainError>>({ code: "LISTING_CATEGORY_BANNED", status: 422 });
+    const state = await pool.query<{
+      status: string;
+      applied_policy_version: string;
+      applied_policy_snapshot: { policyLevel: string };
+    }>(
+      "SELECT status, applied_policy_version, applied_policy_snapshot FROM listings WHERE id = $1",
+      [draft.id]
+    );
+    expect(state.rows[0]).toMatchObject({
+      status: "DRAFT",
+      applied_policy_version: "2026-08-25-dev",
+      applied_policy_snapshot: { policyLevel: "BANNED" }
+    });
+    expect((await pool.query<{ count: string }>(
+      "SELECT count(*)::text AS count FROM outbox_events WHERE aggregate_id = $1",
+      [draft.id]
+    )).rows[0]?.count).toBe("0");
+  });
+
+  it("moves a manual-review category to pending review without a published event", async () => {
+    const draft = await inventory.createDraft(
+      verifiedActor,
+      verifiedShop,
+      { ...listingInput("Cosmetic item"), categoryId: "cosmetics" }
+    );
+    await attachValidImage(draft.id);
+
+    const published = await inventory.publish(verifiedActor, verifiedShop, draft.id);
+    const events = await pool.query<{ topic: string }>(
+      "SELECT topic FROM outbox_events WHERE aggregate_id = $1",
+      [draft.id]
+    );
+
+    expect(published.listing.status).toBe("PENDING_REVIEW");
+    expect(published.policy).toMatchObject({ outcome: "PENDING_REVIEW", policyLevel: "MANUAL_REVIEW" });
+    expect(events.rows.map((event) => event.topic)).toEqual(["listing.pending_review"]);
+    await expect(inventory.getPublicListing(draft.id))
+      .rejects.toMatchObject<Partial<DomainError>>({ code: "RESOURCE_NOT_FOUND" });
+  });
+
+  it("requires detailed notes for a disclosure category and keeps the draft", async () => {
+    const draft = await inventory.createDraft(
+      verifiedActor,
+      verifiedShop,
+      { ...listingInput("Disclosure item"), categoryId: "used-electronics", conditionNotes: "Mới" }
+    );
+    await attachValidImage(draft.id);
+
+    await expect(inventory.publish(verifiedActor, verifiedShop, draft.id))
+      .rejects.toMatchObject<Partial<DomainError>>({ code: "LISTING_DISCLOSURE_REQUIRED", status: 422 });
+    expect((await inventory.listShopListings(verifiedActor, verifiedShop))
+      .find((listing) => listing.id === draft.id)?.status).toBe("DRAFT");
+  });
+
+  it("ignores an expired category policy", async () => {
+    await pool.query(
+      `INSERT INTO categories (id, name, active) VALUES ('expired-policy-category', 'Expired policy', true)
+       ON CONFLICT (id) DO UPDATE SET active = true`
+    );
+    await pool.query(
+      `INSERT INTO restricted_categories (
+         id, category_id, policy_level, rule_snapshot, policy_version, effective_from, effective_to, approved_by
+       ) VALUES (
+         'RP-expired-test', 'expired-policy-category', 'BANNED', '{}'::jsonb, 'expired-test',
+         '2025-01-01T00:00:00Z', '2025-02-01T00:00:00Z', $1
+       ) ON CONFLICT (category_id, policy_version) DO UPDATE SET effective_to = EXCLUDED.effective_to`,
+      [verifiedActor]
+    );
+    const draft = await inventory.createDraft(
+      verifiedActor,
+      verifiedShop,
+      { ...listingInput("Expired policy item"), categoryId: "expired-policy-category" }
+    );
+    await attachValidImage(draft.id);
+
+    const published = await inventory.publish(verifiedActor, verifiedShop, draft.id);
+
+    expect(published.listing.status).toBe("ACTIVE");
+    expect(published.policy.policyLevel).toBeNull();
+  });
+
+  it("returns only active, non-banned categories for the picker", async () => {
+    await pool.query(
+      `INSERT INTO categories (id, name, active) VALUES ('inactive-test-category', 'Inactive', false)
+       ON CONFLICT (id) DO UPDATE SET active = false`
+    );
+
+    const categories = await inventory.listCategories();
+
+    expect(categories.map((category) => category.id)).toContain("home");
+    expect(categories.map((category) => category.id)).not.toContain("inactive-test-category");
+    expect(categories.map((category) => category.id)).not.toContain("banned-weapons-explosives");
+  });
+
   it("searches public listings without accents and hides non-public inventory", async () => {
     const active = await inventory.createDraft(verifiedActor, verifiedShop, listingInput("Váy lụa dáng dài"));
     const draft = await inventory.createDraft(verifiedActor, verifiedShop, listingInput("Váy lụa còn nháp"));
     const inactiveShopListing = await inventory.createDraft(pendingActor, pendingShop, listingInput("Váy lụa shop khóa"));
+    await attachValidImage(active.id);
     await inventory.publish(verifiedActor, verifiedShop, active.id);
     await pool.query("UPDATE listings SET status = 'ACTIVE', published_at = now() WHERE id = $1", [inactiveShopListing.id]);
 
@@ -137,6 +292,7 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
 
   it("claims an event once across concurrent workers and remains idempotent", async () => {
     const draft = await inventory.createDraft(verifiedActor, verifiedShop, listingInput("Outbox item"));
+    await attachValidImage(draft.id);
     await inventory.publish(verifiedActor, verifiedShop, draft.id);
 
     const claimed = await Promise.all([outbox.processBatch(1), outbox.processBatch(1)]);
@@ -160,12 +316,107 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
       client.release();
     }
   });
+
+  it("verifies storage metadata before attaching an image to an owned draft", async () => {
+    const draft = await inventory.createDraft(verifiedActor, verifiedShop, listingInput("Image metadata item"));
+    const intent = await inventory.createImageUploadIntent(
+      verifiedActor,
+      verifiedShop,
+      draft.id,
+      { mimeType: "image/webp", sizeBytes: 42_000 }
+    );
+    mediaStorage.objects.set(intent.key, {
+      key: intent.key,
+      mimeType: "image/webp",
+      sizeBytes: 42_000,
+      width: 1200,
+      height: 900
+    });
+
+    const completed = await inventory.completeImageUpload(verifiedActor, verifiedShop, draft.id, intent.key);
+
+    expect(completed.images).toEqual([{
+      key: intent.key,
+      url: `https://storage.test/public/${intent.key}`,
+      width: 1200,
+      height: 900
+    }]);
+  });
+
+  it("rejects invalid authoritative metadata and another shop's image path", async () => {
+    const draft = await inventory.createDraft(verifiedActor, verifiedShop, listingInput("Invalid image item"));
+    const intent = await inventory.createImageUploadIntent(
+      verifiedActor,
+      verifiedShop,
+      draft.id,
+      { mimeType: "image/png", sizeBytes: 100 }
+    );
+    mediaStorage.objects.set(intent.key, {
+      key: intent.key,
+      mimeType: "text/html",
+      sizeBytes: 100,
+      width: 1,
+      height: 1
+    });
+
+    await expect(inventory.completeImageUpload(verifiedActor, verifiedShop, draft.id, intent.key))
+      .rejects.toMatchObject<Partial<DomainError>>({ code: "VALIDATION_FAILED", status: 422 });
+    await expect(inventory.completeImageUpload(pendingActor, pendingShop, draft.id, intent.key))
+      .rejects.toMatchObject<Partial<DomainError>>({ code: "RESOURCE_NOT_FOUND", status: 404 });
+  });
+
+  it("enforces six images atomically and blocks publishing a draft without an image", async () => {
+    const emptyDraft = await inventory.createDraft(verifiedActor, verifiedShop, listingInput("No image item"));
+    await expect(inventory.publish(verifiedActor, verifiedShop, emptyDraft.id))
+      .rejects.toMatchObject<Partial<DomainError>>({ code: "LISTING_IMAGE_REQUIRED", status: 409 });
+
+    const draft = await inventory.createDraft(verifiedActor, verifiedShop, listingInput("Six image item"));
+    const intents = await Promise.all(Array.from({ length: 7 }, () => inventory.createImageUploadIntent(
+      verifiedActor,
+      verifiedShop,
+      draft.id,
+      { mimeType: "image/jpeg", sizeBytes: 1_000 }
+    )));
+    for (const intent of intents) {
+      mediaStorage.objects.set(intent.key, {
+        key: intent.key,
+        mimeType: "image/jpeg",
+        sizeBytes: 1_000,
+        width: 800,
+        height: 600
+      });
+    }
+
+    const results = await Promise.allSettled(intents.map((intent) =>
+      inventory.completeImageUpload(verifiedActor, verifiedShop, draft.id, intent.key)));
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(6);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+    expect((await inventory.listShopListings(verifiedActor, verifiedShop))
+      .find((listing) => listing.id === draft.id)?.images).toHaveLength(6);
+  });
+
+  async function attachValidImage(listingId: string): Promise<void> {
+    const intent = await inventory.createImageUploadIntent(
+      verifiedActor,
+      verifiedShop,
+      listingId,
+      { mimeType: "image/jpeg", sizeBytes: 1_000 }
+    );
+    mediaStorage.objects.set(intent.key, {
+      key: intent.key,
+      mimeType: "image/jpeg",
+      sizeBytes: 1_000,
+      width: 800,
+      height: 600
+    });
+    await inventory.completeImageUpload(verifiedActor, verifiedShop, listingId, intent.key);
+  }
 });
 
 function listingInput(title: string) {
   return {
     title,
-    categoryId: "fixture-category",
+    categoryId: "home",
     conditionGrade: "GOOD" as const,
     conditionNotes: "Synthetic fixture in good condition",
     price: 120_000,

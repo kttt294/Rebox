@@ -22,18 +22,70 @@ export type CreateListingInput = z.infer<typeof createListingSchema>;
 export const updateListingDraftSchema = createListingSchema.strict();
 export type UpdateListingDraftInput = z.infer<typeof updateListingDraftSchema>;
 
+export const categorySchema = z.object({
+  id: z.string(),
+  name: z.string()
+});
+export type Category = z.infer<typeof categorySchema>;
+
+export const listingPolicyLevelSchema = z.enum(["BANNED", "MANUAL_REVIEW", "DISCLOSURE"]);
+export type ListingPolicyLevel = z.infer<typeof listingPolicyLevelSchema>;
+
+export const catalogImageMimeTypes = ["image/jpeg", "image/png", "image/webp"] as const;
+export const maxCatalogImageBytes = 5 * 1024 * 1024;
+export const maxCatalogImages = 6;
+
+export const createCatalogImageUploadSchema = z.object({
+  mimeType: z.enum(catalogImageMimeTypes),
+  sizeBytes: z.number().int().positive().max(maxCatalogImageBytes)
+}).strict();
+export type CreateCatalogImageUploadInput = z.infer<typeof createCatalogImageUploadSchema>;
+
+export const completeCatalogImageUploadSchema = z.object({ key: z.string().min(1).max(500) }).strict();
+export type CompleteCatalogImageUploadInput = z.infer<typeof completeCatalogImageUploadSchema>;
+
+export const catalogImageUploadIntentSchema = z.object({
+  key: z.string(),
+  uploadUrl: z.string().url(),
+  expiresAt: z.string().datetime(),
+  headers: z.record(z.string(), z.string())
+});
+export type CatalogImageUploadIntent = z.infer<typeof catalogImageUploadIntentSchema>;
+
+export const listingImageSchema = z.object({
+  key: z.string(),
+  url: z.string().url(),
+  width: z.number().int().positive(),
+  height: z.number().int().positive()
+});
+export type ListingImage = z.infer<typeof listingImageSchema>;
+
 export const listingSchema = createListingSchema.extend({
   id: z.string(),
   shopId: z.string(),
   shopDisplayName: z.string(),
-  images: z.array(z.object({ key: z.string(), width: z.number().int(), height: z.number().int() })),
+  images: z.array(listingImageSchema).max(maxCatalogImages),
   status: z.enum(["DRAFT", "PENDING_REVIEW", "ACTIVE", "HIDDEN_BY_FUND", "RESERVED", "SOLD", "RELISTABLE", "SUSPENDED", "DELISTED"]),
   publishedAt: z.string().datetime().nullable(),
   createdAt: z.string().datetime()
 });
 export type Listing = z.infer<typeof listingSchema>;
 
-export const publicListingSchema = listingSchema.omit({ images: true, status: true, weightGram: true });
+export const listingPolicyResultSchema = z.object({
+  outcome: z.enum(["ACTIVE", "PENDING_REVIEW"]),
+  policyLevel: listingPolicyLevelSchema.nullable(),
+  policyVersion: z.string().nullable(),
+  message: z.string()
+});
+export type ListingPolicyResult = z.infer<typeof listingPolicyResultSchema>;
+
+export const publishListingResultSchema = z.object({
+  listing: listingSchema,
+  policy: listingPolicyResultSchema
+});
+export type PublishListingResult = z.infer<typeof publishListingResultSchema>;
+
+export const publicListingSchema = listingSchema.omit({ status: true, weightGram: true });
 export type PublicListing = z.infer<typeof publicListingSchema>;
 
 const optionalQueryText = (maxLength: number) =>

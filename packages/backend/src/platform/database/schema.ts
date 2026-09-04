@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   bigint,
+  boolean,
   check,
   index,
   integer,
@@ -9,6 +10,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
   uuid
 } from "drizzle-orm/pg-core";
 
@@ -65,6 +67,38 @@ export const shopMemberships = pgTable(
 
 export type ListingImage = { key: string; width: number; height: number };
 
+export const categories = pgTable(
+  "categories",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    active: boolean("active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [index("idx_categories_picker").on(table.active, table.sortOrder, table.name)]
+);
+
+export const restrictedCategories = pgTable(
+  "restricted_categories",
+  {
+    id: text("id").primaryKey(),
+    categoryId: text("category_id").notNull().references(() => categories.id),
+    policyLevel: text("policy_level").notNull(),
+    ruleSnapshot: jsonb("rule_snapshot").$type<Record<string, unknown>>().notNull(),
+    policyVersion: text("policy_version").notNull(),
+    effectiveFrom: timestamp("effective_from", { withTimezone: true }).notNull(),
+    effectiveTo: timestamp("effective_to", { withTimezone: true }),
+    approvedBy: uuid("approved_by").notNull().references(() => profiles.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    check("restricted_categories_policy_level_check", sql`${table.policyLevel} IN ('BANNED', 'MANUAL_REVIEW', 'DISCLOSURE')`),
+    unique("restricted_categories_category_version_unique").on(table.categoryId, table.policyVersion),
+    index("idx_restricted_categories_effective").on(table.categoryId, table.effectiveFrom, table.effectiveTo)
+  ]
+);
+
 export const listings = pgTable(
   "listings",
   {
@@ -74,7 +108,7 @@ export const listings = pgTable(
       .references(() => shops.id),
     title: text("title").notNull(),
     description: text("description"),
-    categoryId: text("category_id").notNull(),
+    categoryId: text("category_id").notNull().references(() => categories.id),
     conditionGrade: text("condition_grade").notNull(),
     conditionNotes: text("condition_notes").notNull(),
     price: bigint("price", { mode: "number" }).notNull(),
@@ -83,6 +117,9 @@ export const listings = pgTable(
     priceSource: text("price_source").notNull().default("SELLER_DECLARED"),
     status: text("status").notNull().default("DRAFT"),
     publishedAt: timestamp("published_at", { withTimezone: true }),
+    appliedPolicyVersion: text("applied_policy_version"),
+    appliedPolicySnapshot: jsonb("applied_policy_snapshot").$type<Record<string, unknown>>(),
+    policyEvaluatedAt: timestamp("policy_evaluated_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => [
