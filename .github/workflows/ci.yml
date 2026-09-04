@@ -17,7 +17,13 @@ jobs:
       - name: Install dependencies
         run: corepack pnpm install --frozen-lockfile
       - name: Start local Supabase
-        run: corepack pnpm supabase start
+        run: |
+          corepack pnpm supabase start
+          eval "$(corepack pnpm supabase status -o env)"
+          {
+            echo "SUPABASE_SECRET_KEY=$SECRET_KEY"
+            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$PUBLISHABLE_KEY"
+          } >> "$GITHUB_ENV"
       - name: Apply canonical migration and synthetic seed
         run: corepack pnpm db:migrate && corepack pnpm db:seed
       - name: Verify generated API contract
