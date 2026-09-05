@@ -66,7 +66,7 @@ function ReboxBrand({ section }: { section?: string | undefined }) {
 function SearchField({ className = "", placeholder = "Tìm kiếm sản phẩm hoàn, đồ mới giá tốt..." }: { className?: string; placeholder?: string | undefined }) {
   return (
     <form action="/search" className={`flex h-12 min-w-0 items-center overflow-hidden rounded-md bg-white pl-[18px] pr-1 ${className}`} role="search">
-      <input aria-label="Tìm kiếm sản phẩm" className="h-full min-w-0 flex-1 border-0 bg-transparent text-sm outline-none" name="q" placeholder={placeholder} type="search" />
+      <input aria-label="Tìm kiếm sản phẩm" className="h-full min-w-0 flex-1 border-0 bg-transparent text-sm outline-none focus:outline-none" name="q" placeholder={placeholder} type="search" />
       <button aria-label="Tìm kiếm" className="flex h-10 w-[60px] shrink-0 items-center justify-center rounded-[5px] bg-[var(--accent-strong)]" type="submit">
         <Image alt="" aria-hidden height={22} src="/rebox/search.svg" width={22} />
       </button>

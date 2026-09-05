@@ -33,9 +33,12 @@ button { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
 input, select, textarea { color: var(--ink); }
 input::placeholder, textarea::placeholder { color: #98a6b8; }
-input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible {
+button:focus-visible, a:focus-visible {
   outline: 3px solid rgb(71 124 195 / 24%);
   outline-offset: 2px;
+}
+input:focus, input:focus-visible, select:focus, select:focus-visible, textarea:focus, textarea:focus-visible {
+  outline: none;
 }
 
 .rebox-container {
