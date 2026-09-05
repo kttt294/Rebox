@@ -21,6 +21,14 @@ VALUES
     crypt('Synthetic-Test-Password-123!', gen_salt('bf')), now(),
     '', '', '', '',
     '{"provider":"email","providers":["email"]}', '{}', now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '10000000-0000-4000-8000-000000000003',
+    'authenticated', 'authenticated', 'moderator@rebox.test',
+    crypt('Synthetic-Test-Password-123!', gen_salt('bf')), now(),
+    '', '', '', '',
+    '{"provider":"email","providers":["email"]}', '{}', now(), now()
   )
 ON CONFLICT (id) DO UPDATE
 SET encrypted_password = EXCLUDED.encrypted_password,
@@ -42,14 +50,26 @@ VALUES
     '10000000-0000-4000-8000-000000000002',
     '{"sub":"10000000-0000-4000-8000-000000000002","email":"pending-seller@rebox.test","email_verified":true}',
     'email', now(), now(), now()
+  ),
+  (
+    '10000000-0000-4000-8000-000000000003',
+    '10000000-0000-4000-8000-000000000003',
+    '{"sub":"10000000-0000-4000-8000-000000000003","email":"moderator@rebox.test","email_verified":true}',
+    'email', now(), now(), now()
   )
 ON CONFLICT (provider_id, provider) DO NOTHING;
 
 INSERT INTO profiles (id, status)
 VALUES
   ('10000000-0000-4000-8000-000000000001', 'ACTIVE'),
-  ('10000000-0000-4000-8000-000000000002', 'ACTIVE')
+  ('10000000-0000-4000-8000-000000000002', 'ACTIVE'),
+  ('10000000-0000-4000-8000-000000000003', 'ACTIVE')
 ON CONFLICT (id) DO NOTHING;
+
+-- Local/test only. Staff still must enroll and verify TOTP to obtain AAL2.
+INSERT INTO platform_staff_roles (user_id, role, status)
+VALUES ('10000000-0000-4000-8000-000000000003', 'MODERATOR', 'ACTIVE')
+ON CONFLICT (user_id, role) DO NOTHING;
 
 INSERT INTO categories (id, name, active, sort_order)
 VALUES

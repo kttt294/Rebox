@@ -41,7 +41,7 @@ export const shops = pgTable(
   },
   (table) => [
     check("shops_legal_type_check", sql`${table.legalType} IN ('INDIVIDUAL', 'HOUSEHOLD', 'ENTERPRISE')`),
-    check("shops_kyc_status_check", sql`${table.kycStatus} IN ('PENDING', 'VERIFIED', 'REJECTED')`),
+    check("shops_kyc_status_check", sql`${table.kycStatus} IN ('PENDING', 'PROCESSING', 'VERIFIED', 'REJECTED', 'MANUAL_REVIEW')`),
     unique("shops_display_name_unique").on(table.displayName),
     check(
       "shops_status_check",
@@ -341,3 +341,30 @@ export const outboxEvents = pgTable(
     index("idx_outbox_claim").on(table.status, table.availableAt)
   ]
 );
+
+export const platformStaffRoles = pgTable("platform_staff_roles", {
+  userId: uuid("user_id").notNull().references(() => profiles.id),
+  role: text("role").notNull(),
+  status: text("status").notNull().default("ACTIVE"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+}, (table) => [
+  primaryKey({ columns: [table.userId, table.role] }),
+  check("platform_staff_roles_role_check", sql`${table.role} IN ('SUPPORT', 'MODERATOR', 'DISPUTE_ARBITRATOR', 'SUPER_ADMIN')`),
+  check("platform_staff_roles_status_check", sql`${table.status} IN ('ACTIVE', 'INACTIVE')`)
+]);
+
+export const sellerKycReviews = pgTable("seller_kyc_reviews", {
+  id: text("id").primaryKey(),
+  kycId: text("kyc_id").notNull().references(() => sellerKyc.id),
+  reviewerId: uuid("reviewer_id").notNull().references(() => profiles.id),
+  decision: text("decision").notNull(),
+  reason: text("reason").notNull(),
+  idempotencyKey: uuid("idempotency_key").notNull(),
+  requestHash: text("request_hash").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+}, (table) => [
+  unique("seller_kyc_reviews_kyc_unique").on(table.kycId),
+  unique("seller_kyc_reviews_reviewer_key_unique").on(table.reviewerId, table.idempotencyKey),
+  check("seller_kyc_reviews_decision_check", sql`${table.decision} IN ('APPROVE', 'REJECT')`),
+  check("seller_kyc_reviews_reason_check", sql`char_length(btrim(${table.reason})) BETWEEN 1 AND 1000 AND ${table.reason} = btrim(${table.reason})`)
+]);

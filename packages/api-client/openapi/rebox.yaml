@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: REBOX API
-  version: 1.3.0
+  version: 1.4.0
 servers:
   - url: http://127.0.0.1:3001
 paths:
@@ -175,6 +175,143 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/KycStatus" }
+  /v1/admin/kyc:
+    get:
+      operationId: listKycReviews
+      description: Requires database staff role MODERATOR or SUPER_ADMIN, ACTIVE profile/role, and verified JWT aal2.
+      security:
+      - {bearerAuth: []}
+      parameters:
+      - name: status
+        in: query
+        schema: {type: string, enum: [MANUAL_REVIEW], default: MANUAL_REVIEW}
+      - name: cursor
+        in: query
+        schema: {type: string, maxLength: 200}
+        description: Opaque nextCursor from the previous page.
+      responses:
+        '200':
+          description: Authorized KYC review response
+          headers:
+            Cache-Control:
+              schema: {type: string, const: no-store}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AdminKycQueue'}
+        '401':
+          description: Missing or invalid JWT
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '403':
+          description: Active moderator/super admin and AAL2 required
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '404':
+          description: KYC not found
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '422':
+          description: Invalid query, body or key
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /v1/admin/kyc/{kycId}:
+    get:
+      operationId: getKycReview
+      description: Requires database staff role MODERATOR or SUPER_ADMIN, ACTIVE profile/role, and verified JWT aal2.
+      security:
+      - {bearerAuth: []}
+      parameters:
+      - name: kycId
+        in: path
+        required: true
+        schema: {type: string}
+      responses:
+        '200':
+          description: Authorized KYC review response
+          headers:
+            Cache-Control:
+              schema: {type: string, const: no-store}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AdminKycDetail'}
+        '401':
+          description: Missing or invalid JWT
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '403':
+          description: Active moderator/super admin and AAL2 required
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '404':
+          description: KYC not found
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '422':
+          description: Invalid query, body or key
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /v1/admin/kyc/{kycId}/decision:
+    post:
+      operationId: decideKycReview
+      description: Requires database staff role MODERATOR or SUPER_ADMIN, ACTIVE profile/role, and verified JWT aal2.
+      security:
+      - {bearerAuth: []}
+      parameters:
+      - name: kycId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Authorized KYC review response
+          headers:
+            Cache-Control:
+              schema: {type: string, const: no-store}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/KycDecisionResult'}
+        '401':
+          description: Missing or invalid JWT
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '403':
+          description: Active moderator/super admin and AAL2 required
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '404':
+          description: KYC not found
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '422':
+          description: Invalid query, body or key
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '409':
+          description: Already decided or idempotency key reused with a different payload
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/KycDecision'}
   /v1/shops:
     post:
       operationId: createShop
@@ -458,6 +595,19 @@ components:
       required: true
       schema: { type: string }
   schemas:
+    Error:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, requestId]
+          properties:
+            code: {type: string}
+            message: {type: string}
+            requestId: {type: string}
     Health:
       type: object
       required: [status]
@@ -481,21 +631,28 @@ components:
         shopStatus: { type: string, enum: [ONBOARDING, ACTIVE, PAUSED, LOCKED_INSUFFICIENT_FUND, SUSPENDED] }
     ActorContext:
       type: object
+      additionalProperties: false
       required: [id, profileStatus, shops]
       properties:
-        id: { type: string, format: uuid }
-        profileStatus: { anyOf: [{ type: string, enum: [ACTIVE, SUSPENDED, DELETED] }, { type: "null" }] }
+        id: {type: string, format: uuid}
+        profileStatus:
+          anyOf:
+          - {type: string, enum: [ACTIVE, SUSPENDED, DELETED]}
+          - {type: 'null'}
         shops:
           type: array
           items:
-            allOf:
-              - $ref: "#/components/schemas/ShopAccess"
-              - type: object
-                required: [id, membershipStatus, status]
-                properties:
-                  id: { type: string }
-                  membershipStatus: { type: string }
-                  status: { type: string }
+            type: object
+            additionalProperties: false
+            required: [id, displayName, role, membershipStatus, kycId, kycStatus, status]
+            properties:
+              id: {type: string}
+              displayName: {type: string}
+              role: {type: string, enum: [OWNER, MANAGER, WAREHOUSE, ACCOUNTING]}
+              membershipStatus: {type: string}
+              kycId: {type: [string, 'null']}
+              kycStatus: {type: string, enum: [PENDING, PROCESSING, VERIFIED, REJECTED, MANUAL_REVIEW]}
+              status: {type: string, enum: [ONBOARDING, ACTIVE, PAUSED, LOCKED_INSUFFICIENT_FUND, SUSPENDED]}
     CreateListing:
       type: object
       required: [title, categoryId, conditionGrade, conditionNotes, price, weightGram]
@@ -542,34 +699,122 @@ components:
           required: [id]
           properties:
             id: { type: string }
+    KycReview:
+      type: object
+      additionalProperties: false
+      required: [reason, reviewedAt]
+      properties:
+        reason: {type: string}
+        reviewedAt: {type: string, format: date-time}
+    KycIdentity:
+      type: object
+      additionalProperties: false
+      required: [citizenId, fullName, dateOfBirth, gender, address, issuedAt]
+      properties:
+        citizenId: {type: [string, 'null'], description: Masked identifier; only the last four digits are shown.}
+        fullName: {type: [string, 'null']}
+        dateOfBirth: {type: [string, 'null']}
+        gender: {type: [string, 'null']}
+        address: {type: [string, 'null']}
+        issuedAt: {type: [string, 'null']}
+    KycVerification:
+      type: object
+      additionalProperties: false
+      required: [documentValid, faceMatched, faceScore, livenessPassed, livenessScore]
+      properties:
+        documentValid: {type: [boolean, 'null']}
+        faceMatched: {type: [boolean, 'null']}
+        faceScore: {type: [number, 'null']}
+        livenessPassed: {type: [boolean, 'null']}
+        livenessScore: {type: [number, 'null']}
+    AdminKycQueueItem:
+      type: object
+      additionalProperties: false
+      required: [kycId, shopId, shopDisplayName, status, provider, submittedAt]
+      properties:
+        kycId: {type: string}
+        shopId: {type: string}
+        shopDisplayName: {type: string}
+        status: {type: string, const: MANUAL_REVIEW}
+        provider: {type: string}
+        submittedAt: {type: string, format: date-time}
+    AdminKycQueue:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/AdminKycQueueItem'}
+        nextCursor: {type: [string, 'null']}
+    KycDecision:
+      type: object
+      additionalProperties: false
+      required: [decision, reason]
+      properties:
+        decision: {type: string, enum: [APPROVE, REJECT]}
+        reason: {type: string, minLength: 1, maxLength: 1000, description: Trimmed non-empty reason visible to seller.}
+    KycDecisionResult:
+      type: object
+      additionalProperties: false
+      required: [kycId, kycStatus, review]
+      properties:
+        kycId: {type: string}
+        kycStatus: {type: string, enum: [VERIFIED, REJECTED]}
+        review: {$ref: '#/components/schemas/KycReview'}
+    AdminKycDetail:
+      type: object
+      additionalProperties: false
+      required: [kycId, shopId, shopDisplayName, status, provider, submittedAt, identity, verification, review, tax, bank]
+      properties:
+        kycId: {type: string}
+        shopId: {type: string}
+        shopDisplayName: {type: string}
+        status: {type: string, enum: [PENDING, PROCESSING, VERIFIED, REJECTED, MANUAL_REVIEW]}
+        provider: {type: string}
+        submittedAt: {type: string, format: date-time}
+        identity: {$ref: '#/components/schemas/KycIdentity'}
+        verification: {$ref: '#/components/schemas/KycVerification'}
+        review:
+          anyOf:
+          - {$ref: '#/components/schemas/KycReview'}
+          - {type: 'null'}
+        tax:
+          type: object
+          additionalProperties: false
+          required: [status, registeredName]
+          properties:
+            status:
+              anyOf:
+              - {type: string, enum: [VERIFIED, NOT_FOUND, UNAVAILABLE]}
+              - {type: 'null'}
+            registeredName: {type: [string, 'null']}
+        bank:
+          type: object
+          additionalProperties: false
+          required: [bankCode, accountNumber, status, registeredName, nameMatchScore]
+          properties:
+            bankCode: {type: [string, 'null']}
+            accountNumber: {type: [string, 'null'], description: Masked account number.}
+            status:
+              anyOf:
+              - {type: string, enum: [VERIFIED, NOT_FOUND, UNAVAILABLE]}
+              - {type: 'null'}
+            registeredName: {type: [string, 'null']}
+            nameMatchScore: {type: [number, 'null']}
     KycStatus:
       type: object
       additionalProperties: false
-      required: [success, kycStatus, identity, verification]
+      required: [success, kycStatus, review, identity, verification]
       properties:
-        success: { type: boolean }
-        kycStatus: { type: string, enum: [PENDING, PROCESSING, VERIFIED, REJECTED, MANUAL_REVIEW] }
-        identity:
-          type: object
-          additionalProperties: false
-          required: [citizenId, fullName, dateOfBirth, gender, address, issuedAt]
-          properties:
-            citizenId: { anyOf: [{ type: string }, { type: "null" }] }
-            fullName: { anyOf: [{ type: string }, { type: "null" }] }
-            dateOfBirth: { anyOf: [{ type: string }, { type: "null" }] }
-            gender: { anyOf: [{ type: string }, { type: "null" }] }
-            address: { anyOf: [{ type: string }, { type: "null" }] }
-            issuedAt: { anyOf: [{ type: string }, { type: "null" }] }
-        verification:
-          type: object
-          additionalProperties: false
-          required: [documentValid, faceMatched, faceScore, livenessPassed, livenessScore]
-          properties:
-            documentValid: { anyOf: [{ type: boolean }, { type: "null" }] }
-            faceMatched: { anyOf: [{ type: boolean }, { type: "null" }] }
-            faceScore: { anyOf: [{ type: number, minimum: 0, maximum: 1 }, { type: "null" }] }
-            livenessPassed: { anyOf: [{ type: boolean }, { type: "null" }] }
-            livenessScore: { anyOf: [{ type: number, minimum: 0, maximum: 1 }, { type: "null" }] }
+        success: {type: boolean}
+        kycStatus: {type: string, enum: [PENDING, PROCESSING, VERIFIED, REJECTED, MANUAL_REVIEW]}
+        review:
+          anyOf:
+          - {$ref: '#/components/schemas/KycReview'}
+          - {type: 'null'}
+        identity: {$ref: '#/components/schemas/KycIdentity'}
+        verification: {$ref: '#/components/schemas/KycVerification'}
     ListingImage:
       type: object
       additionalProperties: false

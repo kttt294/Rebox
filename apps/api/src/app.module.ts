@@ -1,3 +1,5 @@
+import { AdminKycController } from "./http/controllers/admin-kyc.controller";
+import { KycReviewerGuard } from "./http/guards/kyc-reviewer.guard";
 import { Inject, Module, type OnApplicationShutdown } from "@nestjs/common";
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import type { DatabaseContext } from "@rebox/backend";
@@ -11,9 +13,10 @@ import { SupabaseJwtGuard } from "./http/guards/supabase-jwt.guard";
 import { RequestContextInterceptor } from "./http/interceptors/request-context.interceptor";
 
 @Module({
-  controllers: [HealthController, IdentityController, KycController, ListingsController],
+  controllers: [AdminKycController, HealthController, IdentityController, KycController, ListingsController],
   providers: [
     ...backendProviders,
+    KycReviewerGuard,
     { provide: APP_GUARD, useClass: SupabaseJwtGuard },
     { provide: APP_INTERCEPTOR, useClass: RequestContextInterceptor },
     { provide: APP_FILTER, useClass: HttpExceptionFilter }

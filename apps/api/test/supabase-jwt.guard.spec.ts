@@ -34,6 +34,15 @@ describe("SupabaseJwtGuard", () => {
     expect(request).toMatchObject({ actor: { id: "10000000-0000-4000-8000-000000000010" } });
   });
 
+  it("takes AAL only from the signed JWT and defaults missing claims to AAL1", async () => {
+    for (const aal of ["aal1", "aal2", undefined]) {
+      const request = { headers: { authorization: `Bearer ${await token("authenticated", aal)}` } };
+      await createGuard(false).canActivate(contextFor(request));
+      expect(request).toMatchObject({ actor: { id: "10000000-0000-4000-8000-000000000010", aal: aal ?? "aal1" } });
+      expect(Object.keys((request as unknown as { actor: object }).actor).sort()).toEqual(["aal", "id"]);
+    }
+  });
+
   it("rejects a token for the wrong audience", async () => {
     const guard = createGuard(false);
     const request = { headers: { authorization: `Bearer ${await token("another-audience")}` } };
@@ -52,8 +61,8 @@ function createGuard(isPublic: boolean): SupabaseJwtGuard {
   return new SupabaseJwtGuard({ getAllAndOverride: () => isPublic } as never);
 }
 
-async function token(audience: string): Promise<string> {
-  return new SignJWT({ role: "SUPER_ADMIN" })
+async function token(audience: string, aal?: string): Promise<string> {
+  return new SignJWT({ role: "SUPER_ADMIN", ...(aal ? { aal } : {}) })
     .setProtectedHeader({ alg: "ES256", kid: "test-key" })
     .setIssuer(issuer)
     .setAudience(audience)

@@ -288,9 +288,9 @@ export function SellerWorkbench() {
           <p className="font-black text-[var(--ink)]">{shop.displayName}</p>
           <p className="mt-1 text-sm text-[var(--muted)]">Vai trò {shop.role} · Trạng thái {shop.status}</p>
         </div>
-        <span className={`w-fit rounded-lg px-3 py-1.5 text-xs font-black ${kycTone}`}>
-          {kycLabel}
-        </span>
+        <Link href="/seller/kyc" className={`w-fit rounded-lg px-3 py-1.5 text-xs font-black ${kycTone}`}>
+          {kycLabel} · Xem chi tiết
+        </Link>
       </section>
 
       {error ? <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800" role="alert">{error}</p> : null}

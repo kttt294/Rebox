@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Post } from "@nestjs/common";
+import { Body, Controller, Get, Header, Inject, Param, Post } from "@nestjs/common";
 import type { KycModule } from "@rebox/backend";
 import { DomainError } from "@rebox/backend";
 import {
@@ -47,6 +47,7 @@ export class KycController {
   }
 
   @Get(":id/status")
+  @Header("Cache-Control", "no-store")
   status(@CurrentActor() actor: Actor, @Param("id") id: string) {
     return this.kyc.getStatus(actor.id, id);
   }

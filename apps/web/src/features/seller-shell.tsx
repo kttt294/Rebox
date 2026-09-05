@@ -24,6 +24,7 @@ export function SellerShell({ children }: { children: ReactNode }) {
           <p className="mb-1 text-[11px] font-medium text-[var(--muted)]">QUẢN LÝ BÁN HÀNG</p>
           <div className="grid gap-1">
             <SellerNavItem active={pathname === "/seller/inventory"} href="/seller/inventory">Quản Lý Kho Hàng</SellerNavItem>
+            <SellerNavItem active={pathname === "/seller/kyc"} href="/seller/kyc">Trạng thái xác minh</SellerNavItem>
             <SellerNavItem active={pathname === "/seller/returns"} href="/seller/returns">Khiếu nại / Hoàn trả</SellerNavItem>
           </div>
           <p className="mb-1 mt-5 text-[11px] font-medium text-[var(--muted)]">TÀI CHÍNH</p>

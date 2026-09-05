@@ -48,6 +48,7 @@ export const shopSummarySchema = z.object({
   displayName: z.string(),
   role: shopRoleSchema,
   membershipStatus: z.string(),
+  kycId: z.string().nullable(),
   kycStatus: z.enum(["PENDING", "PROCESSING", "VERIFIED", "REJECTED", "MANUAL_REVIEW"]),
   status: z.enum(["ONBOARDING", "ACTIVE", "PAUSED", "LOCKED_INSUFFICIENT_FUND", "SUSPENDED"])
 });

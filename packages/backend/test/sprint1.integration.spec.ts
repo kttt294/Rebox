@@ -124,6 +124,14 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
     expect(state.rows[0]?.status).toBe("DRAFT");
   });
 
+  it.each(["PROCESSING", "MANUAL_REVIEW", "REJECTED"])("blocks publish while KYC is %s", async (status) => {
+    await pool.query("UPDATE shops SET kyc_status = $2 WHERE id = $1", [pendingShop, status]);
+    try {
+      const draft = await inventory.createDraft(pendingActor, pendingShop, listingInput("Unverified KYC"));
+      await expect(inventory.publish(pendingActor, pendingShop, draft.id)).rejects.toMatchObject({ code: "SHOP_NOT_VERIFIED" });
+    } finally { await pool.query("UPDATE shops SET kyc_status = 'PENDING' WHERE id = $1", [pendingShop]); }
+  });
+
   it("creates a pending seller only after the complete mock onboarding payload", async () => {
     const displayName = `Synthetic onboarding ${randomUUID()}`;
     const input = {

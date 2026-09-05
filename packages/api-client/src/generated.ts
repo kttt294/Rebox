@@ -196,6 +196,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/kyc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Requires database staff role MODERATOR or SUPER_ADMIN, ACTIVE profile/role, and verified JWT aal2. */
+        get: operations["listKycReviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/kyc/{kycId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Requires database staff role MODERATOR or SUPER_ADMIN, ACTIVE profile/role, and verified JWT aal2. */
+        get: operations["getKycReview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/kyc/{kycId}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Requires database staff role MODERATOR or SUPER_ADMIN, ACTIVE profile/role, and verified JWT aal2. */
+        post: operations["decideKycReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/shops": {
         parameters: {
             query?: never;
@@ -362,6 +413,13 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Error: {
+            error: {
+                code: string;
+                message: string;
+                requestId: string;
+            };
+        };
         Health: {
             /** @constant */
             status: "ok";
@@ -384,11 +442,18 @@ export interface components {
             /** Format: uuid */
             id: string;
             profileStatus: ("ACTIVE" | "SUSPENDED" | "DELETED") | null;
-            shops: (components["schemas"]["ShopAccess"] & {
+            shops: {
                 id: string;
+                displayName: string;
+                /** @enum {string} */
+                role: "OWNER" | "MANAGER" | "WAREHOUSE" | "ACCOUNTING";
                 membershipStatus: string;
-                status: string;
-            })[];
+                kycId: string | null;
+                /** @enum {string} */
+                kycStatus: "PENDING" | "PROCESSING" | "VERIFIED" | "REJECTED" | "MANUAL_REVIEW";
+                /** @enum {string} */
+                status: "ONBOARDING" | "ACTIVE" | "PAUSED" | "LOCKED_INSUFFICIENT_FUND" | "SUSPENDED";
+            }[];
         };
         CreateListing: {
             title: string;
@@ -426,25 +491,85 @@ export interface components {
         KycStartResult: components["schemas"]["KycStatus"] & {
             id: string;
         };
+        KycReview: {
+            reason: string;
+            /** Format: date-time */
+            reviewedAt: string;
+        };
+        KycIdentity: {
+            /** @description Masked identifier; only the last four digits are shown. */
+            citizenId: string | null;
+            fullName: string | null;
+            dateOfBirth: string | null;
+            gender: string | null;
+            address: string | null;
+            issuedAt: string | null;
+        };
+        KycVerification: {
+            documentValid: boolean | null;
+            faceMatched: boolean | null;
+            faceScore: number | null;
+            livenessPassed: boolean | null;
+            livenessScore: number | null;
+        };
+        AdminKycQueueItem: {
+            kycId: string;
+            shopId: string;
+            shopDisplayName: string;
+            /** @constant */
+            status: "MANUAL_REVIEW";
+            provider: string;
+            /** Format: date-time */
+            submittedAt: string;
+        };
+        AdminKycQueue: {
+            items: components["schemas"]["AdminKycQueueItem"][];
+            nextCursor: string | null;
+        };
+        KycDecision: {
+            /** @enum {string} */
+            decision: "APPROVE" | "REJECT";
+            /** @description Trimmed non-empty reason visible to seller. */
+            reason: string;
+        };
+        KycDecisionResult: {
+            kycId: string;
+            /** @enum {string} */
+            kycStatus: "VERIFIED" | "REJECTED";
+            review: components["schemas"]["KycReview"];
+        };
+        AdminKycDetail: {
+            kycId: string;
+            shopId: string;
+            shopDisplayName: string;
+            /** @enum {string} */
+            status: "PENDING" | "PROCESSING" | "VERIFIED" | "REJECTED" | "MANUAL_REVIEW";
+            provider: string;
+            /** Format: date-time */
+            submittedAt: string;
+            identity: components["schemas"]["KycIdentity"];
+            verification: components["schemas"]["KycVerification"];
+            review: components["schemas"]["KycReview"] | null;
+            tax: {
+                status: ("VERIFIED" | "NOT_FOUND" | "UNAVAILABLE") | null;
+                registeredName: string | null;
+            };
+            bank: {
+                bankCode: string | null;
+                /** @description Masked account number. */
+                accountNumber: string | null;
+                status: ("VERIFIED" | "NOT_FOUND" | "UNAVAILABLE") | null;
+                registeredName: string | null;
+                nameMatchScore: number | null;
+            };
+        };
         KycStatus: {
             success: boolean;
             /** @enum {string} */
             kycStatus: "PENDING" | "PROCESSING" | "VERIFIED" | "REJECTED" | "MANUAL_REVIEW";
-            identity: {
-                citizenId: string | null;
-                fullName: string | null;
-                dateOfBirth: string | null;
-                gender: string | null;
-                address: string | null;
-                issuedAt: string | null;
-            };
-            verification: {
-                documentValid: boolean | null;
-                faceMatched: boolean | null;
-                faceScore: number | null;
-                livenessPassed: boolean | null;
-                livenessScore: number | null;
-            };
+            review: components["schemas"]["KycReview"] | null;
+            identity: components["schemas"]["KycIdentity"];
+            verification: components["schemas"]["KycVerification"];
         };
         ListingImage: {
             key: string;
@@ -831,6 +956,200 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["KycStatus"];
+                };
+            };
+        };
+    };
+    listKycReviews: {
+        parameters: {
+            query?: {
+                status?: "MANUAL_REVIEW";
+                /** @description Opaque nextCursor from the previous page. */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authorized KYC review response */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminKycQueue"];
+                };
+            };
+            /** @description Missing or invalid JWT */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Active moderator/super admin and AAL2 required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description KYC not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Invalid query, body or key */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getKycReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kycId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authorized KYC review response */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminKycDetail"];
+                };
+            };
+            /** @description Missing or invalid JWT */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Active moderator/super admin and AAL2 required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description KYC not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Invalid query, body or key */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    decideKycReview: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                kycId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KycDecision"];
+            };
+        };
+        responses: {
+            /** @description Authorized KYC review response */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycDecisionResult"];
+                };
+            };
+            /** @description Missing or invalid JWT */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Active moderator/super admin and AAL2 required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description KYC not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Already decided or idempotency key reused with a different payload */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Invalid query, body or key */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };

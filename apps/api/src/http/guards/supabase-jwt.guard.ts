@@ -43,7 +43,7 @@ export class SupabaseJwtGuard implements CanActivate {
       if (typeof payload.sub !== "string") {
         throw new Error("Missing subject");
       }
-      request.actor = { id: payload.sub };
+      request.actor = { id: payload.sub, aal: payload.aal === "aal2" ? "aal2" : "aal1" };
       return true;
     } catch {
       throw new UnauthorizedException({ code: "INVALID_ACCESS_TOKEN", message: "Access token is invalid" });

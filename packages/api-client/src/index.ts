@@ -1,4 +1,5 @@
 import type {
+  AdminKycQueue, AdminKycDetail, KycDecisionInput, KycDecisionResult,
   ActorContext,
   CatalogImageUploadIntent,
   Category,
@@ -64,7 +65,14 @@ export function createApiClient(options: ApiClientOptions) {
 
   return {
     listCategories: () => request<Category[]>("/v1/categories", { cache: "no-store" }),
-    getMe: () => request<ActorContext>("/v1/me"),
+    getMe: () => request<ActorContext>("/v1/me", { cache: "no-store" }),
+    listKycReviews: (cursor?: string) => request<AdminKycQueue>(
+      `/v1/admin/kyc?status=MANUAL_REVIEW${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`, { cache: "no-store" }),
+    getKycReview: (id: string) => request<AdminKycDetail>(`/v1/admin/kyc/${encodeURIComponent(id)}`, { cache: "no-store" }),
+    decideKycReview: (id: string, input: KycDecisionInput, key: string) => request<KycDecisionResult>(
+      `/v1/admin/kyc/${encodeURIComponent(id)}/decision`, {
+        method: "POST", headers: { "Idempotency-Key": key }, body: JSON.stringify(input)
+      }),
     createShop: (input: CreateShopInput) =>
       request<{ shopId: string }>("/v1/shops", { method: "POST", body: JSON.stringify(input) }),
     startKyc: (shopId: string) =>
@@ -88,7 +96,7 @@ export function createApiClient(options: ApiClientOptions) {
         method: "POST", body: JSON.stringify({ kycId, bankCode, accountNumber })
       }),
     getKycStatus: (kycId: string) =>
-      request<KycStatusResponse>(`/v1/kyc/${encodeURIComponent(kycId)}/status`),
+      request<KycStatusResponse>(`/v1/kyc/${encodeURIComponent(kycId)}/status`, { cache: "no-store" }),
     uploadSellerDocument: async (kind: SellerDocumentKind, file: Blob) => {
       const intent = await request<CatalogImageUploadIntent>("/v1/seller-onboarding/uploads", {
         method: "POST",

@@ -1,4 +1,4 @@
-export type Actor = { id: string };
+export type Actor = { id: string; aal?: "aal1" | "aal2" };
 
 export type AuthenticatedRequest = {
   headers: { authorization?: string };

@@ -27,6 +27,7 @@ const capabilityRoles: Record<ShopCapability, ReadonlySet<ShopRole>> = {
 
 type MembershipRow = {
   shop_id: string;
+  kyc_id: string | null;
   display_name: string;
   role: ShopRole;
   membership_status: string;
@@ -188,9 +189,10 @@ export class IdentityModule {
     );
     const memberships = await this.pool.query<MembershipRow>(
       `SELECT sm.shop_id, s.display_name, sm.role,
-              sm.status AS membership_status, s.kyc_status, s.status AS shop_status
+              sm.status AS membership_status, s.kyc_status, s.status AS shop_status, k.id AS kyc_id
        FROM shop_memberships sm
        JOIN shops s ON s.id = sm.shop_id
+       LEFT JOIN seller_kyc k ON k.shop_id = s.id AND k.user_id = sm.user_id AND sm.role = 'OWNER' AND sm.status = 'ACTIVE'
        WHERE sm.user_id = $1
        ORDER BY sm.created_at ASC`,
       [actorId]
@@ -204,6 +206,7 @@ export class IdentityModule {
         displayName: row.display_name,
         role: row.role,
         membershipStatus: row.membership_status,
+        kycId: row.kyc_id,
         kycStatus: row.kyc_status,
         status: row.shop_status
       }))
