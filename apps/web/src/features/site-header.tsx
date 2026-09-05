@@ -2,9 +2,30 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { getSupabaseBrowserClient } from "../platform/auth/browser";
 
 function UtilityNavigation({ compact = false }: { compact?: boolean }) {
+  const router = useRouter();
+  const [email, setEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+    supabase.auth.getSession().then(({ data }) => {
+      setEmail(data.session?.user.email ?? null);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setEmail(session?.user.email ?? null);
+    });
+    return () => { subscription.unsubscribe(); };
+  }, []);
+
+  async function logout() {
+    await getSupabaseBrowserClient().auth.signOut();
+    router.replace("/");
+  }
+
   return (
     <div className={`rebox-container flex h-[30px] items-center justify-between gap-6 overflow-hidden text-white/95 ${compact ? "text-[13px]" : "text-sm"}`}>
       <p className="hidden whitespace-nowrap sm:block">
@@ -13,9 +34,19 @@ function UtilityNavigation({ compact = false }: { compact?: boolean }) {
       </p>
       <p className="ml-auto whitespace-nowrap">
         Thông báo&nbsp;&nbsp; Hỗ trợ&nbsp;&nbsp; Tiếng Việt&nbsp;&nbsp; | &nbsp;&nbsp;
-        <Link className="hover:underline" href="/register">Đăng ký</Link>
-        &nbsp;&nbsp; | &nbsp;&nbsp;
-        <Link className="hover:underline" href="/login">Đăng nhập</Link>
+        {email ? (
+          <>
+            <Link className="opacity-90 hover:underline" href="/account/profile">{email.split("@")[0]}</Link>
+            &nbsp;&nbsp; | &nbsp;&nbsp;
+            <button className="hover:underline" onClick={logout} type="button">Đăng xuất</button>
+          </>
+        ) : (
+          <>
+            <Link className="hover:underline" href="/register">Đăng ký</Link>
+            &nbsp;&nbsp; | &nbsp;&nbsp;
+            <Link className="hover:underline" href="/login">Đăng nhập</Link>
+          </>
+        )}
       </p>
     </div>
   );

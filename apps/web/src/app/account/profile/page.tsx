@@ -24,7 +24,6 @@ export default function ProfilePage() {
     <AccountShell activeHref="/account/profile">
       <section className="min-h-[574px] w-[780px] max-w-full border border-[var(--line)] bg-white px-[30px] py-5 md:-ml-5">
         <h1 className="text-xl font-normal">Hồ sơ của tôi</h1>
-        <p className="mt-1.5 text-xs text-[var(--muted)]">Thông tin hiện có trong PostgreSQL/Supabase Auth</p>
         <div className="mt-4 h-px bg-[var(--line)]" />
         {error ? <p className="mt-6 rounded-md bg-amber-50 p-4 text-amber-800">{error}</p> : actor ? (
           <dl className="mt-6 grid gap-4 text-sm">
