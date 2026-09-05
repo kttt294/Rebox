@@ -12,6 +12,7 @@ import type {
   PublicListingsQuery,
   PublishListingResult,
   ReturnManifestPreview,
+  SellerDocumentKind,
   UpdateListingDraftInput
 } from "@rebox/shared";
 
@@ -65,6 +66,17 @@ export function createApiClient(options: ApiClientOptions) {
     getMe: () => request<ActorContext>("/v1/me"),
     createShop: (input: CreateShopInput) =>
       request<{ shopId: string }>("/v1/shops", { method: "POST", body: JSON.stringify(input) }),
+    uploadSellerDocument: async (kind: SellerDocumentKind, file: Blob) => {
+      const intent = await request<CatalogImageUploadIntent>("/v1/seller-onboarding/uploads", {
+        method: "POST",
+        body: JSON.stringify({ kind, mimeType: file.type, sizeBytes: file.size })
+      });
+      const upload = await fetch(intent.uploadUrl, { method: "PUT", headers: intent.headers, body: file });
+      if (!upload.ok) {
+        throw new ApiClientError(upload.status, "SELLER_DOCUMENT_UPLOAD_FAILED", "Seller document upload failed");
+      }
+      return intent.key;
+    },
     listShopListings: (shopId: string) => request<Listing[]>(`/v1/shops/${encodeURIComponent(shopId)}/listings`),
     createListing: (shopId: string, input: CreateListingInput) =>
       request<Listing>(`/v1/shops/${encodeURIComponent(shopId)}/listings`, {

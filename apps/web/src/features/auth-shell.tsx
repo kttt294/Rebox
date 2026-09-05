@@ -26,21 +26,18 @@ export function AuthBody({ children }: { children: ReactNode }) {
   );
 }
 
-export function AuthField({ autoComplete, name, placeholder, required = false, type = "text" }: { autoComplete: string; name: string; placeholder: string; required?: boolean; type?: "email" | "password" | "text" }) {
+export function AuthField({ autoComplete, minLength, name, placeholder, required = false, type = "text" }: { autoComplete: string; minLength?: number; name: string; placeholder: string; required?: boolean; type?: "email" | "password" | "text" }) {
   return (
     <input
       autoComplete={autoComplete}
       className="h-10 w-full border border-[var(--line)] bg-white px-3.5 text-sm outline-none"
+      minLength={minLength}
       name={name}
       placeholder={placeholder}
       required={required}
       type={type}
     />
   );
-}
-
-export function AuthSubmitButton({ children }: { children: ReactNode }) {
-  return <button className="h-10 w-full bg-[var(--accent-header)] text-sm font-bold text-white hover:bg-[var(--accent-strong)]" type="button">{children}</button>;
 }
 
 export function RememberLogin() {

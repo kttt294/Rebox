@@ -9,7 +9,7 @@ class FakeCatalogMediaStorage implements CatalogMediaStorage {
   private readonly objects = new Map<string, CatalogImageObject>();
 
   async createUploadIntent(input: { key: string; mimeType: string; sizeBytes: number }): Promise<CatalogImageUploadIntent> {
-    this.objects.set(input.key, { ...input, width: 1200, height: 900 });
+    this.objects.set(input.key, { ...input, width: 1200, height: 900, sha256: "a".repeat(64) });
     return {
       key: input.key,
       uploadUrl: `https://storage.test/${input.key}`,

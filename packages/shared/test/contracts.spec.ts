@@ -78,7 +78,31 @@ describe("Sprint 1 contracts", () => {
   });
 
   it("normalizes shop names at the trust boundary", () => {
-    expect(createShopSchema.parse({ displayName: "  Shop Mộc  ", legalType: "INDIVIDUAL" }).displayName).toBe("Shop Mộc");
+    expect(createShopSchema.parse({
+      displayName: "  Shop Mộc  ",
+      legalType: "INDIVIDUAL",
+      description: "Shop synthetic dùng để kiểm thử",
+      phone: "0901234567",
+      pickupAddress: {
+        contactName: "Nguyen Van Test",
+        addressLine: "123 Duong Test",
+        province: "Ha Noi",
+        district: "Cau Giay",
+        ward: "Dich Vong"
+      },
+      kyc: {
+        taxCode: "MOCK-TAX-001",
+        bankCode: "MOCK-BANK",
+        bankAccount: "0000000000",
+        accountHolder: "NGUYEN VAN TEST"
+      },
+      documents: {
+        avatarKey: "seller-onboarding/user/avatar/avatar.png",
+        cccdFrontKey: "seller-onboarding/user/cccd/front.png",
+        cccdBackKey: "seller-onboarding/user/cccd/back.png"
+      },
+      carrierCodes: ["GHN"]
+    }).displayName).toBe("Shop Mộc");
   });
 
   it("accepts only the unopened-package manifest contract", () => {

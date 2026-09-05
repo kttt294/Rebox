@@ -87,21 +87,6 @@ export function SellerWorkbench() {
     void loadCategories();
   }, [loadCategories, reload]);
 
-  async function createShop(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    setAction("create-shop");
-    setError(undefined);
-    try {
-      await api.createShop({ displayName: String(data.get("displayName")), legalType: "INDIVIDUAL" });
-      await reload();
-    } catch {
-      setError("Không thể tạo shop. Vui lòng kiểm tra tên hiển thị và thử lại.");
-    } finally {
-      setAction(undefined);
-    }
-  }
-
   async function saveListing(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!shop) return;
@@ -282,19 +267,10 @@ export function SellerWorkbench() {
   if (!shop) {
     return (
       <section className="mt-6 max-w-2xl rounded-[18px] border border-[var(--line)] bg-white p-6 shadow-[0_12px_35px_rgba(35,63,101,0.06)] sm:p-8">
-        <p className="text-sm font-bold text-[var(--accent)]">Thiết lập ban đầu</p>
-        <h2 className="mt-1 text-2xl font-black tracking-tight">Tạo shop đầu tiên</h2>
-        <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Tên này sẽ xuất hiện trên trang sản phẩm công khai.</p>
-        {error ? <p className="mt-5 rounded-xl bg-red-50 p-3 text-sm text-red-700" role="alert">{error}</p> : null}
-        <form className="mt-6" onSubmit={createShop}>
-          <label className="grid gap-2 text-sm font-bold" htmlFor="displayName">
-            Tên hiển thị
-            <input className="rounded-xl border border-[var(--line-strong)] px-4 py-3.5 font-normal transition-colors hover:border-slate-400" id="displayName" name="displayName" minLength={2} maxLength={120} placeholder="Ví dụ: REBOX Store Hà Nội" required />
-          </label>
-          <button className="mt-5 rounded-xl bg-[var(--accent)] px-5 py-3 font-bold text-white disabled:opacity-60" disabled={action === "create-shop"}>
-            {action === "create-shop" ? "Đang tạo shop..." : "Tạo shop"}
-          </button>
-        </form>
+        <p className="text-sm font-bold text-[var(--accent)]">Bạn chưa có shop</p>
+        <h2 className="mt-1 text-2xl font-black tracking-tight">Đăng ký trở thành người bán</h2>
+        <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Hoàn thành hồ sơ shop, địa chỉ lấy hàng, KYC test và cấu hình vận chuyển trước khi vào Seller Center.</p>
+        <Link className="mt-6 inline-flex rounded-xl bg-[var(--accent)] px-5 py-3 font-bold text-white" href="/seller/onboarding">Bắt đầu đăng ký</Link>
       </section>
     );
   }

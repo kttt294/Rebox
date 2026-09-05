@@ -4,6 +4,7 @@ import type {
   CatalogMediaStorage
 } from "@rebox/backend";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createHash } from "node:crypto";
 import sharp from "sharp";
 
 const signedUploadLifetimeMs = 2 * 60 * 60 * 1_000;
@@ -44,15 +45,17 @@ export class SupabaseCatalogMediaStorage implements CatalogMediaStorage {
 
     const { data: file, error: downloadError } = await bucket.download(key);
     if (downloadError) throw downloadError;
-    const metadata = await sharp(await file.arrayBuffer()).metadata();
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const metadata = await sharp(bytes).metadata().catch(() => undefined);
     const expectedFormat = info.contentType === "image/jpeg" ? "jpeg" : info.contentType?.slice("image/".length);
-    const formatMatches = metadata.format === expectedFormat;
+    const formatMatches = metadata?.format === expectedFormat;
     return {
       key,
       mimeType: info.contentType ?? "",
       sizeBytes: info.size ?? 0,
-      width: formatMatches ? metadata.width ?? 0 : 0,
-      height: formatMatches ? metadata.height ?? 0 : 0
+      width: formatMatches ? metadata?.width ?? 0 : 0,
+      height: formatMatches ? metadata?.height ?? 0 : 0,
+      sha256: createHash("sha256").update(bytes).digest("hex")
     };
   }
 

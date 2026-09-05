@@ -28,7 +28,8 @@ export default function LoginPage() {
         setError("Email hoặc mật khẩu không đúng.");
         return;
       }
-      router.replace("/seller/inventory");
+      const next = new URLSearchParams(window.location.search).get("next");
+      router.replace(next === "/seller/onboarding" ? next : "/");
     } catch {
       setError("Không thể kết nối dịch vụ đăng nhập. Vui lòng thử lại.");
     } finally {

@@ -4,6 +4,7 @@ export type CatalogImageObject = {
   sizeBytes: number;
   width: number;
   height: number;
+  sha256: string;
 };
 
 export type CatalogImageUploadIntent = {

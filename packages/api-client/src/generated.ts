@@ -68,6 +68,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/seller-onboarding/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createSellerDocumentUploadIntent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/shops": {
         parameters: {
             query?: never;
@@ -278,6 +294,13 @@ export interface components {
             mimeType: "image/jpeg" | "image/png" | "image/webp";
             sizeBytes: number;
         };
+        CreateSellerDocumentUpload: {
+            /** @enum {string} */
+            kind: "AVATAR" | "CCCD_FRONT" | "CCCD_BACK";
+            /** @enum {string} */
+            mimeType: "image/jpeg" | "image/png" | "image/webp";
+            sizeBytes: number;
+        };
         CatalogImageUploadIntent: {
             key: string;
             /** Format: uri */
@@ -481,6 +504,30 @@ export interface operations {
             };
         };
     };
+    createSellerDocumentUploadIntent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSellerDocumentUpload"];
+            };
+        };
+        responses: {
+            /** @description Signed upload intent for an avatar or private KYC document */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogImageUploadIntent"];
+                };
+            };
+        };
+    };
     createShop: {
         parameters: {
             query?: never;
@@ -494,6 +541,27 @@ export interface operations {
                     displayName: string;
                     /** @enum {string} */
                     legalType: "INDIVIDUAL" | "HOUSEHOLD" | "ENTERPRISE";
+                    description: string;
+                    phone: string;
+                    pickupAddress: {
+                        contactName: string;
+                        addressLine: string;
+                        province: string;
+                        district: string;
+                        ward: string;
+                    };
+                    kyc: {
+                        taxCode: string;
+                        bankCode: string;
+                        bankAccount: string;
+                        accountHolder: string;
+                    };
+                    documents: {
+                        avatarKey: string;
+                        cccdFrontKey: string;
+                        cccdBackKey: string;
+                    };
+                    carrierCodes: ("GHN" | "GHTK")[];
                 };
             };
         };

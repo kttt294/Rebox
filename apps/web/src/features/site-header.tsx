@@ -8,7 +8,7 @@ function UtilityNavigation({ compact = false }: { compact?: boolean }) {
   return (
     <div className={`rebox-container flex h-[30px] items-center justify-between gap-6 overflow-hidden text-white/95 ${compact ? "text-[13px]" : "text-sm"}`}>
       <p className="hidden whitespace-nowrap sm:block">
-        <Link className="hover:underline" href="/seller/finance">Kênh Người Bán</Link>
+        <Link className="hover:underline" href="/seller/onboarding">Kênh Người Bán</Link>
         &nbsp;&nbsp; | &nbsp;&nbsp;Trở thành đối tác REBOX&nbsp;&nbsp; | &nbsp;&nbsp;Tải ứng dụng
       </p>
       <p className="ml-auto whitespace-nowrap">

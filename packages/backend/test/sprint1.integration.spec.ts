@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { readFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { Pool } from "pg";
 import type { DomainError } from "../src/errors";
@@ -43,10 +44,27 @@ class FakeCatalogMediaStorage implements CatalogMediaStorage {
   }
 }
 
+function imageObject(key: string, hashCharacter = "a"): CatalogImageObject {
+  return {
+    key,
+    mimeType: "image/png",
+    sizeBytes: 1024,
+    width: 800,
+    height: 500,
+    sha256: hashCharacter.repeat(64)
+  };
+}
+
 describe("Sprint 1 PostgreSQL vertical slice", () => {
   const pool = new Pool({ connectionString: databaseUrl });
-  const identity = new IdentityModule(pool);
   const mediaStorage = new FakeCatalogMediaStorage();
+  const kycStorage = new FakeCatalogMediaStorage();
+  const identity = new IdentityModule(
+    pool,
+    "test-seller-pii-encryption-key-at-least-32-characters",
+    mediaStorage,
+    kycStorage
+  );
   const inventory = new InventoryModule(pool, identity, mediaStorage, {
     encryptionSecret: "test-encryption-secret-at-least-32-characters",
     hmacSecret: "test-hmac-secret-at-least-32-characters"
@@ -64,6 +82,7 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
     await pool.query("DELETE FROM listings WHERE id NOT LIKE 'RBX-01JTEST%'");
     await pool.query("TRUNCATE outbox_events");
     mediaStorage.objects.clear();
+    kycStorage.objects.clear();
   });
 
   afterAll(async () => {
@@ -98,6 +117,60 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
     });
     const state = await pool.query<{ status: string }>("SELECT status FROM listings WHERE id = $1", [draft.id]);
     expect(state.rows[0]?.status).toBe("DRAFT");
+  });
+
+  it("creates a pending seller only after the complete mock onboarding payload", async () => {
+    const displayName = `Synthetic onboarding ${randomUUID()}`;
+    const input = {
+      displayName,
+      legalType: "INDIVIDUAL" as const,
+      description: "Synthetic seller onboarding profile",
+      phone: "0901234567",
+      pickupAddress: {
+        contactName: "Nguyen Van Test",
+        addressLine: "123 Duong Test",
+        province: "Ha Noi",
+        district: "Cau Giay",
+        ward: "Dich Vong"
+      },
+      kyc: {
+        taxCode: "MOCK-TAX-001",
+        bankCode: "MOCK-BANK",
+        bankAccount: "0000000000",
+        accountHolder: "NGUYEN VAN TEST"
+      },
+      documents: {
+        avatarKey: `seller-onboarding/${pendingActor}/avatar/avatar.png`,
+        cccdFrontKey: `seller-onboarding/${pendingActor}/cccd/front.png`,
+        cccdBackKey: `seller-onboarding/${pendingActor}/cccd/back.png`
+      },
+      carrierCodes: ["GHN", "GHTK"] as const
+    };
+    let shopId: string | undefined;
+
+    try {
+      mediaStorage.objects.set(input.documents.avatarKey, imageObject(input.documents.avatarKey));
+      kycStorage.objects.set(input.documents.cccdFrontKey, imageObject(input.documents.cccdFrontKey, "b"));
+      kycStorage.objects.set(input.documents.cccdBackKey, imageObject(input.documents.cccdBackKey, "c"));
+      const created = await identity.onboardShop(pendingActor, input);
+      shopId = created.shopId;
+      expect(created).toMatchObject({ displayName, role: "OWNER", kycStatus: "PENDING", shopStatus: "ONBOARDING" });
+
+      const stored = await pool.query<{ phone_enc: Buffer; kyc_mode: string; carrier_codes: string[] }>(
+        "SELECT phone_enc, kyc_mode, carrier_codes FROM shop_onboarding_profiles WHERE shop_id = $1",
+        [shopId]
+      );
+      expect(stored.rows[0]?.phone_enc.equals(Buffer.from(input.phone))).toBe(false);
+      expect(stored.rows[0]).toMatchObject({ kyc_mode: "MANUAL", carrier_codes: ["GHN", "GHTK"] });
+
+      await expect(identity.onboardShop(pendingActor, input))
+        .rejects.toMatchObject<Partial<DomainError>>({ code: "SHOP_NAME_TAKEN", status: 409 });
+    } finally {
+      if (shopId) {
+        await pool.query("DELETE FROM shop_memberships WHERE shop_id = $1", [shopId]);
+        await pool.query("DELETE FROM shops WHERE id = $1", [shopId]);
+      }
+    }
   });
 
   it("does not expose another shop through an ownership probe", async () => {
@@ -338,7 +411,8 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
       mimeType: "image/webp",
       sizeBytes: 42_000,
       width: 1200,
-      height: 900
+      height: 900,
+      sha256: "a".repeat(64)
     });
 
     const completed = await inventory.completeImageUpload(verifiedActor, verifiedShop, draft.id, intent.key);
@@ -364,7 +438,8 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
       mimeType: "text/html",
       sizeBytes: 100,
       width: 1,
-      height: 1
+      height: 1,
+      sha256: "a".repeat(64)
     });
 
     await expect(inventory.completeImageUpload(verifiedActor, verifiedShop, draft.id, intent.key))
@@ -391,7 +466,8 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
         mimeType: "image/jpeg",
         sizeBytes: 1_000,
         width: 800,
-        height: 600
+        height: 600,
+        sha256: "a".repeat(64)
       });
     }
 
@@ -531,7 +607,8 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
       mimeType: "image/jpeg",
       sizeBytes: 1_000,
       width: 800,
-      height: 600
+      height: 600,
+      sha256: "a".repeat(64)
     });
     await inventory.completeImageUpload(verifiedActor, verifiedShop, listingId, intent.key);
   }

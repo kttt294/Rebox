@@ -41,12 +41,39 @@ export const shops = pgTable(
   (table) => [
     check("shops_legal_type_check", sql`${table.legalType} IN ('INDIVIDUAL', 'HOUSEHOLD', 'ENTERPRISE')`),
     check("shops_kyc_status_check", sql`${table.kycStatus} IN ('PENDING', 'VERIFIED', 'REJECTED')`),
+    unique("shops_display_name_unique").on(table.displayName),
     check(
       "shops_status_check",
       sql`${table.status} IN ('ONBOARDING', 'ACTIVE', 'PAUSED', 'LOCKED_INSUFFICIENT_FUND', 'SUSPENDED')`
     )
   ]
 );
+
+export const shopOnboardingProfiles = pgTable("shop_onboarding_profiles", {
+  shopId: text("shop_id")
+    .primaryKey()
+    .references(() => shops.id, { onDelete: "cascade" }),
+  description: text("description").notNull(),
+  avatarRef: text("avatar_ref").notNull().default("MOCK_DEFAULT_AVATAR"),
+  phoneEnc: bytea("phone_enc").notNull(),
+  pickupContactEnc: bytea("pickup_contact_enc").notNull(),
+  pickupAddressEnc: bytea("pickup_address_enc").notNull(),
+  pickupProvince: text("pickup_province").notNull(),
+  pickupDistrict: text("pickup_district").notNull(),
+  pickupWard: text("pickup_ward").notNull(),
+  kycMode: text("kyc_mode").notNull().default("MANUAL"),
+  kycFrontRef: text("kyc_front_ref").notNull(),
+  kycBackRef: text("kyc_back_ref").notNull(),
+  kycFrontSha256: text("kyc_front_sha256").notNull(),
+  kycBackSha256: text("kyc_back_sha256").notNull(),
+  taxCodeEnc: bytea("tax_code_enc").notNull(),
+  payoutBankCode: text("payout_bank_code").notNull(),
+  payoutAccountEnc: bytea("payout_account_enc").notNull(),
+  payoutHolderEnc: bytea("payout_holder_enc").notNull(),
+  carrierCodes: jsonb("carrier_codes").$type<Array<"GHN" | "GHTK">>().notNull(),
+  submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+}, (table) => [check("shop_onboarding_profiles_kyc_mode_check", sql`${table.kycMode} = 'MANUAL'`)]);
 
 export const shopMemberships = pgTable(
   "shop_memberships",

@@ -12,12 +12,20 @@ export const DATABASE = Symbol("DATABASE");
 export const IDENTITY = Symbol("IDENTITY");
 export const INVENTORY = Symbol("INVENTORY");
 export const CATALOG_MEDIA_STORAGE = Symbol("CATALOG_MEDIA_STORAGE");
+export const SELLER_KYC_STORAGE = Symbol("SELLER_KYC_STORAGE");
 
 function trackingSecret(name: "RETURN_TRACKING_ENCRYPTION_KEY" | "RETURN_TRACKING_HMAC_KEY"): string {
   const configured = process.env[name];
   if (configured) return configured;
   if (process.env.NODE_ENV === "production") throw new Error(`${name} is required`);
   return `local-dev-only-${name}-change-before-production`;
+}
+
+function sellerPiiEncryptionSecret(): string {
+  const configured = process.env.SELLER_PII_ENCRYPTION_KEY;
+  if (configured) return configured;
+  if (process.env.NODE_ENV === "production") throw new Error("SELLER_PII_ENCRYPTION_KEY is required");
+  return "local-dev-only-seller-pii-encryption-key-change-before-production";
 }
 
 export const backendProviders: Provider[] = [
@@ -29,11 +37,6 @@ export const backendProviders: Provider[] = [
       )
   },
   {
-    provide: IDENTITY,
-    inject: [DATABASE],
-    useFactory: (database: DatabaseContext): IdentityModule => new IdentityModule(database.pool)
-  },
-  {
     provide: CATALOG_MEDIA_STORAGE,
     useFactory: (): CatalogMediaStorage => {
       const url = process.env.SUPABASE_URL ?? "http://127.0.0.1:54321";
@@ -41,6 +44,24 @@ export const backendProviders: Provider[] = [
       if (!secretKey) throw new Error("SUPABASE_SECRET_KEY is required for catalog media storage");
       return new SupabaseCatalogMediaStorage(url, secretKey);
     }
+  },
+  {
+    provide: SELLER_KYC_STORAGE,
+    useFactory: (): CatalogMediaStorage => {
+      const url = process.env.SUPABASE_URL ?? "http://127.0.0.1:54321";
+      const secretKey = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (!secretKey) throw new Error("SUPABASE_SECRET_KEY is required for seller KYC storage");
+      return new SupabaseCatalogMediaStorage(url, secretKey, "seller-kyc");
+    }
+  },
+  {
+    provide: IDENTITY,
+    inject: [DATABASE, CATALOG_MEDIA_STORAGE, SELLER_KYC_STORAGE],
+    useFactory: (
+      database: DatabaseContext,
+      avatarStorage: CatalogMediaStorage,
+      kycStorage: CatalogMediaStorage
+    ): IdentityModule => new IdentityModule(database.pool, sellerPiiEncryptionSecret(), avatarStorage, kycStorage)
   },
   {
     provide: INVENTORY,

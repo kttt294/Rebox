@@ -36,6 +36,20 @@
       "when": 1788490002000,
       "tag": "0004_return_manifest_import",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788588000000,
+      "tag": "0005_seller_onboarding",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788588001000,
+      "tag": "0006_seller_document_uploads",
+      "breakpoints": true
     }
   ]
 }
