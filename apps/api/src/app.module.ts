@@ -5,12 +5,13 @@ import { backendProviders, DATABASE } from "./backend.providers";
 import { HealthController } from "./http/controllers/health.controller";
 import { IdentityController } from "./http/controllers/identity.controller";
 import { ListingsController } from "./http/controllers/listings.controller";
+import { KycController } from "./http/controllers/kyc.controller";
 import { HttpExceptionFilter } from "./http/filters/http-exception.filter";
 import { SupabaseJwtGuard } from "./http/guards/supabase-jwt.guard";
 import { RequestContextInterceptor } from "./http/interceptors/request-context.interceptor";
 
 @Module({
-  controllers: [HealthController, IdentityController, ListingsController],
+  controllers: [HealthController, IdentityController, KycController, ListingsController],
   providers: [
     ...backendProviders,
     { provide: APP_GUARD, useClass: SupabaseJwtGuard },

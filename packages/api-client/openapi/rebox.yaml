@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: REBOX API
-  version: 1.2.0
+  version: 1.3.0
 servers:
   - url: http://127.0.0.1:3001
 paths:
@@ -64,6 +64,117 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CatalogImageUploadIntent"
+  /v1/kyc/start:
+    post:
+      operationId: startKyc
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [shopId]
+              properties:
+                shopId: { type: string }
+      responses:
+        "201":
+          description: Idempotently starts KYC for an owned shop
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/KycStartResult" }
+  /v1/kyc/document/front:
+    post:
+      operationId: submitKycDocumentFront
+      security: [{ bearerAuth: [] }]
+      requestBody: { $ref: "#/components/requestBodies/KycImage" }
+      responses:
+        "201":
+          description: Normalized front-side OCR and document validation result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/KycStatus" }
+  /v1/kyc/document/back:
+    post:
+      operationId: submitKycDocumentBack
+      security: [{ bearerAuth: [] }]
+      requestBody: { $ref: "#/components/requestBodies/KycImage" }
+      responses:
+        "201":
+          description: Normalized back-side OCR and document validation result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/KycStatus" }
+  /v1/kyc/selfie:
+    post:
+      operationId: submitKycSelfie
+      security: [{ bearerAuth: [] }]
+      requestBody: { $ref: "#/components/requestBodies/KycImage" }
+      responses:
+        "201":
+          description: Normalized face-match and liveness result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/KycStatus" }
+  /v1/kyc/tax:
+    post:
+      operationId: submitKycTax
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [kycId, taxCode]
+              properties:
+                kycId: { type: string }
+                taxCode: { type: string, pattern: '^\d{10}(-\d{3})?$' }
+      responses:
+        "201":
+          description: Tax verification recorded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/KycStatus" }
+  /v1/kyc/bank:
+    post:
+      operationId: submitKycBank
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [kycId, bankCode, accountNumber]
+              properties:
+                kycId: { type: string }
+                bankCode: { type: string, minLength: 2, maxLength: 30 }
+                accountNumber: { type: string, pattern: '^\d{6,30}$' }
+      responses:
+        "201":
+          description: Bank account verified and authoritative holder name compared
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/KycStatus" }
+  /v1/kyc/{kycId}/status:
+    get:
+      operationId: getKycStatus
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: kycId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Current normalized KYC status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/KycStatus" }
   /v1/shops:
     post:
       operationId: createShop
@@ -313,6 +424,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/PublicListingPage"
 components:
+  requestBodies:
+    KycImage:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [kycId, objectKey]
+            properties:
+              kycId: { type: string }
+              objectKey: { type: string, minLength: 1, maxLength: 500 }
   securitySchemes:
     bearerAuth:
       type: http
@@ -354,7 +477,7 @@ components:
         shopId: { type: string }
         displayName: { type: string }
         role: { type: string, enum: [OWNER, MANAGER, WAREHOUSE, ACCOUNTING] }
-        kycStatus: { type: string, enum: [PENDING, VERIFIED, REJECTED] }
+        kycStatus: { type: string, enum: [PENDING, PROCESSING, VERIFIED, REJECTED, MANUAL_REVIEW] }
         shopStatus: { type: string, enum: [ONBOARDING, ACTIVE, PAUSED, LOCKED_INSUFFICIENT_FUND, SUSPENDED] }
     ActorContext:
       type: object
@@ -399,7 +522,7 @@ components:
       additionalProperties: false
       required: [kind, mimeType, sizeBytes]
       properties:
-        kind: { type: string, enum: [AVATAR, CCCD_FRONT, CCCD_BACK] }
+        kind: { type: string, enum: [AVATAR, CCCD_FRONT, CCCD_BACK, SELFIE] }
         mimeType: { type: string, enum: [image/jpeg, image/png, image/webp] }
         sizeBytes: { type: integer, minimum: 1, maximum: 5242880 }
     CatalogImageUploadIntent:
@@ -412,6 +535,41 @@ components:
         headers:
           type: object
           additionalProperties: { type: string }
+    KycStartResult:
+      allOf:
+        - $ref: "#/components/schemas/KycStatus"
+        - type: object
+          required: [id]
+          properties:
+            id: { type: string }
+    KycStatus:
+      type: object
+      additionalProperties: false
+      required: [success, kycStatus, identity, verification]
+      properties:
+        success: { type: boolean }
+        kycStatus: { type: string, enum: [PENDING, PROCESSING, VERIFIED, REJECTED, MANUAL_REVIEW] }
+        identity:
+          type: object
+          additionalProperties: false
+          required: [citizenId, fullName, dateOfBirth, gender, address, issuedAt]
+          properties:
+            citizenId: { anyOf: [{ type: string }, { type: "null" }] }
+            fullName: { anyOf: [{ type: string }, { type: "null" }] }
+            dateOfBirth: { anyOf: [{ type: string }, { type: "null" }] }
+            gender: { anyOf: [{ type: string }, { type: "null" }] }
+            address: { anyOf: [{ type: string }, { type: "null" }] }
+            issuedAt: { anyOf: [{ type: string }, { type: "null" }] }
+        verification:
+          type: object
+          additionalProperties: false
+          required: [documentValid, faceMatched, faceScore, livenessPassed, livenessScore]
+          properties:
+            documentValid: { anyOf: [{ type: boolean }, { type: "null" }] }
+            faceMatched: { anyOf: [{ type: boolean }, { type: "null" }] }
+            faceScore: { anyOf: [{ type: number, minimum: 0, maximum: 1 }, { type: "null" }] }
+            livenessPassed: { anyOf: [{ type: boolean }, { type: "null" }] }
+            livenessScore: { anyOf: [{ type: number, minimum: 0, maximum: 1 }, { type: "null" }] }
     ListingImage:
       type: object
       additionalProperties: false

@@ -7,6 +7,7 @@ import type {
   CreateShopInput,
   ErrorResponse,
   Listing,
+  KycStatusResponse,
   PublicListing,
   PublicListingPage,
   PublicListingsQuery,
@@ -66,6 +67,28 @@ export function createApiClient(options: ApiClientOptions) {
     getMe: () => request<ActorContext>("/v1/me"),
     createShop: (input: CreateShopInput) =>
       request<{ shopId: string }>("/v1/shops", { method: "POST", body: JSON.stringify(input) }),
+    startKyc: (shopId: string) =>
+      request<KycStatusResponse & { id: string }>("/v1/kyc/start", {
+        method: "POST", body: JSON.stringify({ shopId })
+      }),
+    submitKycDocument: (side: "front" | "back", kycId: string, objectKey: string) =>
+      request<KycStatusResponse>(`/v1/kyc/document/${side}`, {
+        method: "POST", body: JSON.stringify({ kycId, objectKey })
+      }),
+    submitKycSelfie: (kycId: string, objectKey: string) =>
+      request<KycStatusResponse>("/v1/kyc/selfie", {
+        method: "POST", body: JSON.stringify({ kycId, objectKey })
+      }),
+    submitKycTax: (kycId: string, taxCode: string) =>
+      request<KycStatusResponse>("/v1/kyc/tax", {
+        method: "POST", body: JSON.stringify({ kycId, taxCode })
+      }),
+    submitKycBank: (kycId: string, bankCode: string, accountNumber: string) =>
+      request<KycStatusResponse>("/v1/kyc/bank", {
+        method: "POST", body: JSON.stringify({ kycId, bankCode, accountNumber })
+      }),
+    getKycStatus: (kycId: string) =>
+      request<KycStatusResponse>(`/v1/kyc/${encodeURIComponent(kycId)}/status`),
     uploadSellerDocument: async (kind: SellerDocumentKind, file: Blob) => {
       const intent = await request<CatalogImageUploadIntent>("/v1/seller-onboarding/uploads", {
         method: "POST",

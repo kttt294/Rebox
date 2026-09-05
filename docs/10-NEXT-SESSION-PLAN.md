@@ -1,184 +1,260 @@
-# REBOX — Kế hoạch session tiếp theo: nền nhập bản kê
+# REBOX — Kế hoạch session tiếp theo: hoàn tất KYC thủ công
 
-> Cập nhật ngày 04/09/2026. Bước 1 (chốt lại tài liệu và domain) đã hoàn thành; session tiếp theo chỉ làm bước 2–5.
+> Cập nhật ngày 05/09/2026. Luồng import CSV/XLSX đã có trong codebase, vì vậy session tiếp theo không làm lại phần đó. Chỉ triển khai vertical slice **seller xem trạng thái KYC → admin duyệt thủ công → seller được phép hoặc bị chặn publish**.
 
-## 1. Trạng thái bước 1 — đã làm xong
+## 1. Trạng thái hiện tại
 
-Tài liệu canonical đã thống nhất:
+Đã có:
 
-- Seller có hai lựa chọn ngang hàng: `PLATFORM_API` và `SPREADSHEET`.
-- UI đích có hai nút: **Import trực tiếp từ Shopee/TikTok** và **Import CSV/XLSX**.
-- Hai nguồn cùng tạo `ReturnManifestDraft[]` rồi đi qua preview → validate → commit.
-- Không có quy tắc “API ưu tiên, CSV fallback”. Nếu một kênh lỗi, seller tự chọn kênh còn lại.
-- Bản đầu chỉ bật CSV/XLSX. Nút API hiển thị **Sắp có** hoặc nằm sau feature flag cho tới khi đủ partner/ToS/credential gate.
-- Scan là bước sau import và chỉ lookup package local đã commit; scan không tự gọi API.
+- Seller onboarding: upload CCCD mặt trước/sau, selfie, nhập MST và tài khoản ngân hàng.
+- Backend gọi VNPT qua `KycProvider` cho OCR, document validation, face match và liveness.
+- Backend tự xử lý MST/ngân hàng qua `BusinessVerificationProvider`.
+- API hiện hành:
+  - `POST /v1/kyc/start`
+  - `POST /v1/kyc/document/front`
+  - `POST /v1/kyc/document/back`
+  - `POST /v1/kyc/selfie`
+  - `POST /v1/kyc/tax`
+  - `POST /v1/kyc/bank`
+  - `GET /v1/kyc/{kycId}/status`
+- Trạng thái KYC: `PENDING | PROCESSING | VERIFIED | REJECTED | MANUAL_REVIEW`.
+- Publish listing đã bị chặn bằng `SHOP_NOT_VERIFIED` nếu shop chưa `VERIFIED`.
+- Khi URL xác minh MST/ngân hàng chưa cấu hình, provider trả `UNAVAILABLE` và hồ sơ chuyển sang `MANUAL_REVIEW`.
+- Seller Center mới chỉ hiển thị nhãn trạng thái tổng quát; chưa có trang chi tiết, lý do hoặc hành động tiếp theo.
 
-Domain vẫn giữ nguyên: một `ReturnPackage` chưa mở là một đơn vị tồn và sau này tạo tối đa một listing số lượng 1; `ReturnLine` chỉ là dòng nguồn khai báo, không phải món REBOX đã kiểm đếm.
+Khoảng trống cần xử lý:
 
-## 2. Mục tiêu session tiếp theo
+- Chưa có quyền `platform_staff_roles` trong schema/runtime.
+- Chưa có API và web admin cho hàng đợi KYC.
+- Chưa lưu quyết định, người duyệt, thời điểm và lý do duyệt.
+- Seller chưa xem được lý do từ chối hoặc hành động tiếp theo.
+- MST/tài khoản ngân hàng chưa được xác minh thật khi provider trả `UNAVAILABLE`.
 
-Chỉ dựng nền nhập dữ liệu:
+## 2. Mục tiêu session
 
 ```text
-Seller thấy hai nút chọn nguồn
-→ chọn CSV/XLSX
-→ hệ thống parse và chuẩn hóa thành ReturnManifestDraft[]
-→ seller xem preview + lỗi theo dòng/package
-→ commit idempotent thành ReturnPackage + ReturnLine
+Seller hoàn thành onboarding
+→ hồ sơ rơi vào MANUAL_REVIEW
+→ admin AAL2 mở hàng đợi
+→ xem dữ liệu đã normalize và kết quả kiểm tra
+→ APPROVE hoặc REJECT kèm lý do
+→ cập nhật seller_kyc + shops trong một transaction
+→ seller thấy kết quả
+→ chỉ shop VERIFIED được publish
 ```
 
-Kết thúc session này **chưa quét mã, chưa tạo listing và chưa publish**. Hai phần đó được để lại cho bước 6–7.
+Đây là luồng duyệt onboarding tối thiểu. **Không tích hợp PayOS, payout hoặc Account Lookup trong session này.**
 
-## 3. Bước 2 — Hai nút chọn nguồn trên UI
+## 3. Quy tắc nghiệp vụ phải giữ
 
-- Thêm hai action cùng cấp bậc trên màn seller import:
-  - **Import trực tiếp từ Shopee/TikTok** — disabled với nhãn `Sắp có` hoặc tắt bằng feature flag.
-  - **Import bằng CSV/XLSX** — hoạt động thật, chấp nhận `.csv` và `.xlsx`.
-- Cả hai hướng về cùng một màn preview; không tạo hai bộ UI preview riêng.
-- Không tự chuyển kênh khi lỗi. Lỗi spreadsheet chỉ hiện lỗi spreadsheet; lỗi API tương lai chỉ hiện lỗi API.
-- Giữ accessibility tối thiểu: button thật, label trạng thái rõ, focus/keyboard hoạt động và input file có mô tả định dạng.
+- `VERIFIED` trong slice này nghĩa là seller được duyệt định danh/onboarding để đăng bán.
+- Admin approve khi bank/MST provider `UNAVAILABLE` **không được** đổi `seller_bank_accounts.verified` hoặc `seller_tax_info.verified` thành `true`.
+- Tài khoản ngân hàng chưa xác minh không được coi là đủ điều kiện payout. Payout chưa triển khai và tiếp tục để ngoài phạm vi cho tới khi A10/pháp lý/đối tác được chốt.
+- `REJECTED` là quyết định cuối của lần KYC hiện tại. Seller được xem lý do; việc tạo attempt KYC mới để nộp lại toàn bộ để ở phần sau, không reset/ghi đè hồ sơ cũ trong session này.
+- `PROCESSING` chỉ dành cho hồ sơ còn thiếu bước hoặc provider đang xử lý; không dùng thay cho `MANUAL_REVIEW`.
+- Không expose raw response của VNPT cho frontend hoặc admin.
+- Không trả CCCD, selfie, số tài khoản hay MST ở API danh sách.
+- Dữ liệu nhạy cảm chỉ được giải mã ở API chi tiết sau khi đã kiểm tra staff role và AAL2.
+- Không dùng self-declared `accountHolder` để kết luận tài khoản ngân hàng đã xác minh.
+- Mọi quyết định duyệt phải có lý do, actor và timestamp; không có đường tắt bằng update DB từ frontend.
 
-**Kiểm tra:** UI test thấy đủ hai nút, nút spreadsheet mở file picker và nút API không phát request khi đang disabled.
+## 4. Bước 1 — Quyền admin tối thiểu
 
-## 4. Bước 3 — Contract chung cho hai nguồn
+- Thêm `platform_staff_roles` theo quyết định canonical hiện có:
+  - `user_id`
+  - `role`: `SUPPORT | MODERATOR | DISPUTE_ARBITRATOR | SUPER_ADMIN`
+  - `status`: `ACTIVE | INACTIVE`
+  - `created_at`
+  - primary key `(user_id, role)`
+- Trong slice này, chỉ `MODERATOR` và `SUPER_ADMIN` được duyệt KYC.
+- Thêm guard/decorator nhỏ nhất để kiểm tra quyền từ database; không tin role do frontend gửi lên.
+- Endpoint xem/duyệt dữ liệu KYC yêu cầu JWT hợp lệ và AAL2. Local/test seed một staff account; không xây màn quản trị nhân sự.
+- Trả `404` cho hồ sơ không tồn tại; trả `403` cho user đã đăng nhập nhưng không có quyền. Không để seller suy đoán dữ liệu KYC của người khác.
 
-Định nghĩa ở package shared hiện có, không tạo plugin framework:
+**Kiểm tra:** seller thường không gọi được admin API; staff inactive không gọi được; moderator/super admin AAL2 gọi được; token không AAL2 bị chặn.
+
+## 5. Bước 2 — Lưu quyết định manual review
+
+Thêm migration tối thiểu:
+
+```text
+seller_kyc_reviews
+- id
+- kyc_id
+- reviewer_id
+- decision        APPROVE | REJECT
+- reason
+- idempotency_key
+- request_hash
+- created_at
+```
+
+- Bảng review là append-only để không mất lịch sử; không sửa đè quyết định.
+- Unique theo `kyc_id` cho lần KYC hiện tại và `(reviewer_id, idempotency_key)` để xử lý retry.
+- `reason` bắt buộc, trim, giới hạn độ dài hợp lý.
+- Chỉ cho quyết định khi `seller_kyc.status = MANUAL_REVIEW`.
+- Trong cùng một transaction:
+  1. lock hồ sơ KYC;
+  2. xác nhận vẫn là `MANUAL_REVIEW`;
+  3. insert review event;
+  4. đổi `seller_kyc.status` và `shops.kyc_status` sang `VERIFIED` hoặc `REJECTED`;
+  5. set/clear `verified_at` và `kyc_verified_at` nhất quán.
+- Retry cùng idempotency key và cùng payload trả cùng kết quả; cùng key khác payload trả `409`.
+- Hai admin duyệt đồng thời chỉ có một quyết định thắng; request còn lại trả conflict, không tạo hai kết quả trái nhau.
+- Approve onboarding không sửa cờ `verified` của bank/MST nếu provider chưa xác minh thật.
+
+**Kiểm tra:** transaction rollback không để review/status nửa chừng; concurrent review không tạo hai quyết định; bank/MST `UNAVAILABLE` vẫn giữ `verified = false` sau khi onboarding được approve.
+
+## 6. Bước 3 — API admin và response nội bộ
+
+Thêm đúng ba endpoint:
+
+```text
+GET  /v1/admin/kyc?status=MANUAL_REVIEW&cursor=...
+GET  /v1/admin/kyc/{kycId}
+POST /v1/admin/kyc/{kycId}/decision
+     Idempotency-Key: <uuid>
+     { "decision": "APPROVE" | "REJECT", "reason": "..." }
+```
+
+Danh sách chỉ trả dữ liệu vận hành tối thiểu:
 
 ```ts
-type ManifestImportSource = "SPREADSHEET" | "PLATFORM_API";
-
-type ReturnManifestDraft = {
-  source: ManifestImportSource;
-  sourcePlatform: "SHOPEE" | "TIKTOK";
-  sourceTrackingNo: string;
-  sourceOrderRef?: string;
-  sourceReturnRef?: string;
-  returnedAt?: string;
-  packageWeightGram?: number;
-  packageDimensionsCm?: {
-    length: number;
-    width: number;
-    height: number;
-  };
-  packageListingPriceVnd: number;
-  lines: Array<{
-    sourceItemRef: string;
-    sourceSku?: string;
-    sourceQuantity: number;
-    productName: string;
-    variantName?: string;
-    brand?: string;
-    sourceCategory?: string;
-    originalUnitPriceVnd?: number;
-    returnReason?: string;
-    productImageUrls: string[];
-    reboxCategoryId: string;
-  }>;
+type AdminKycQueueItem = {
+  kycId: string;
+  shopId: string;
+  shopDisplayName: string;
+  status: "MANUAL_REVIEW";
+  provider: string;
+  submittedAt: string;
 };
 ```
 
-Chỉ cần giữ `ManifestImportSource` và DTO chung. Chưa tạo `PlatformApiManifestImporter`, OAuth client, scheduler hoặc response giả. Khi API thật xuất hiện, adapter API chỉ cần tạo cùng DTO và gọi lại pipeline preview/commit.
+Chi tiết trả schema nội bộ đã normalize:
 
-**Kiểm tra:** contract không có `ReturnUnit`, `received_quantity`, buyer name/phone/address hoặc field ngụ ý đã mở kiểm tra.
+- Identity OCR: số CCCD masked, họ tên, ngày sinh, giới tính, địa chỉ, ngày cấp.
+- Verification: document valid, face matched/score, liveness passed/score.
+- MST: trạng thái provider và tên đăng ký nếu có.
+- Bank: bank code, số tài khoản masked, trạng thái provider, tên trả về nếu có, name match score.
+- Không có raw VNPT payload, token, object key hoặc public image URL.
 
-## 5. Bước 4 — Preview CSV/XLSX
+Trong session này chưa làm viewer ảnh CCCD/selfie. Nếu vận hành thực tế chứng minh admin bắt buộc phải xem ảnh, làm endpoint signed URL ngắn hạn ở session riêng với AAL2, reason và audit access.
 
-- Dùng fixture 24 cột tại `docs/fixtures/return-import/` làm contract mẫu.
-- CSV và XLSX phải tạo ra cùng `ReturnManifestDraft[]` cho cùng dữ liệu.
-- Một dòng file là một `ReturnLine`; nhóm các dòng cùng tracking thành một `ReturnPackage` draft.
-- Field cấp package lặp trên nhiều dòng phải giống nhau. Nếu khác, trả lỗi package conflict có mã ổn định.
-- `source_quantity` chỉ là số lượng nguồn khai báo. Nhiều SKU hoặc quantity lớn hơn 1 vẫn chỉ là nội dung dự kiến của một kiện.
-- Không gom hai package chỉ vì cùng SKU. Khóa nhóm package là tracking trong phạm vi shop/platform.
-- Preview trả tối thiểu: `rowIndex`, package group, normalized draft, warning/error code và `canCommit`.
-- Chặn buyer/recipient name, phone, address, payment, chat và raw PII trước khi lưu bất kỳ preview payload nào.
-- Chỉ lưu dữ liệu đã allowlist; không giữ raw file nếu chưa có retention policy rõ.
+**Kiểm tra:** OpenAPI/generated client đồng bộ; queue không chứa PII; detail chỉ mở sau authorization; decision validate strict body và idempotency key.
 
-**Kiểm tra:** test CSV/XLSX tương đương, package nhiều SKU, `source_quantity > 1`, hai package cùng SKU không bị gom, field package mâu thuẫn và cột PII bị chặn.
+## 7. Bước 4 — UI seller và admin
 
-## 6. Bước 5 — Commit idempotent
+### Seller
 
-- Thêm migration tối thiểu cho `return_import_batches`, `return_packages` và `return_lines`; chưa thêm liên kết listing trong session này.
-- Batch lưu nguồn, file hash, trạng thái preview/commit, dữ liệu normalized đã allowlist và kết quả commit; không lưu raw PII.
-- Package unique theo `(shop_id, source_platform, source_tracking_hash)`.
-- Line unique theo `(return_package_id, source_item_ref)`.
-- Commit chạy trong transaction và ghi `manifest_source = SPREADSHEET`, `manifest_hash`, version/provenance.
-- Retry cùng batch hoặc cùng idempotency key + payload phải trả lại cùng kết quả, không tạo thêm package/line.
-- Cùng idempotency key nhưng payload khác trả `409`.
-- Cùng khóa package nhưng manifest khác trả conflict; không âm thầm ghi đè.
-- Tracking lưu mã hóa + HMAC theo pattern bảo mật hiện có và không được trả ở public API.
-- Không tạo listing trong commit. Manual listing hiện hành phải tiếp tục chạy như cũ.
+- Bổ sung `kycId` nullable vào shop summary trả bởi `GET /v1/me`, để Seller Center có thể gọi `GET /v1/kyc/{kycId}/status` sau khi reload; không lưu ID này vào localStorage.
+- Mở rộng `KycStatusResponse` bằng `review: { reason, reviewedAt } | null`; không trả `reviewerId` cho seller.
+- Từ Seller Center, trạng thái KYC dẫn tới một khối/trang chi tiết dùng endpoint status hiện có.
+- Hiển thị rõ:
+  - `PROCESSING`: hồ sơ đang xử lý hoặc còn thiếu bước;
+  - `MANUAL_REVIEW`: hồ sơ đang chờ nhân viên duyệt;
+  - `VERIFIED`: được phép đăng bán;
+  - `REJECTED`: hiển thị lý do từ chối và hướng dẫn liên hệ hỗ trợ.
+- Không hiển thị điểm số kỹ thuật cho seller nếu nó không giúp họ thực hiện hành động tiếp theo.
+- Giữ chặn publish hiện có; chỉ bổ sung test để tránh regression.
 
-**Kiểm tra:** migration chạy trên database test sạch; retry 100 lần vẫn có một batch/package/tập line; hai shop dùng cùng tracking vẫn tạo hai package riêng; transaction lỗi không để dữ liệu nửa chừng.
+### Admin
 
-## 7. Ngoài phạm vi session này
+- Thêm route web tối thiểu `/admin/kyc` trong app Next.js hiện có; không tạo app admin riêng.
+- Mặc định chỉ liệt kê `MANUAL_REVIEW`, sắp xếp cũ nhất trước.
+- Admin mở chi tiết, xem dữ liệu normalize, chọn `Approve` hoặc `Reject` và bắt buộc nhập lý do.
+- Disable submit khi đang gửi; sau thành công loại hồ sơ khỏi queue và hiển thị kết quả.
+- Không có bulk approve, auto-approve, AI suggestion, dashboard thống kê hoặc cấu hình rule.
 
-- Live API Shopee/TikTok, OAuth, scheduler hoặc adapter giả.
-- [Bước 6 — Quét shipper label từ dữ liệu đã import](https://app.notion.com/p/3d14a5367da38167b7ceddc357d471de?pvs=204).
-- [Bước 7 — E2E import → quét → listing nguyên kiện](https://app.notion.com/p/3d14a5367da381b1bf8ff22fef2b5044?pvs=204).
-- Publish, public response, reservation, checkout và vận đơn outbound.
-- Mở kiện, kiểm đếm, inspection, condition từng sản phẩm hoặc `ReturnUnit`.
-- Ghép sản phẩm theo SKU hoặc tự tạo `CatalogProduct`.
-- Refactor không liên quan, dependency “để sau này dùng”, `db:reset` hoặc lệnh phá dữ liệu.
+**Kiểm tra:** E2E seller thấy đúng trạng thái/lý do; E2E admin duyệt một hồ sơ; double-click không tạo hai quyết định; user không có quyền không thấy dữ liệu admin.
 
-## 8. Điều kiện hoàn thành
+## 8. Ngoài phạm vi session này
 
-- UI có đúng hai nút nguồn; chỉ CSV/XLSX hoạt động ở bản đầu.
-- CSV và XLSX cùng dữ liệu cho cùng normalized draft.
-- Preview parse/validate và chưa ghi `ReturnPackage`/`ReturnLine`; nếu lưu batch tạm thì chỉ lưu dữ liệu đã allowlist.
-- Commit tạo đúng package/line và retry không tạo trùng.
-- Không có PII buyer gốc, `ReturnUnit`, bước kiểm đếm hoặc listing trong slice này.
-- Shared DTO, backend, controller, OpenAPI và generated client đồng bộ.
-- Test liên quan, lint, typecheck, build và `git diff --check` pass.
+- PayOS, thanh toán, payout, ví, QR nhận tiền hoặc liên kết trực tiếp với ngân hàng.
+- Account Lookup thật và xác minh tên chủ tài khoản.
+- Xác minh MST thật nếu chưa chọn data provider.
+- Gắn `verified = true` cho bank/MST dựa trên dữ liệu seller tự nhập.
+- VNPT IDCheck/chip CCCD/RAR-C06.
+- Tạo attempt KYC mới sau một quyết định `REJECTED`.
+- Viewer ảnh CCCD/selfie hoặc public URL cho ảnh KYC.
+- Live API/OAuth Shopee/TikTok.
+- Scan mã vận đơn, tạo listing mới từ package hoặc refactor luồng import đã có.
+- AI review, bulk action, notification service hoặc dashboard admin.
 
-## 9. Prompt dùng cho session tiếp theo
+## 9. Điều kiện hoàn thành
+
+- `platform_staff_roles` tồn tại và admin API kiểm tra role + AAL2 ở backend.
+- Queue chỉ trả metadata không nhạy cảm; detail trả dữ liệu normalize, không raw provider response.
+- Approve/reject atomic, idempotent và có immutable review event gồm actor, reason, timestamp.
+- `seller_kyc.status` và `shops.kyc_status` luôn đồng bộ.
+- Approve onboarding không giả mạo trạng thái bank/MST đã xác minh.
+- Seller thấy `PROCESSING`, `MANUAL_REVIEW`, `VERIFIED`, `REJECTED` và lý do phù hợp.
+- Chỉ shop `VERIFIED` publish được; test regression cho `SHOP_NOT_VERIFIED` vẫn pass.
+- Migration chạy trên database test sạch.
+- Unit/integration/E2E liên quan, lint, typecheck, build, OpenAPI generated client và `git diff --check` đều pass.
+
+## 10. Việc tiếp theo sau khi hoàn thành session này
+
+Làm vertical slice:
+
+```text
+Seller quét mã vận đơn
+→ backend normalize + HMAC tracking
+→ lookup ReturnPackage đã commit trong phạm vi shop/platform
+→ tạo hoặc mở listing draft gắn với đúng package
+→ seller hoàn thiện thông tin và publish
+```
+
+Scan chỉ lookup dữ liệu local đã import, không tự gọi Shopee/TikTok và không lưu raw tracking ở client.
+
+## 11. Prompt dùng để bắt đầu session mới
 
 ```text
 Làm việc trong repo /Users/minhsang/Rebox.
 
-Mục tiêu: chỉ triển khai bước 2–5 trong docs/10-NEXT-SESSION-PLAN.md:
-hai nút chọn nguồn import, ReturnManifestDraft chung, preview CSV/XLSX và
-commit ReturnPackage/ReturnLine idempotent. Không làm scan hoặc listing.
+Mục tiêu: triển khai đúng vertical slice KYC manual review trong
+docs/10-NEXT-SESSION-PLAN.md. Không làm payment, payout, Account Lookup,
+scan mã vận đơn hoặc tính năng ngoài phạm vi.
 
 Trước khi sửa:
 1. Chạy git status và giữ nguyên mọi thay đổi hiện có.
-2. Đọc CONTEXT.md; docs/07-ARCHITECTURE-DECISIONS.md A06/A16;
-   docs/10-NEXT-SESSION-PLAN.md và hai fixture return-import.
-3. Đọc schema/migration, InventoryModule, shared contracts, OpenAPI/client và
-   màn seller hiện có. Tìm và reuse pattern đã có trước khi thêm code.
-4. Nêu kế hoạch ngắn với cách kiểm tra từng bước.
-
-Giữ đúng domain:
-- PLATFORM_API và SPREADSHEET là hai kênh ngang hàng do seller chọn.
-- Bản đầu chỉ bật CSV/XLSX; nút API là Sắp có/feature-flagged.
-- Cả hai nguồn cùng tạo ReturnManifestDraft[] và dùng chung preview/commit.
-- Không có API ưu tiên hoặc CSV fallback tự động.
-- ReturnPackage là nguyên kiện chưa mở; ReturnLine chỉ là dòng nguồn khai báo.
-- source_quantity không phải tồn vật lý; cùng SKU không có nghĩa cùng sản phẩm.
-- Không tạo ReturnUnit, received_quantity, intake/inspection hoặc grouping SKU.
-- Tracking mã hóa/HMAC; chặn PII buyer gốc ngay tại ingest.
+2. Đọc CONTEXT.md; docs/01-TECHNICAL-SPEC.md phần platform_staff_roles;
+   docs/07-ARCHITECTURE-DECISIONS.md phần authorization/A10;
+   docs/10-NEXT-SESSION-PLAN.md.
+3. Đọc KycModule, KycController, shared KYC contracts, database schema,
+   SupabaseJwtGuard, OpenAPI/generated client và seller UI hiện có.
+4. Xác nhận publish đã chặn shop chưa VERIFIED; không viết lại logic đã có.
+5. Nêu kế hoạch ngắn kèm cách kiểm tra từng bước.
 
 Thực hiện diff nhỏ nhất:
-1. UI có hai nút nguồn; spreadsheet hoạt động, API không phát request.
-2. Shared ManifestImportSource + ReturnManifestDraft.
-3. Preview CSV/XLSX cùng schema 24 cột, cùng normalized output và lỗi ổn định.
-4. Migration/import batch/package/line tối thiểu.
-5. Commit transaction + idempotency + conflict handling.
-6. Đồng bộ controller, OpenAPI và generated client.
+1. Thêm platform_staff_roles + backend authorization cho MODERATOR/SUPER_ADMIN
+   và AAL2; không tin role từ frontend.
+2. Thêm seller_kyc_reviews append-only và transaction approve/reject idempotent.
+3. Thêm queue/detail/decision API dưới /v1/admin/kyc.
+4. Queue không chứa PII; detail chỉ trả schema normalize, không raw VNPT/object key.
+5. Thêm UI /admin/kyc và phần trạng thái/lý do cho seller.
+6. Cho shop summary trả kycId nullable và KycStatusResponse trả review reason/time.
+7. Đồng bộ schema shared, OpenAPI và generated client.
 
-Test bắt buộc:
-- CSV và XLSX tương đương;
-- package nhiều SKU và source_quantity > 1;
-- hai package cùng SKU không bị gom;
-- field cấp package mâu thuẫn bị chặn;
-- PII header/payload bị chặn trước khi lưu;
-- retry không tạo trùng; cùng key khác payload trả 409;
-- hai shop cùng tracking tạo hai package;
-- lỗi giữa transaction không để dữ liệu nửa chừng.
+Quy tắc bắt buộc:
+- Chỉ MANUAL_REVIEW được approve/reject.
+- Decision luôn có reason, reviewer và timestamp.
+- seller_kyc + shops đổi trạng thái trong cùng transaction.
+- Hai reviewer đồng thời không thể tạo hai kết quả trái nhau.
+- Approve onboarding không đổi bank/MST verified=true khi provider UNAVAILABLE.
+- Không expose CCCD/selfie, raw provider response hoặc số tài khoản đầy đủ.
+- REJECTED chỉ hiển thị lý do; chưa xây attempt nộp lại trong session này.
 
-Không làm: live API/OAuth, scan, listing/publish/reservation, ReturnUnit,
-inspection, CatalogProduct matching, finance/payment/claims/mobile/ML hoặc
-refactor không liên quan. Không chạy db:reset hay lệnh phá dữ liệu.
+Test tối thiểu:
+- seller/non-staff/inactive staff/AAL1 bị chặn khỏi admin API;
+- moderator hoặc super admin AAL2 truy cập được;
+- approve và reject tạo immutable review event;
+- retry cùng idempotency key không tạo trùng, payload khác trả 409;
+- concurrent review chỉ một request thắng;
+- rollback không để trạng thái nửa chừng;
+- bank/MST UNAVAILABLE vẫn verified=false sau approve;
+- seller thấy trạng thái/lý do đúng;
+- shop chưa VERIFIED vẫn không publish được.
 
-Hoàn thành khi test liên quan, lint, typecheck, build, OpenAPI client và
-git diff --check đều pass.
+Hoàn thành khi migration test sạch, test liên quan, lint, typecheck, build,
+OpenAPI generated client và git diff --check đều pass.
 ```

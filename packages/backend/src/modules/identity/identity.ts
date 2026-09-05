@@ -7,16 +7,16 @@ import type {
   ShopRole
 } from "@rebox/shared";
 import type { Pool, PoolClient } from "pg";
-import { createCipheriv, createHash, randomBytes } from "node:crypto";
 import { ulid } from "ulid";
 import { DomainError } from "../../errors";
 import type { CatalogImageObject, CatalogMediaStorage } from "../inventory/catalog-media-storage";
+import { createPiiKey, encryptPii } from "./pii";
 
 export type ShopAccess = {
   shopId: string;
   displayName: string;
   role: ShopRole;
-  kycStatus: "PENDING" | "VERIFIED" | "REJECTED";
+  kycStatus: "PENDING" | "PROCESSING" | "VERIFIED" | "REJECTED" | "MANUAL_REVIEW";
   shopStatus: "ONBOARDING" | "ACTIVE" | "PAUSED" | "LOCKED_INSUFFICIENT_FUND" | "SUSPENDED";
 };
 
@@ -43,10 +43,7 @@ export class IdentityModule {
     private readonly avatarStorage: CatalogMediaStorage,
     private readonly kycStorage: CatalogMediaStorage
   ) {
-    if (piiEncryptionSecret.length < 32) {
-      throw new Error("Seller PII encryption secret must be at least 32 characters");
-    }
-    this.piiEncryptionKey = createHash("sha256").update(piiEncryptionSecret).digest();
+    this.piiEncryptionKey = createPiiKey(piiEncryptionSecret);
   }
 
   async createSellerDocumentUploadIntent(
@@ -61,7 +58,7 @@ export class IdentityModule {
     }
 
     const extension = input.mimeType === "image/jpeg" ? "jpg" : input.mimeType.slice("image/".length);
-    const folder = input.kind === "AVATAR" ? "avatar" : "cccd";
+    const folder = input.kind === "AVATAR" ? "avatar" : input.kind === "SELFIE" ? "selfie" : "cccd";
     const key = `seller-onboarding/${actorId}/${folder}/${ulid()}.${extension}`;
     const storage = input.kind === "AVATAR" ? this.avatarStorage : this.kycStorage;
     return storage.createUploadIntent({ key, mimeType: input.mimeType, sizeBytes: input.sizeBytes });
@@ -181,10 +178,7 @@ export class IdentityModule {
   }
 
   private encrypt(value: string): Buffer {
-    const nonce = randomBytes(12);
-    const cipher = createCipheriv("aes-256-gcm", this.piiEncryptionKey, nonce);
-    const encrypted = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
-    return Buffer.concat([nonce, cipher.getAuthTag(), encrypted]);
+    return encryptPii(value, this.piiEncryptionKey);
   }
 
   async getActorContext(actorId: string): Promise<ActorContext> {

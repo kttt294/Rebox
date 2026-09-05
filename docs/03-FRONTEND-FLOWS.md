@@ -62,7 +62,7 @@ Supabase Realtime, nếu bật, chỉ invalidate query rồi client refetch Nest
 | `ITEM_BEING_PURCHASED` | Người khác đang thanh toán | Toast "Sản phẩm đang được người khác đặt mua" + tự bỏ khỏi giỏ sau 3s |
 | `ITEM_SOLD`            | Đã bán mất                 | Modal "Rất tiếc, sản phẩm vừa được mua" + gợi ý sản phẩm tương tự     |
 | `SHOP_UNAVAILABLE`     | Shop thiếu ký quỹ          | "Shop tạm ngừng bán" + nút bỏ item khỏi giỏ                           |
-| `HOLD_EXPIRED`         | Quá 30 phút chưa trả tiền  | Quay về giỏ, thử checkout lại; tiền đến muộn chuyển xử lý tay         |
+| `HOLD_EXPIRED`         | Quá 30 phút chưa chọn phương thức hoặc quá deadline tương ứng | Quay về giỏ; giao dịch đến sau deadline chuyển xử lý tay |
 | `MULTI_SELLER_CHECKOUT_NOT_SUPPORTED` | Request lẫn nhiều shop | Giữ giỏ, yêu cầu chọn một nhóm shop để checkout |
 | `INSUFFICIENT_DEPOSIT` | (Seller) không đủ ký quỹ   | Banner đỏ + nút "Nạp ngay" + số tiền cần nạp                          |
 | `NETWORK`              | Mất mạng                   | Retry tự động 3 lần, sau đó nút "Thử lại"; form giữ nguyên dữ liệu    |
@@ -194,17 +194,23 @@ Bước 2 (nếu QR): một checkout, một package, một QR
   │        [QR CODE]             │
   │ Số tiền: 225.000đ            │
   │ Nội dung: RBX01J8XK...       │
-  │ ⏱ Còn 29:32                  │
-  │ Đang kiểm tra giao dịch...   │
+  │ ⏱ Seller xác nhận trong 11:59│
+  │ Chưa ghi nhận chuyển khoản   │
   │ [Đã chuyển khoản]  [Huỷ]     │
   └──────────────────────────────┘
 ```
 
 **Quy tắc GĐ1:** mỗi checkout package-backed chỉ có một kiện; các listing khác ở lại giỏ. Không có checkout đa seller, gộp nhiều kiện, chuỗi nhiều QR hoặc thanh toán một phần.
 
-**Polling trạng thái:** sau khi buyer bấm "Đã chuyển khoản", client poll `GET /orders/{id}/payment-status` mỗi 3s trong 2 phút, rồi giãn ra 10s. Realtime, nếu bật, chỉ là tín hiệu để refetch endpoint này.
+**Polling trạng thái:** sau khi buyer bấm "Đã chuyển khoản", UI hiển thị “Đã báo chuyển khoản — chờ seller xác nhận”. Client poll `GET /orders/{id}/payment-status`; Realtime, nếu bật, chỉ là tín hiệu để refetch endpoint này. Phải phân biệt `BUYER_REPORTED`, `PAYMENT_OBSERVED` và `CONFIRMED`; không hiển thị “đã thanh toán” chỉ vì buyer bấm nút.
 
-**Đếm ngược hết hạn:** khi còn 3 phút, đổi màu cảnh báo. Khi hết hạn, hiển thị màn hình rõ ràng: "Đơn đã hết hạn giữ chỗ. Nếu bạn đã chuyển khoản, liên hệ CSKH kèm mã RBX..." - tuyệt đối không để buyer chuyển tiền xong mà màn hình trống.
+**Đếm ngược 12 giờ:** tính từ `orders.created_at`, không reset khi reload hay khi buyer bấm lại. Khi hết hạn mà seller chưa xác nhận:
+
+- Có giao dịch provider đã khớp: “Đơn đã hủy do seller chưa xác nhận. REBOX đang hoàn đúng số tiền bạn đã chuyển từ ký quỹ seller.”
+- Chưa có bằng chứng chuyển khoản: “Đơn đã hủy, không phát sinh hoàn tiền.”
+- Buyer đã báo chuyển nhưng giao dịch chưa khớp: “Đơn đã hủy và đang được đối soát”; không hứa đã hoàn tiền.
+
+Chỉ sau `CONFIRMED` mới hiển thị “Seller đã nhận tiền — đang chuẩn bị bàn giao cho ĐVVC”.
 
 ### 1.5. Hồ sơ cá nhân & khiếu nại
 
@@ -457,7 +463,23 @@ Flow scan không có form kiểm đếm sản phẩm. Seller chỉ xem bản kê
 
 **Cảnh báo trước:** nếu đăng thêm listing này khiến `coverage` xuống dưới ngưỡng, hiện cảnh báo vàng trước khi bấm đăng, không phải sau.
 
-### 2.5. Kho hàng xả kho
+### 2.5. Xác nhận nhận tiền và bàn giao ĐVVC
+
+```
+┌────────────────────────────────────────┐
+│ Đơn #RBX-99821 · CHỜ XÁC NHẬN TIỀN    │
+│ Buyer phải trả:             225.000đ  │
+│ Bank hub: Đã thấy giao dịch khớp       │
+│ ⏱ Còn 08:14:32                         │
+│ [TÔI ĐÃ NHẬN ĐỦ TIỀN]                  │
+└────────────────────────────────────────┘
+```
+
+Nút xác nhận phải hiển thị số tiền, mã đơn và hộp xác nhận lần cuối; API ghi actor/time/audit. Sau khi seller xác nhận, UI mới mở nút tạo/in vận đơn. Không cho seller xác nhận sau deadline hoặc từ shop khác.
+
+Nếu hết 12 giờ chưa xác nhận, đơn chuyển sang “Đã hủy do quá hạn”. Nếu hệ thống đã đối chiếu có tiền, seller thấy rõ số tiền hoàn đang bị khấu trừ từ ký quỹ. Nếu ĐVVC báo `SELLER_NO_HANDOVER/PICKUP_FAILED` và hủy trước khi nhận kiện, UI cũng hiển thị full refund cho buyer từ ký quỹ seller. Khi không có bằng chứng buyer đã chuyển, cả hai tình huống chỉ hủy đơn, không hiện giao dịch hoàn.
+
+### 2.6. Kho hàng xả kho
 
 Prototype đúng. Bổ sung bộ lọc và trạng thái thứ tư:
 
@@ -488,7 +510,7 @@ Nhóm "Bị ẩn" phải nổi bật với **tổng số tiền cần nạp đ�
 
 `Tồn` ở bảng này chỉ là 1 khi package `AVAILABLE`, ngược lại là 0. Seller không sửa trực tiếp con số này.
 
-### 2.6. Đối soát tài chính
+### 2.7. Đối soát tài chính
 
 Prototype hiển thị 3 con số: Số dư ký quỹ / Tạm khóa đối soát / Tổng doanh thu thực nhận. Cần làm rõ nguồn của từng con số vì chúng đến từ **hai nơi khác nhau** - điểm dễ gây hiểu lầm nhất trong toàn bộ sản phẩm:
 
@@ -525,7 +547,7 @@ Prototype hiển thị 3 con số: Số dư ký quỹ / Tạm khóa đối soát
 
 Ba khối tách bạch, có chú thích ngắn cho từng khối. Kèm nút xuất CSV cho kế toán và trang "Đối chiếu với sao kê ngân hàng" hướng dẫn seller tự khớp.
 
-### 2.7. Phản hồi khiếu nại ← THIẾU TRONG PROTOTYPE, BẮT BUỘC BỔ SUNG
+### 2.8. Phản hồi khiếu nại ← THIẾU TRONG PROTOTYPE, BẮT BUỘC BỔ SUNG
 
 Màn hình này không có trong prototype nhưng bắt buộc phải có: seller có quyền được phản hồi trước khi bị trừ tiền. Đây cũng là nơi quy tắc bảo vệ dữ liệu bên thứ ba được thực thi trong sản phẩm.
 

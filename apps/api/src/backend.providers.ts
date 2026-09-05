@@ -2,15 +2,22 @@ import type { Provider } from "@nestjs/common";
 import {
   IdentityModule,
   InventoryModule,
+  KycModule,
   createDatabase,
+  type BusinessVerificationProvider,
   type CatalogMediaStorage,
   type DatabaseContext
 } from "@rebox/backend";
+import { HttpBusinessVerificationProvider } from "./platform/kyc/http-business-verification-provider";
+import { createVnptKycProvider } from "./platform/kyc/vnpt-kyc-provider";
 import { SupabaseCatalogMediaStorage } from "./platform/storage/supabase-catalog-media-storage";
 
 export const DATABASE = Symbol("DATABASE");
 export const IDENTITY = Symbol("IDENTITY");
 export const INVENTORY = Symbol("INVENTORY");
+export const KYC = Symbol("KYC");
+export const KYC_PROVIDER = Symbol("KYC_PROVIDER");
+export const BUSINESS_VERIFICATION_PROVIDER = Symbol("BUSINESS_VERIFICATION_PROVIDER");
 export const CATALOG_MEDIA_STORAGE = Symbol("CATALOG_MEDIA_STORAGE");
 export const SELLER_KYC_STORAGE = Symbol("SELLER_KYC_STORAGE");
 
@@ -53,6 +60,36 @@ export const backendProviders: Provider[] = [
       if (!secretKey) throw new Error("SUPABASE_SECRET_KEY is required for seller KYC storage");
       return new SupabaseCatalogMediaStorage(url, secretKey, "seller-kyc");
     }
+  },
+  {
+    provide: KYC_PROVIDER,
+    useFactory: () => createVnptKycProvider({
+      baseUrl: process.env.VNPT_EKYC_BASE_URL,
+      accessToken: process.env.VNPT_EKYC_ACCESS_TOKEN,
+      tokenId: process.env.VNPT_EKYC_TOKEN_ID,
+      tokenKey: process.env.VNPT_EKYC_TOKEN_KEY,
+      macAddress: process.env.VNPT_EKYC_MAC_ADDRESS,
+      ocrPath: process.env.VNPT_EKYC_OCR_PATH ?? "/ai/v1/ocr/id",
+      documentValidationPath: process.env.VNPT_EKYC_DOCUMENT_VALIDATION_PATH ?? "/ai/v1/card/liveness",
+      faceComparePath: process.env.VNPT_EKYC_FACE_COMPARE_PATH ?? "/ai/v1/face/compare",
+      livenessPath: process.env.VNPT_EKYC_LIVENESS_PATH ?? "/ai/v1/face/liveness",
+      faceThreshold: Number(process.env.VNPT_EKYC_FACE_THRESHOLD ?? 0.9),
+      livenessThreshold: Number(process.env.VNPT_EKYC_LIVENESS_THRESHOLD ?? 0.9)
+    })
+  },
+  {
+    provide: BUSINESS_VERIFICATION_PROVIDER,
+    useFactory: (): BusinessVerificationProvider => new HttpBusinessVerificationProvider(
+      process.env.TAX_VERIFICATION_URL,
+      process.env.BANK_VERIFICATION_URL,
+      process.env.BUSINESS_VERIFICATION_TOKEN
+    )
+  },
+  {
+    provide: KYC,
+    inject: [DATABASE, SELLER_KYC_STORAGE, KYC_PROVIDER, BUSINESS_VERIFICATION_PROVIDER],
+    useFactory: (database: DatabaseContext, storage: CatalogMediaStorage, provider: ReturnType<typeof createVnptKycProvider>, business: BusinessVerificationProvider) =>
+      new KycModule(database.pool, sellerPiiEncryptionSecret(), storage, provider, business)
   },
   {
     provide: IDENTITY,

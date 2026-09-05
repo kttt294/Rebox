@@ -59,6 +59,12 @@ export class SupabaseCatalogMediaStorage implements CatalogMediaStorage {
     };
   }
 
+  async readObject(key: string): Promise<Buffer> {
+    const { data, error } = await this.client.storage.from(this.bucketName).download(key);
+    if (error) throw error;
+    return Buffer.from(await data.arrayBuffer());
+  }
+
   async deleteObject(key: string): Promise<void> {
     const { error } = await this.client.storage.from(this.bucketName).remove([key]);
     if (error) throw error;

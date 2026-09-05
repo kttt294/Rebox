@@ -50,6 +50,13 @@
       "when": 1788588001000,
       "tag": "0006_seller_document_uploads",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788588002000,
+      "tag": "0007_seller_ekyc",
+      "breakpoints": true
     }
   ]
 }

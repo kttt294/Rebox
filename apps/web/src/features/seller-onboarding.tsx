@@ -8,7 +8,7 @@ import { createBrowserApiClient } from "../platform/api/browser";
 import { getSupabaseBrowserClient } from "../platform/auth/browser";
 
 const api = createBrowserApiClient();
-const steps = ["Điều kiện", "Hồ sơ shop", "Kho lấy hàng", "KYC test", "Vận chuyển"];
+const steps = ["Điều kiện", "Hồ sơ shop", "Kho lấy hàng", "eKYC", "Vận chuyển"];
 type CarrierCode = "GHN" | "GHTK";
 
 type OnboardingForm = {
@@ -36,10 +36,10 @@ const initialForm: OnboardingForm = {
   province: "",
   district: "",
   ward: "",
-  taxCode: "MOCK-TAX-001",
-  bankCode: "MOCK-BANK",
-  bankAccount: "0000000000",
-  accountHolder: "NGUYEN VAN TEST",
+  taxCode: "",
+  bankCode: "",
+  bankAccount: "",
+  accountHolder: "",
   carrierCodes: ["GHN", "GHTK"]
 };
 
@@ -52,10 +52,12 @@ export function SellerOnboarding() {
   const [avatarFile, setAvatarFile] = useState<File>();
   const [cccdFrontFile, setCccdFrontFile] = useState<File>();
   const [cccdBackFile, setCccdBackFile] = useState<File>();
+  const [selfieFile, setSelfieFile] = useState<File>();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
+  const [createdShopId, setCreatedShopId] = useState<string>();
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -124,47 +126,57 @@ export function SellerOnboarding() {
   async function finish(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting) return;
-    if (!avatarFile || !cccdFrontFile || !cccdBackFile) {
-      setError("Hãy chọn đủ ảnh đại diện và hai mặt CCCD.");
+    if (!avatarFile || !cccdFrontFile || !cccdBackFile || !selfieFile) {
+      setError("Hãy chọn đủ ảnh đại diện, hai mặt CCCD và ảnh selfie.");
       return;
     }
     setSubmitting(true);
     setError(undefined);
     try {
       // ponytail: pre-submit files can be orphaned; add scheduled cleanup when upload volume warrants it.
-      const [avatarKey, cccdFrontKey, cccdBackKey] = await Promise.all([
+      const [avatarKey, cccdFrontKey, cccdBackKey, selfieKey] = await Promise.all([
         api.uploadSellerDocument("AVATAR", avatarFile),
         api.uploadSellerDocument("CCCD_FRONT", cccdFrontFile),
-        api.uploadSellerDocument("CCCD_BACK", cccdBackFile)
+        api.uploadSellerDocument("CCCD_BACK", cccdBackFile),
+        api.uploadSellerDocument("SELFIE", selfieFile)
       ]);
-      await api.createShop({
-        displayName: form.displayName,
-        legalType: "INDIVIDUAL",
-        description: form.description,
-        phone: form.phone,
-        pickupAddress: {
-          contactName: form.contactName,
-          addressLine: form.addressLine,
-          province: form.province,
-          district: form.district,
-          ward: form.ward
-        },
-        kyc: {
-          taxCode: form.taxCode,
-          bankCode: form.bankCode,
-          bankAccount: form.bankAccount,
-          accountHolder: form.accountHolder
-        },
-        documents: { avatarKey, cccdFrontKey, cccdBackKey },
-        carrierCodes: form.carrierCodes
-      });
+      const shopId = createdShopId ?? (await api.createShop({
+          displayName: form.displayName,
+          legalType: "INDIVIDUAL",
+          description: form.description,
+          phone: form.phone,
+          pickupAddress: {
+            contactName: form.contactName,
+            addressLine: form.addressLine,
+            province: form.province,
+            district: form.district,
+            ward: form.ward
+          },
+          kyc: {
+            taxCode: form.taxCode,
+            bankCode: form.bankCode,
+            bankAccount: form.bankAccount,
+            accountHolder: form.accountHolder
+          },
+          documents: { avatarKey, cccdFrontKey, cccdBackKey },
+          carrierCodes: form.carrierCodes
+        })).shopId;
+      setCreatedShopId(shopId);
+      const kyc = await api.startKyc(shopId);
+      await api.submitKycDocument("front", kyc.id, cccdFrontKey);
+      await api.submitKycDocument("back", kyc.id, cccdBackKey);
+      await api.submitKycSelfie(kyc.id, selfieKey);
+      await api.submitKycTax(kyc.id, form.taxCode);
+      await api.submitKycBank(kyc.id, form.bankCode, form.bankAccount);
       router.replace("/seller/inventory");
     } catch (caught) {
       setError(caught instanceof ApiClientError && caught.code === "SHOP_NAME_TAKEN"
         ? "Tên shop đã được sử dụng. Hãy chọn tên khác."
         : caught instanceof ApiClientError && caught.code === "EMAIL_NOT_VERIFIED"
           ? "Bạn cần xác nhận email trước khi tạo shop."
-          : "Không thể hoàn tất đăng ký seller. Vui lòng thử lại.");
+          : caught instanceof ApiClientError && caught.code === "KYC_PROVIDER_UNAVAILABLE"
+            ? "Dịch vụ eKYC đang tạm thời gián đoạn. Hồ sơ đã được lưu để thử lại sau."
+            : "Không thể hoàn tất đăng ký seller. Vui lòng thử lại.");
     } finally {
       setSubmitting(false);
     }
@@ -260,11 +272,12 @@ export function SellerOnboarding() {
           {step === 3 ? (
             <form onSubmit={(event) => { event.preventDefault(); continueTo(4); }}>
               <StepTitle number={4} title="Định danh và thông tin thanh toán" />
-              <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">Môi trường test: hãy dùng ảnh và thông tin mock. Ảnh CCCD được lưu trong bucket private và hồ sơ cần được duyệt trước khi đăng bán.</p>
+              <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">Ảnh CCCD và selfie được xử lý trong bucket private để OCR, đối chiếu khuôn mặt và kiểm tra liveness.</p>
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
                 <DocumentField file={cccdFrontFile} label="Mặt trước CCCD" onChange={(file) => selectDocument(file, setCccdFrontFile)} />
                 <DocumentField file={cccdBackFile} label="Mặt sau CCCD" onChange={(file) => selectDocument(file, setCccdBackFile)} />
-                <Field label="Mã số thuế cá nhân"><input className={inputClass} maxLength={30} minLength={5} required value={form.taxCode} onChange={(event) => update("taxCode", event.target.value)} /></Field>
+                <DocumentField capture="user" file={selfieFile} label="Ảnh selfie trực diện" onChange={(file) => selectDocument(file, setSelfieFile)} />
+                <Field label="Mã số thuế cá nhân"><input className={inputClass} inputMode="numeric" maxLength={14} pattern="[0-9]{10}(-[0-9]{3})?" required value={form.taxCode} onChange={(event) => update("taxCode", event.target.value)} /></Field>
                 <Field label="Ngân hàng"><input className={inputClass} maxLength={30} minLength={2} required value={form.bankCode} onChange={(event) => update("bankCode", event.target.value)} /></Field>
                 <Field label="Số tài khoản"><input className={inputClass} maxLength={30} minLength={6} required value={form.bankAccount} onChange={(event) => update("bankAccount", event.target.value)} /></Field>
                 <Field label="Tên chủ tài khoản"><input className={inputClass} maxLength={120} minLength={2} required value={form.accountHolder} onChange={(event) => update("accountHolder", event.target.value)} /></Field>
@@ -309,8 +322,8 @@ function StatusCard({ label, value, verified }: { label: string; value: string; 
   return <div className="rounded-xl border border-[var(--line)] p-4"><p className="text-xs text-[var(--muted)]">{label}</p><p className="mt-1 font-bold">{value}</p><p className={`mt-2 text-xs font-bold ${verified ? "text-emerald-700" : "text-amber-700"}`}>{verified ? "Đạt yêu cầu" : "Chưa xác nhận"}</p></div>;
 }
 
-function DocumentField({ file, label, onChange }: { file: File | undefined; label: string; onChange: (file?: File) => void }) {
-  return <label className="grid min-h-32 cursor-pointer place-items-center rounded-xl border-2 border-dashed border-[var(--line-strong)] bg-slate-50 p-4 text-center"><span><span className="block font-black">{label}</span><span className="mt-2 block text-xs text-[var(--accent)]">{file?.name ?? "Chọn ảnh JPEG, PNG hoặc WebP"}</span></span><input accept="image/jpeg,image/png,image/webp" className="sr-only" required={!file} type="file" onChange={(event) => onChange(event.target.files?.[0])} /></label>;
+function DocumentField({ capture, file, label, onChange }: { capture?: "user"; file: File | undefined; label: string; onChange: (file?: File) => void }) {
+  return <label className="grid min-h-32 cursor-pointer place-items-center rounded-xl border-2 border-dashed border-[var(--line-strong)] bg-slate-50 p-4 text-center"><span><span className="block font-black">{label}</span><span className="mt-2 block text-xs text-[var(--accent)]">{file?.name ?? "Chọn ảnh JPEG, PNG hoặc WebP"}</span></span><input accept="image/jpeg,image/png,image/webp" capture={capture} className="sr-only" required={!file} type="file" onChange={(event) => onChange(event.target.files?.[0])} /></label>;
 }
 
 function Actions({ back, disabled = false, finish = false, nextDisabled = false, submitting = false }: { back?: () => void; disabled?: boolean; finish?: boolean; nextDisabled?: boolean; submitting?: boolean }) {

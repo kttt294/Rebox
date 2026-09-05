@@ -185,7 +185,7 @@ Hệ quả:
 - freeship và fee tính trên đúng seller/order;
 - multi-seller checkout chỉ mở lại khi PSP và state machine thanh toán một phần đã được thiết kế riêng.
 
-TTL reservation/payment là **30 phút**, không có grace mode ngầm. Tiền đến sau hạn đi vào `payment_unmatched` để xử lý tay.
+Reservation ban đầu có TTL **30 phút** để buyer chọn phương thức. Nếu buyer chọn VietQR trong cửa sổ này, transaction `/pay` gia hạn hold đến `orders.created_at + 12 giờ` để chờ seller xác nhận; deadline tuyệt đối này không reset. COD giữ flow riêng. Tiền đến sau deadline tương ứng đi vào `payment_unmatched`, không hồi sinh order cũ.
 
 ## 11. A08 — Công thức hold
 
@@ -248,7 +248,9 @@ Cho tới lúc đó:
 - không chạy giao dịch tiền thật;
 - Supabase không đóng vai trò PSP và không giữ tiền.
 
-Xác nhận VietQR chỉ auto-confirm khi tài khoản, nội dung và số tiền **khớp chính xác**. Chuyển thiếu, thừa hoặc đến muộn đều vào `payment_unmatched`, không tự confirm.
+Với VietQR, tiền đi thẳng vào tài khoản seller. Bank event khớp chính xác tài khoản, nội dung và số tiền chỉ chuyển payment sang `PAYMENT_OBSERVED`; **không tự xác nhận đơn và không mở fulfillment**. Seller phải bấm xác nhận đã nhận đủ tiền thì sub-order mới sang `CONFIRMED` và được tạo vận đơn. Chuyển thiếu, thừa hoặc đến sau deadline đều vào `payment_unmatched`.
+
+Deadline seller xác nhận là **12 giờ tính từ `orders.created_at`**, không reset khi buyer báo đã chuyển, reload hay retry. Hết hạn: có `PAYMENT_OBSERVED` thì hủy và tạo full refund bằng `buyer_payable` từ hold/ký quỹ seller; `UNPAID` thì chỉ hủy và release hold; `BUYER_REPORTED` chưa được provider khớp thì hủy + review, không auto-payout dựa trên lời khai. Khi carrier hủy trước bàn giao với reason đã chuẩn hóa `SELLER_NO_HANDOVER/PICKUP_FAILED`, áp dụng cùng payment guard; chỉ debit seller nếu lỗi bàn giao thực sự thuộc seller.
 
 Payment intent phải snapshot account/provider/amount/content/deadline lúc phát QR; webhook không đọc payout account mutable của shop. `payment_unmatched` là case workflow có immutable provider event, maker/checker, reason/audit/idempotency; không cho ops sửa balance trực tiếp hoặc gắn late payment vào order đã expire mà không tái khóa listing/wallet và dựng lại hold trong một transaction.
 
@@ -259,9 +261,11 @@ Production phải chọn và ghi thành policy version cho **từng scenario/fau
 - `PSP_CUSTODIAL`: PSP/rail được phép giữ/chi tiền; REBOX chỉ tạo refund payable/payout khi văn bản A10 xác nhận custody, funding source, refund rail và quyền sử dụng ký quỹ.
 - `SELLER_DIRECT`: seller trực tiếp hoàn buyer, nộp proof theo deadline; REBOX không ghi rằng mình đã trả buyer và chỉ reserve/capture deposit trong phạm vi Legal/hợp đồng cho phép.
 
+Yêu cầu sản phẩm cho hai scenario `SELLER_CONFIRMATION_TIMEOUT` và `PICKUP_FAILURE` do seller là hoàn tự động từ ký quỹ seller, tức cần rail tương đương `PSP_CUSTODIAL`. Đây là quyết định nghiệp vụ mục tiêu, **không phải quyền bật production**: nếu A10/Legal chưa xác nhận PSP có quyền giữ và chi khoản ký quỹ cho buyer, hệ thống chỉ được chạy fake/sandbox hoặc chuyển sang review, tuyệt đối không tự chuyển tiền thật.
+
 Refund là aggregate riêng. Có các gate `WAITING_RETURN`, `WAITING_COST`, `WAITING_RECIPIENT` hoặc `SELLER_ACTION_REQUIRED` trước `PAYOUT_READY/PENDING`; timeout là `UNKNOWN/RECONCILING`, không phải fail. Full/partial payment chỉ thành `REFUNDED/PARTIALLY_REFUNDED` sau `PAID` hoặc seller-direct `VERIFIED`. Partial không yêu cầu trả hàng; tổng refund effective không vượt buyer payable. VietQR chỉ hoàn qua original rail/reference được xác minh; COD yêu cầu step-up auth, ownership verification và recipient snapshot bất biến.
 
-Mỗi payout có một stable provider idempotency key; execute/query/webhook là attempt append-only. Chỉ terminal failure đã xác minh mới được release/retry theo contract. Unmatched exposure chỉ được reserve từ seller deposit nếu A10/Legal cho phép; nếu không, withdrawal bị hard-block. Order đã `EXPIRED` không bao giờ hồi sinh: nếu buyer vẫn mua thì tạo order/hold mới và link allocation sau maker/checker.
+Mỗi payout có một stable provider idempotency key; execute/query/webhook là attempt append-only. Chỉ terminal failure đã xác minh mới được release/retry theo contract. Unmatched exposure chỉ được reserve từ seller deposit nếu A10/Legal cho phép; nếu không, withdrawal bị hard-block. Order đã `EXPIRED|CANCELLED_BY_TIMEOUT|CANCELLED_BY_PICKUP_FAILURE` không bao giờ hồi sinh: nếu buyer vẫn mua thì tạo order/hold mới và link allocation sau maker/checker.
 
 Carrier/COD contract phải chốt `shipment.settlement_mode` (billed separately hay deducted from remittance), gross collected, fee/deduction, net remitted và beneficiary. Không đồng thời ghi shipping recovery và carrier payable theo mô hình gross nếu carrier đã khấu trừ cước vào remittance net.
 

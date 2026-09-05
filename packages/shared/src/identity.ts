@@ -6,7 +6,7 @@ export type ShopRole = z.infer<typeof shopRoleSchema>;
 export const shopCapabilitySchema = z.enum(["CREATE_LISTING", "PUBLISH_LISTING"]);
 export type ShopCapability = z.infer<typeof shopCapabilitySchema>;
 
-export const sellerDocumentKindSchema = z.enum(["AVATAR", "CCCD_FRONT", "CCCD_BACK"]);
+export const sellerDocumentKindSchema = z.enum(["AVATAR", "CCCD_FRONT", "CCCD_BACK", "SELFIE"]);
 export type SellerDocumentKind = z.infer<typeof sellerDocumentKindSchema>;
 
 export const createSellerDocumentUploadSchema = z.object({
@@ -48,7 +48,7 @@ export const shopSummarySchema = z.object({
   displayName: z.string(),
   role: shopRoleSchema,
   membershipStatus: z.string(),
-  kycStatus: z.enum(["PENDING", "VERIFIED", "REJECTED"]),
+  kycStatus: z.enum(["PENDING", "PROCESSING", "VERIFIED", "REJECTED", "MANUAL_REVIEW"]),
   status: z.enum(["ONBOARDING", "ACTIVE", "PAUSED", "LOCKED_INSUFFICIENT_FUND", "SUSPENDED"])
 });
 

@@ -18,6 +18,7 @@ test("keeps a new account as buyer and creates a seller shop after five onboardi
   let shopCreated = false;
   let createShopBody: Record<string, unknown> | undefined;
   const uploadedKinds: string[] = [];
+  const kycCalls: string[] = [];
   const now = Math.floor(Date.now() / 1000);
   const jwt = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${Buffer.from(JSON.stringify({ sub: user.id, aud: "authenticated", iat: now, exp: now + 3600 })).toString("base64url")}.signature`;
 
@@ -56,7 +57,7 @@ test("keeps a new account as buyer and creates a seller shop after five onboardi
       const { kind } = request.postDataJSON() as { kind: string };
       uploadedKinds.push(kind);
       await route.fulfill({ status: 201, json: {
-        key: `seller-onboarding/${user.id}/${kind === "AVATAR" ? "avatar" : "cccd"}/${kind}.png`,
+        key: `seller-onboarding/${user.id}/${kind === "AVATAR" ? "avatar" : kind === "SELFIE" ? "selfie" : "cccd"}/${kind}.png`,
         uploadUrl: `http://127.0.0.1:3001/seller-upload/${kind}`,
         expiresAt: "2026-09-05T12:00:00.000Z",
         headers: { "content-type": "image/png" }
@@ -67,6 +68,16 @@ test("keeps a new account as buyer and creates a seller shop after five onboardi
       createShopBody = request.postDataJSON() as Record<string, unknown>;
       shopCreated = true;
       await route.fulfill({ status: 201, json: { shopId: "RBX-ONBOARDING-E2E" } });
+      return;
+    }
+    if (path === "/v1/kyc/start" && request.method() === "POST") {
+      kycCalls.push(path);
+      await route.fulfill({ status: 201, json: kycResult("PROCESSING", { id: "RBXKYC-E2E" }) });
+      return;
+    }
+    if (path.startsWith("/v1/kyc/") && request.method() === "POST") {
+      kycCalls.push(path);
+      await route.fulfill({ status: 201, json: kycResult(path === "/v1/kyc/bank" ? "VERIFIED" : "PROCESSING") });
       return;
     }
     if (path === "/v1/categories") {
@@ -104,6 +115,11 @@ test("keeps a new account as buyer and creates a seller shop after five onboardi
 
   await page.getByLabel("Mặt trước CCCD").setInputFiles({ name: "cccd-front.png", mimeType: "image/png", buffer: Buffer.from("mock-front") });
   await page.getByLabel("Mặt sau CCCD").setInputFiles({ name: "cccd-back.png", mimeType: "image/png", buffer: Buffer.from("mock-back") });
+  await page.getByLabel("Ảnh selfie trực diện").setInputFiles({ name: "selfie.png", mimeType: "image/png", buffer: Buffer.from("mock-selfie") });
+  await page.getByLabel("Mã số thuế cá nhân").fill("0123456789");
+  await page.getByLabel("Ngân hàng").fill("VCB");
+  await page.getByLabel("Số tài khoản").fill("0123456789");
+  await page.getByLabel("Tên chủ tài khoản").fill("NGUYEN VAN TEST");
   await page.getByRole("button", { name: "Tiếp tục" }).click();
   await page.getByRole("button", { name: "Hoàn tất đăng ký" }).click();
 
@@ -112,9 +128,9 @@ test("keeps a new account as buyer and creates a seller shop after five onboardi
     displayName: "Shop Buyer E2E",
     phone: "0901234567",
     kyc: {
-      taxCode: "MOCK-TAX-001",
-      bankCode: "MOCK-BANK",
-      bankAccount: "0000000000",
+      taxCode: "0123456789",
+      bankCode: "VCB",
+      bankAccount: "0123456789",
       accountHolder: "NGUYEN VAN TEST"
     },
     documents: {
@@ -124,5 +140,36 @@ test("keeps a new account as buyer and creates a seller shop after five onboardi
     },
     carrierCodes: ["GHN", "GHTK"]
   });
-  expect(uploadedKinds.sort()).toEqual(["AVATAR", "CCCD_BACK", "CCCD_FRONT"]);
+  expect(uploadedKinds.sort()).toEqual(["AVATAR", "CCCD_BACK", "CCCD_FRONT", "SELFIE"]);
+  expect(kycCalls).toEqual([
+    "/v1/kyc/start",
+    "/v1/kyc/document/front",
+    "/v1/kyc/document/back",
+    "/v1/kyc/selfie",
+    "/v1/kyc/tax",
+    "/v1/kyc/bank"
+  ]);
 });
+
+function kycResult(kycStatus: string, extra: Record<string, unknown> = {}) {
+  return {
+    ...extra,
+    success: true,
+    kycStatus,
+    identity: {
+      citizenId: "001203000001",
+      fullName: "NGUYEN VAN TEST",
+      dateOfBirth: "01/01/2003",
+      gender: "Nam",
+      address: "Ha Noi",
+      issuedAt: "01/01/2022"
+    },
+    verification: {
+      documentValid: true,
+      faceMatched: true,
+      faceScore: 0.94,
+      livenessPassed: true,
+      livenessScore: 0.98
+    }
+  };
+}

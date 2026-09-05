@@ -4,6 +4,7 @@ import {
   boolean,
   check,
   customType,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -93,6 +94,71 @@ export const shopMemberships = pgTable(
     check("shop_memberships_role_check", sql`${table.role} IN ('OWNER', 'MANAGER', 'WAREHOUSE', 'ACCOUNTING')`),
     check("shop_memberships_status_check", sql`${table.status} IN ('ACTIVE', 'INACTIVE')`)
   ]
+);
+
+export const sellerKyc = pgTable(
+  "seller_kyc",
+  {
+    id: text("id").primaryKey(),
+    shopId: text("shop_id").notNull().references(() => shops.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => profiles.id),
+    citizenIdEnc: bytea("citizen_id_enc"),
+    fullNameEnc: bytea("full_name_enc"),
+    dobEnc: bytea("dob_enc"),
+    genderEnc: bytea("gender_enc"),
+    addressEnc: bytea("address_enc"),
+    issuedAtEnc: bytea("issued_at_enc"),
+    provider: text("provider").notNull(),
+    providerReference: text("provider_reference"),
+    frontRef: text("front_ref"),
+    backRef: text("back_ref"),
+    selfieRef: text("selfie_ref"),
+    frontValid: boolean("front_valid"),
+    backValid: boolean("back_valid"),
+    faceMatched: boolean("face_matched"),
+    faceMatchScore: doublePrecision("face_match_score"),
+    livenessPassed: boolean("liveness_passed"),
+    livenessScore: doublePrecision("liveness_score"),
+    status: text("status").notNull().default("PENDING"),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    unique("seller_kyc_shop_unique").on(table.shopId),
+    check("seller_kyc_status_check", sql`${table.status} IN ('PENDING', 'PROCESSING', 'VERIFIED', 'REJECTED', 'MANUAL_REVIEW')`),
+    index("idx_seller_kyc_user_created").on(table.userId, table.createdAt)
+  ]
+);
+
+export const sellerBankAccounts = pgTable(
+  "seller_bank_accounts",
+  {
+    kycId: text("kyc_id").primaryKey().references(() => sellerKyc.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => profiles.id),
+    bankCode: text("bank_code").notNull(),
+    accountNumberEnc: bytea("account_number_enc").notNull(),
+    accountHolderNameEnc: bytea("account_holder_name_enc"),
+    nameMatchScore: doublePrecision("name_match_score"),
+    verificationStatus: text("verification_status").notNull(),
+    verified: boolean("verified").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [check("seller_bank_verification_status_check", sql`${table.verificationStatus} IN ('VERIFIED', 'NOT_FOUND', 'UNAVAILABLE')`)]
+);
+
+export const sellerTaxInfo = pgTable(
+  "seller_tax_info",
+  {
+    kycId: text("kyc_id").primaryKey().references(() => sellerKyc.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => profiles.id),
+    taxCodeEnc: bytea("tax_code_enc").notNull(),
+    taxpayerNameEnc: bytea("taxpayer_name_enc"),
+    verificationStatus: text("verification_status").notNull(),
+    verified: boolean("verified").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [check("seller_tax_verification_status_check", sql`${table.verificationStatus} IN ('VERIFIED', 'NOT_FOUND', 'UNAVAILABLE')`)]
 );
 
 export type ListingImage = { key: string; width: number; height: number };

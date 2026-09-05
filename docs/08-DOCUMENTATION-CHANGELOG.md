@@ -1,7 +1,7 @@
 # REBOX — Nhật ký hòa giải tài liệu
 
-Phiên bản: `1.3`
-Ngày cập nhật: `04/09/2026`
+Phiên bản: `1.4`
+Ngày cập nhật: `05/09/2026`
 Phạm vi: tài liệu kiến trúc, luồng nghiệp vụ, kế hoạch triển khai và legal gate. Không thêm mã nguồn hoặc dependency.
 
 ## 1. Mục đích
@@ -30,8 +30,9 @@ File này ghi lại lần chuẩn hóa bộ docs theo [`07-ARCHITECTURE-DECISION
 | Nguồn bản kê | CSV bị mô tả như fallback của API hoặc hai flow tách biệt | Spreadsheet và API là hai kênh nhập ngang hàng; seller chọn một kênh, cả hai trả cùng `ReturnManifestDraft` và dùng chung preview/commit |
 | Listing nhập tay | Flow luôn bắt `returnItemId` dù schema cho phép null | Listing thủ công vẫn là flow riêng `SELLER_DECLARED`; scan-to-list nguyên kiện chỉ chạy khi có manifest CSV/API |
 | Checkout | Một order có nhiều seller/sub-order và chuỗi nhiều QR | Giỏ có thể nhóm nhiều shop, nhưng một checkout chỉ một shop, đúng một sub-order và một QR/COD flow |
-| TTL payment | 15 phút, grace mode hoặc nhiều giá trị | 30 phút, không grace ngầm; tiền đến muộn đi `payment_unmatched` |
-| Payment matching | Có chỗ cho phép thiếu/thừa hoặc đến muộn tự confirm | Checkout chỉ auto-confirm khi khớp chính xác và còn hạn; thiếu/thừa/muộn xử lý tay |
+| TTL payment | 15 phút, grace mode hoặc nhiều giá trị | Reservation ban đầu 30 phút; chọn VietQR thì deadline seller xác nhận là 12 giờ tuyệt đối từ lúc đặt; tiền đến muộn đi `payment_unmatched` |
+| Payment matching | Có chỗ cho phép thiếu/thừa hoặc đến muộn tự confirm | Chỉ event khớp chính xác và còn hạn mới thành PAYMENT_OBSERVED; thiếu/thừa/muộn xử lý tay; event không thay seller xác nhận |
+| VietQR seller-direct | Bank webhook tự chuyển đơn sang CONFIRMED; TTL 30 phút | Bank event chỉ ghi PAYMENT_OBSERVED; seller phải xác nhận nhận tiền mới mở fulfillment. Quá 12 giờ từ lúc đặt: có tiền thì hủy + refund từ ký quỹ seller, chưa có tiền thì chỉ hủy; pickup failure do seller áp dụng cùng guard |
 | Chọn payment method | Schema bắt method từ checkout init nhưng flow chỉ chọn ở `/pay` | Method nullable khi reserve; `/pay` khóa state/deadline và chốt VIETQR hoặc COD trong transaction |
 | Hold | `120%`, reserve 22.000/45.000 hoặc tier động | `item_total + buyer_ship + commission + 45.000 reserve`, snapshot theo config A08 |
 | Ký quỹ | Min top-up, min balance và tier bị trộn | Activation balance 100.000đ; không tier/AOV động; transaction limit là concern riêng của PSP |
@@ -61,11 +62,11 @@ File này ghi lại lần chuẩn hóa bộ docs theo [`07-ARCHITECTURE-DECISION
 | `CODEBASE.md` | Mô tả sáu module sâu, runtime ownership, dependency rule, Supabase/RLS/Auth/Storage boundary, migration policy, invariant và vertical slice đầu tiên |
 | `DEV-START-HERE.md` | Sửa thứ tự đọc; ngày đầu đọc ADR/codebase; cập nhật scope Sprint 1 và Supabase guardrail |
 | `00-TONG-QUAN-VA-MAU-THUAN.md` | Chuyển thành lịch sử audit; đánh dấu trạng thái từng mâu thuẫn và trỏ tới quyết định canonical |
-| `01-TECHNICAL-SPEC.md` | Thay topology cũ bằng web/API/worker + Supabase; sáu module; schema payment/refund/ledger, dispute case, processing event, versioned evidence và retention registry |
-| `02-BACKEND-FLOWS.md` | Sửa manual listing, checkout/payment deadline, refund/payout state, unmatched controls, case-level WORM retention và manual dispute |
-| `03-FRONTEND-FLOWS.md` | Web-first, checkout từng shop, pending-vs-paid refund, truthful retention notice, processing event, upload web và admin manual |
-| `04-IMPLEMENTATION-PLAN.md` | Sprint 1 theo vertical slice; bỏ auth tự xây/Redis/all-schema-first; thêm contract test cho money/refund/evidence; bỏ loyalty MVP; thay bảng giá cũ bằng quy tắc lấy báo giá |
-| `05-PHAP-LY-VIET-NAM.md` | Cập nhật khung 2026 gồm NĐ 330/2026, tách legal gate, sửa processing/consent model, real-data gate Singapore và WORM lifecycle |
+| `01-TECHNICAL-SPEC.md` | Thay topology cũ bằng web/API/worker + Supabase; sáu module; schema payment/refund/ledger; bổ sung deadline seller xác nhận 12 giờ và refund timeout/pickup failure |
+| `02-BACKEND-FLOWS.md` | Seller xác nhận tiền thủ công; bank event chỉ ghi nhận payment; timeout 12 giờ và pickup failure dùng payment guard trước khi refund |
+| `03-FRONTEND-FLOWS.md` | Buyer thấy trạng thái báo chuyển/đã đối chiếu/đã xác nhận; seller có màn xác nhận nhận tiền; hiển thị đúng nhánh hủy có/không refund |
+| `04-IMPLEMENTATION-PLAN.md` | Thêm nghiệm thu seller confirmation, timeout worker, hold 12 giờ và pickup failure; giữ payment production sau A10 |
+| `05-PHAP-LY-VIET-NAM.md` | Ghi rõ refund từ ký quỹ cho timeout/pickup failure là yêu cầu mục tiêu nhưng vẫn cần PSP/Legal đóng A10 trước tiền thật |
 | `06-DANH-MUC-HANG-CAM.md` | Đánh dấu cần remap theo Luật TMĐT 2025, thêm canonical link và sửa cross-reference sai |
 | `10-NEXT-SESSION-PLAN.md` + fixture CSV/XLSX | Rút flow Unit/inspection; tách nền nhập manifest (hai nút, một DTO, preview/commit) khỏi scan/listing làm sau |
 

@@ -35,6 +35,11 @@ class FakeCatalogMediaStorage implements CatalogMediaStorage {
     return this.objects.get(key) ?? null;
   }
 
+  async readObject(key: string): Promise<Buffer> {
+    if (!this.objects.has(key)) throw new Error("Object not found");
+    return Buffer.from(key);
+  }
+
   async deleteObject(key: string): Promise<void> {
     this.objects.delete(key);
   }

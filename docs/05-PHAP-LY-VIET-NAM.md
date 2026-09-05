@@ -60,7 +60,7 @@ GĐ1 chỉ ra mắt web. Nếu app mobile GĐ3 được triển khai, Legal ph�
 
 | Nghĩa vụ                                                        | Hiện thực trong hệ thống                                                                        |
 | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| **Xác thực danh tính người bán**                      | `shops.kyc_status` phải `VERIFIED` mới được publish. Sprint 1 dùng trạng thái fake/seed để kiểm thử gate; tích hợp provider eKYC thật thuộc Sprint 2 và chỉ bật sau privacy/provider gate |
+| **Xác thực danh tính người bán**                      | `shops.kyc_status` phải `VERIFIED` mới được publish. VNPT eKYC OCR/document/face/liveness không đồng nghĩa đối chiếu CSDL Bộ Công an; nhu cầu RAR-C06 phải dùng hợp đồng VNPT IDCheck riêng |
 | Công khai thông tin người bán trên trang sản phẩm         | Tên, trạng thái xác thực, địa chỉ kho -`03-FE` §1.2                                      |
 | Cơ chế tiếp nhận & giải quyết khiếu nại                   | Module Dispute + kênh CSKH - Sprint 6, 7                                                           |
 | Biện pháp ngăn chặn hàng giả, hàng cấm                    | Kiểm duyệt listing + danh mục cấm -`02-FLOWS` §2.4                                           |
@@ -110,6 +110,8 @@ Ngoài ra, mock UI ghi _"96% về Shop / 4% phí tạm thu"_ (M2). Nếu triển
 | **D. Sandbox**                                                        | Tham gia cơ chế thử nghiệm có kiểm soát trong lĩnh vực ngân hàng nếu mô hình thuộc phạm vi áp dụng                                                                                                                                                                                                                                 | Đúng kênh cho mô hình mới                                                                          | Thủ tục nặng, không phù hợp quy mô sinh viên ở GĐ1                                                                            |
 
 **Khuyến nghị:** phương án **A** cho sản phẩm chính thức. Trong giai đoạn thử nghiệm 100 shop, có thể vận hành theo hướng **C** với quy mô nhỏ và đối soát thủ công, **sau khi có ý kiến bằng văn bản của luật sư**.
+
+**Yêu cầu nghiệp vụ mới cần đưa qua A10:** với chuyển khoản đi thẳng vào tài khoản seller, seller phải xác nhận đã nhận tiền trước khi giao hàng. Nếu seller không xác nhận trong 12 giờ, hoặc đã xác nhận nhưng không bàn giao khiến ĐVVC hủy lấy hàng, REBOX dự kiến hoàn đúng `buyer_payable` bằng cách khấu trừ ký quỹ seller — nhưng chỉ khi có bằng chứng buyer thực sự đã chuyển khoản. Đây chính là hành vi 1 + 2 + 4 nêu tại §2.1, nên không được bật tiền thật chỉ vì đã mô tả xong flow kỹ thuật. Production bắt buộc dùng phương án A hoặc một cấu trúc khác được PSP/Legal xác nhận bằng văn bản; nếu chưa đóng A10 thì chỉ chạy fake/sandbox hoặc review thủ công, không auto-payout.
 
 ### 2.4. Yêu cầu bắt buộc lên kiến trúc
 
@@ -393,7 +395,7 @@ Hai vấn đề dễ bị gộp làm một khi đọc nhanh, nhưng cần tách 
 
 | Câu trong tài liệu/UI                               | Vấn đề                                          | Sửa                                                      |
 | ------------------------------------------------------ | -------------------------------------------------- | --------------------------------------------------------- |
-| "Tự động hoàn tiền trong**10 giây**"       | GĐ1 không có auto-refund và payout còn bị A10 chặn | Bỏ claim thời gian ở GĐ1; GĐ3 chỉ công bố SLO sau legal/eval/provider gate và số liệu thật |
+| "Tự động hoàn tiền trong**10 giây**"       | Refund tranh chấp GĐ1 không tự quyết định; payout thật còn bị A10 chặn | Bỏ claim 10 giây. Timeout/pickup failure chỉ tự tạo refund sau payment guard và chỉ payout thật khi A10 đóng |
 | "Độ chính xác AI**99.8%**"                   | Không có phương pháp đo được kiểm chứng | Bỏ khỏi giao diện production                           |
 | "Hoàn trả**100%** tiền nếu khác xa mô tả" | Cần nêu rõ điều kiện                         | Giữ, nhưng link tới điều kiện đầy đủ ngay cạnh |
 | "Cắt giảm**100%** chi phí nhân sự"          | Nói quá                                          | Diễn đạt lại theo hướng định lượng thực tế    |

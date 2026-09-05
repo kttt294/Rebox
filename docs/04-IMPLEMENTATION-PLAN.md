@@ -191,7 +191,9 @@ Sprint này đang **BLOCKED bởi A10**. Trước khi PSP được duyệt bằn
 | Interface `PaymentProvider` + contract test             | Fake/sandbox test PSP_CUSTODIAL và SELLER_DIRECT theo scenario; production chỉ bật mode được A10 duyệt |
 | Nạp ký quỹ qua PSP + webhook sau gate A10               | Nạp 100.000đ ở sandbox, webhook lặp không cộng ví hai lần      |
 | Sinh VietQR qua sandbox/fake provider                    | Payload có đúng tài khoản/số tiền/nội dung theo contract; chưa yêu cầu app ngân hàng thật |
-| Webhook biến động số dư + đối chiếu tự động             | Chỉ CREDIT FINAL/SETTLED đúng account/currency/amount/ref/TTL ⇒ CONFIRMED; same-ID/different-hash bị P0 |
+| Webhook biến động số dư + đối chiếu tự động             | CREDIT FINAL/SETTLED đúng account/currency/amount/ref/deadline ⇒ PAYMENT_OBSERVED; không tự mở fulfillment; same-ID/different-hash bị P0 |
+| Seller xác nhận đã nhận tiền                             | Đúng shop + idempotency; ghi actor/time/audit; chỉ sau xác nhận mới chuyển CONFIRMED và cho tạo vận đơn |
+| Job timeout xác nhận seller 12 giờ                       | Có PAYMENT_OBSERVED ⇒ hủy + full refund buyer_payable từ hold/ký quỹ seller; UNPAID ⇒ chỉ hủy; BUYER_REPORTED chưa khớp ⇒ review, không auto-payout |
 | `payment_unmatched` workflow + maker/checker             | Thiếu/thừa/muộn ⇒ proposal hash, maker≠checker; expired order không hồi sinh; reserve/withdrawal block đúng A10 |
 | Rút ký quỹ + kiểm soát rủi ro sau gate A10              | Stable payout key; `PENDING→SETTLED|TERMINAL_FAILED|UNKNOWN/RECONCILING`; UNKNOWN không release; cooldown 72h |
 
@@ -200,10 +202,10 @@ Sprint này đang **BLOCKED bởi A10**. Trước khi PSP được duyệt bằn
 | Việc                                     | Nghiệm thu                                                         |
 | ---------------------------------------- | ------------------------------------------------------------------ |
 | Giỏ nhóm theo shop; checkout đúng một shop | Giỏ 2 shop vẫn giữ 2 nhóm; request lẫn shop nhận 422; mỗi checkout tạo đúng 1 sub-order |
-| Checkout init + reservation/hold TTL 30 phút | 2 tab cùng mua 1 món ⇒ 1 thành công, 1 nhận `ITEM_BEING_PURCHASED` |
+| Checkout init + reservation; VIETQR gia hạn hold đến mốc 12 giờ từ lúc đặt | 2 tab cùng mua 1 món ⇒ 1 thành công; deadline không reset khi reload/retry |
 | State machine sub-order đầy đủ           | Chuyển trạng thái sai bị từ chối, có test                          |
 | Adapter GHN + GHTK: quote, create, label | In được nhãn vận đơn thật khổ 10×15                                |
-| Webhook trạng thái + job polling bù      | Tắt webhook ⇒ polling vẫn cập nhật trong 30 phút                   |
+| Webhook trạng thái + job polling bù      | Tắt webhook ⇒ polling vẫn cập nhật trong 30 phút; SELLER_NO_HANDOVER/PICKUP_FAILED hủy và chỉ refund khi payment đã được chứng minh |
 | COD/carrier settlement contract           | Snapshot gross/fee/deduction/net/beneficiary; test gross-vs-net không double charge |
 | Job settle từ PostgreSQL outbox           | Chỉ settle VIETQR CONFIRMED/COD_REMITTED, dùng snapshot và không release khi case/remittance mở |
 

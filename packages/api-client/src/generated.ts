@@ -84,6 +84,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/kyc/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["startKyc"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/kyc/document/front": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["submitKycDocumentFront"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/kyc/document/back": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["submitKycDocumentBack"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/kyc/selfie": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["submitKycSelfie"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/kyc/tax": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["submitKycTax"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/kyc/bank": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["submitKycBank"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/kyc/{kycId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getKycStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/shops": {
         parameters: {
             query?: never;
@@ -264,7 +376,7 @@ export interface components {
             /** @enum {string} */
             role: "OWNER" | "MANAGER" | "WAREHOUSE" | "ACCOUNTING";
             /** @enum {string} */
-            kycStatus: "PENDING" | "VERIFIED" | "REJECTED";
+            kycStatus: "PENDING" | "PROCESSING" | "VERIFIED" | "REJECTED" | "MANUAL_REVIEW";
             /** @enum {string} */
             shopStatus: "ONBOARDING" | "ACTIVE" | "PAUSED" | "LOCKED_INSUFFICIENT_FUND" | "SUSPENDED";
         };
@@ -296,7 +408,7 @@ export interface components {
         };
         CreateSellerDocumentUpload: {
             /** @enum {string} */
-            kind: "AVATAR" | "CCCD_FRONT" | "CCCD_BACK";
+            kind: "AVATAR" | "CCCD_FRONT" | "CCCD_BACK" | "SELFIE";
             /** @enum {string} */
             mimeType: "image/jpeg" | "image/png" | "image/webp";
             sizeBytes: number;
@@ -309,6 +421,29 @@ export interface components {
             expiresAt: string;
             headers: {
                 [key: string]: string;
+            };
+        };
+        KycStartResult: components["schemas"]["KycStatus"] & {
+            id: string;
+        };
+        KycStatus: {
+            success: boolean;
+            /** @enum {string} */
+            kycStatus: "PENDING" | "PROCESSING" | "VERIFIED" | "REJECTED" | "MANUAL_REVIEW";
+            identity: {
+                citizenId: string | null;
+                fullName: string | null;
+                dateOfBirth: string | null;
+                gender: string | null;
+                address: string | null;
+                issuedAt: string | null;
+            };
+            verification: {
+                documentValid: boolean | null;
+                faceMatched: boolean | null;
+                faceScore: number | null;
+                livenessPassed: boolean | null;
+                livenessScore: number | null;
             };
         };
         ListingImage: {
@@ -418,7 +553,16 @@ export interface components {
         ListingId: string;
         BatchId: string;
     };
-    requestBodies: never;
+    requestBodies: {
+        KycImage: {
+            content: {
+                "application/json": {
+                    kycId: string;
+                    objectKey: string;
+                };
+            };
+        };
+    };
     headers: never;
     pathItems: never;
 }
@@ -524,6 +668,169 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogImageUploadIntent"];
+                };
+            };
+        };
+    };
+    startKyc: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    shopId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Idempotently starts KYC for an owned shop */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycStartResult"];
+                };
+            };
+        };
+    };
+    submitKycDocumentFront: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["KycImage"];
+        responses: {
+            /** @description Normalized front-side OCR and document validation result */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycStatus"];
+                };
+            };
+        };
+    };
+    submitKycDocumentBack: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["KycImage"];
+        responses: {
+            /** @description Normalized back-side OCR and document validation result */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycStatus"];
+                };
+            };
+        };
+    };
+    submitKycSelfie: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["KycImage"];
+        responses: {
+            /** @description Normalized face-match and liveness result */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycStatus"];
+                };
+            };
+        };
+    };
+    submitKycTax: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    kycId: string;
+                    taxCode: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Tax verification recorded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycStatus"];
+                };
+            };
+        };
+    };
+    submitKycBank: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    kycId: string;
+                    bankCode: string;
+                    accountNumber: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Bank account verified and authoritative holder name compared */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycStatus"];
+                };
+            };
+        };
+    };
+    getKycStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kycId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current normalized KYC status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycStatus"];
                 };
             };
         };

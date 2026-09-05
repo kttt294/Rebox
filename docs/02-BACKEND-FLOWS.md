@@ -330,15 +330,23 @@ POST /checkout/{orderId}/pay  {method: VIETQR}
    chỉ tiếp tục khi trạng thái RESERVED,
    payment_method chưa chốt (hoặc đã là VIETQR) và now() < fund_hold.expires_at
    - orders.payment_method = VIETQR
-   - sub_order.status = AWAITING_PAYMENT; payment_status giữ UNPAID
+   - sub_order.status = AWAITING_PAYMENT; payment_status = UNPAID
+   - seller_confirmation_deadline_at = order.created_at + 12 giờ
+   - gia hạn active fund_hold.expires_at đúng bằng seller_confirmation_deadline_at
    - tạo payment_intent snapshot provider/merchantRef/expectedAccountHash,
-     amount/currency/addInfo/expiresAt; QR chỉ đọc snapshot này
-   - bảo đảm scheduled job expiry đã tồn tại từ checkout init; không tạo TTL mới
+     amount/currency/addInfo/sellerConfirmationDeadlineAt; QR chỉ đọc snapshot này
+   - reschedule job expiry ban đầu thành seller-confirmation-expiry tại deadline mới
    COMMIT
 2. Sinh đúng một QR cho sub_order, trỏ về TK NGÂN HÀNG CỦA SELLER
    addInfo = "RBX" + subOrderId  (mã đối soát duy nhất)
    amount  = sub_order.buyer_payable
-3. Trả về một QR + breakdown + expiresAt
+3. Trả về một QR + breakdown + sellerConfirmationDeadlineAt
+
+POST /orders/{subOrderId}/payment-reported
+1. Buyer bấm "Đã chuyển khoản"; API ghi khai báo + thời điểm + proof ref tùy chọn,
+   payment_status: UNPAID → BUYER_REPORTED.
+2. Đây **không phải** bằng chứng đủ để payout hoặc mở fulfillment; đơn tiếp tục chờ
+   seller xác nhận hay provider event đã verify.
 
 --- webhook bank hub ---
 POST /webhooks/bank  {providerEventId, direction, settlementState,
@@ -349,21 +357,38 @@ POST /webhooks/bank  {providerEventId, direction, settlementState,
 3. [TX] [IDEM: "bankwh:" + provider + ":" + account + ":" + providerEventId]
      - resolve ID rồi SELECT wallet + listings + packages theo ULID + order + sub_order
        + active fund_hold FOR UPDATE theo đúng thứ tự canonical
-     - yêu cầu order.payment_method = VIETQR,
-       sub_order.status = AWAITING_PAYMENT và now() < fund_hold.expires_at
+     - yêu cầu order.payment_method = VIETQR và now() < seller_confirmation_deadline_at
+     - cho phép sub_order.status = AWAITING_PAYMENT | AWAITING_SELLER_CONFIRMATION
      - so khớp accountRef hash == payment_intent.expected_account_ref_hash
      - so khớp amount   == buyer_payable   (KHÔNG chấp nhận lệch)
      - so khớp currency == payment_intent.currency
      - so khớp content chứa đúng subOrderId canonical
-     - sub_order.status: AWAITING_PAYMENT → CONFIRMED
-     - sub_order.payment_status: UNPAID → CONFIRMED
-     - ReturnPackage đã phân bổ `RESERVED → SOLD`; listing giữ policy state ACTIVE nhưng không còn purchasable
+     - sub_order.status → AWAITING_SELLER_CONFIRMATION
+     - sub_order.payment_status → PAYMENT_OBSERVED
+     - **không** đổi ReturnPackage sang SOLD và **không** tạo vận đơn
      - [OUTBOX] noti seller + buyer
-4. Nếu sai bất kỳ state/deadline/account/content/amount nào → payment_unmatched;
-   webhook đến sau hạn không được auto-confirm kể cả expiry job đang trễ
+4. Nếu sai bất kỳ state/deadline/account/content/amount nào → payment_unmatched.
+   Webhook chỉ là bằng chứng tiền vào; không bao giờ thay seller bấm xác nhận đơn.
+
+POST /seller/orders/{subOrderId}/confirm-payment
+1. Actor phải có quyền trên đúng shop; request có Idempotency-Key.
+2. [TX] khóa theo thứ tự canonical, re-read order/sub_order/hold/payment evidence.
+3. Yêu cầu VIETQR, state AWAITING_PAYMENT|AWAITING_SELLER_CONFIRMATION và
+   now() < seller_confirmation_deadline_at.
+4. Seller xác nhận đã nhận đủ `buyer_payable`:
+   - payment_status → CONFIRMED; seller_confirmed_payment_at = now();
+   - sub_order.status → CONFIRMED; ReturnPackage RESERVED → SOLD;
+   - ghi actor/time/audit và outbox thông báo buyer;
+   - từ đây mới cho phép tạo vận đơn và bàn giao ĐVVC.
 ```
 
-**Worker expiry (được schedule ngay tại checkout init):** claim idempotent, khóa wallet → shop → listings → packages theo ULID → order → sub-order → active hold theo cùng thứ tự với `/pay` và webhook. Nếu state còn `RESERVED|AWAITING_PAYMENT` và hết hạn, chuyển sub-order `EXPIRED`, payment `CANCELLED`, release hold và package `RESERVED → AVAILABLE`. Webhook và expiry tranh cùng row lock nên đúng một bên thắng.
+**Worker timeout 12 giờ (tính từ `orders.created_at`):** claim idempotent, khóa wallet → shop → listings → packages theo ULID → order → sub-order → active hold. Nếu seller chưa xác nhận khi hết `seller_confirmation_deadline_at` thì hủy đơn và trả package về `AVAILABLE`. Sau đó áp dụng đúng một nhánh dưới cùng transaction/orchestration:
+
+- `PAYMENT_OBSERVED`: tạo full refund `source_type=SELLER_CONFIRMATION_TIMEOUT`, `amount=buyer_payable`, `fault_party/refund_funder=SELLER`; capture đúng khoản này từ hold/ký quỹ rồi đi payout workflow. Không release phần hold còn bảo đảm refund.
+- `UNPAID`: `payment_status → CANCELLED`, release toàn bộ hold; **không tạo refund**.
+- `BUYER_REPORTED` nhưng chưa có event khớp: hủy đơn và đưa vào review/đối soát; không auto-payout chỉ dựa vào nút buyer.
+
+Seller confirm, bank webhook và timeout tranh cùng row lock nên đúng một nhánh thắng. Webhook đến sau deadline đi `payment_unmatched`, không hồi sinh order đã hủy.
 
 Reversal/correction của provider không được xử như một credit payment mới. Nó tạo immutable event liên kết giao dịch gốc và đi compensating/reconciliation workflow; mọi thay đổi ledger dùng idempotency key riêng.
 
@@ -373,13 +398,14 @@ Reversal/correction của provider không được xử như một credit paymen
 | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Buyer chuyển thiếu tiền               | Không confirm. Vào `payment_unmatched`; ops phối hợp seller hoàn/đối soát rồi buyer tạo checkout mới. MVP không hướng dẫn “chuyển bù” vì matching không cộng gộp nhiều event                                                               |
 | Buyer chuyển thừa                     | **Không confirm.** Toàn giao dịch vào `payment_unmatched`; ops xử lý vì REBOX không được tự suy diễn ý định buyer                                                                                                          |
-| Buyer chuyển sau khi hết hạn 30 phút  | Hold đã release, listing có thể đã bán. Không có grace mode; ghi `payment_unmatched`, khóa auto-confirm và xử lý tay                                                                                                       |
+| Buyer chuyển sau hạn 12 giờ           | Order đã hủy và listing có thể được bán lại. Ghi `payment_unmatched`, không hồi sinh order; đối soát và hoàn theo workflow có kiểm soát                                                                                  |
+| Seller không xác nhận trong 12 giờ    | Có `PAYMENT_OBSERVED` thì hủy + full refund từ ký quỹ seller; không có bằng chứng chuyển tiền thì chỉ hủy; buyer tự khai nhưng chưa khớp thì review                                                                       |
 | Buyer quên nhập nội dung chuyển khoản | Vào `payment_unmatched`. Đối chiếu tay theo số tiền + thời gian + số tài khoản gửi                                                                                                                                         |
 | Bank hub chết                         | Chỉ polling feed/virtual account tối thiểu mà hợp đồng A10 cho phép; filter allowlist trước khi lưu, không ingest nguyên sao kê hay giao dịch người thứ ba không liên quan                                                   |
 
 **Đây là điểm yếu cấu trúc của mô hình "tiền đi thẳng về seller".** Pilot phải đo tỷ lệ đối soát tay thật; không dùng tỷ lệ ước đoán làm cam kết vận hành.
 
-**Workflow `payment_unmatched` (không phải nút sửa tay):** raw provider event/signature outcome được lưu bất biến hoặc qua immutable payload ref. Case đi `OPEN → UNDER_REVIEW → PROPOSED → RESOLVED/REJECTED`; proposal có immutable payload hash/version, maker và checker **khác người**, reason, attachment, idempotency key và audit. Không sửa trực tiếp wallet/order balance: mọi điều chỉnh phải đi qua ledger/refund workflow. Khi event đã map được shop, A10/Legal phải chọn: tạo `SHOP_UNMATCHED_RESERVE` tối đa từ available (phần thiếu tiếp tục hard-block withdrawal), hoặc nếu không được cấn ký quỹ thì chặn toàn bộ withdrawal cho tới resolution. Release/capture reserve chỉ bằng posting idempotent. Order `EXPIRED` luôn terminal; nếu buyer vẫn muốn mua, workflow tạo **order/reservation/payment allocation mới** sau khi khóa wallet → listing theo canonical order, dựng hold và lấy xác nhận buyer, rồi link case unmatched sang order mới — không sửa/hồi sinh order cũ.
+**Workflow `payment_unmatched` (không phải nút sửa tay):** raw provider event/signature outcome được lưu bất biến hoặc qua immutable payload ref. Case đi `OPEN → UNDER_REVIEW → PROPOSED → RESOLVED/REJECTED`; proposal có immutable payload hash/version, maker và checker **khác người**, reason, attachment, idempotency key và audit. Không sửa trực tiếp wallet/order balance: mọi điều chỉnh phải đi qua ledger/refund workflow. Khi event đã map được shop, A10/Legal phải chọn: tạo `SHOP_UNMATCHED_RESERVE` tối đa từ available (phần thiếu tiếp tục hard-block withdrawal), hoặc nếu không được cấn ký quỹ thì chặn toàn bộ withdrawal cho tới resolution. Release/capture reserve chỉ bằng posting idempotent. Order `EXPIRED|CANCELLED_BY_TIMEOUT` luôn terminal; nếu buyer vẫn muốn mua, workflow tạo **order/reservation/payment allocation mới** sau khi khóa wallet → listing theo canonical order, dựng hold và lấy xác nhận buyer, rồi link case unmatched sang order mới — không sửa/hồi sinh order cũ.
 
 ### 3.3. Thanh toán COD
 
@@ -408,7 +434,7 @@ POST /checkout/{orderId}/pay  {method: COD}
 ### 3.4. Tạo vận đơn mới cho nguyên kiện
 
 ```
-Trigger: sub_order → CONFIRMED, seller bấm "Xác nhận & In vận đơn"
+Trigger: seller đã bấm xác nhận nhận tiền, `sub_order → CONFIRMED`, rồi bấm "Xác nhận & In vận đơn"
 
 1. Lấy đúng ReturnPackage đã bán; không mở, không đóng gói lại và không gom với package khác
 2. Dùng cân nặng/kích thước cả kiện từ manifest; nếu thiếu thì seller chỉ cân/đo bên ngoài
@@ -437,13 +463,21 @@ POST /webhooks/carrier/{carrierCode}
 4. Map trạng thái ĐVVC → trạng thái REBOX (bảng ánh xạ riêng mỗi ĐVVC)
 5. Chỉ chấp nhận nếu tiến về phía trước trong state machine
    (webhook đến không đúng thứ tự là chuyện bình thường)
-6. Nếu status = DELIVERED:
+6. Nếu provider hủy trước bàn giao với reason đã normalize = SELLER_NO_HANDOVER/PICKUP_FAILED:
+     → outbox job riêng resolve IDs rồi khóa canonical, re-read payment evidence
+     → sub_order = CANCELLED_BY_PICKUP_FAILURE; package → AVAILABLE sau kiểm tra vận hành cần thiết
+     → nếu payment_status = CONFIRMED: tạo full refund `source_type=PICKUP_FAILURE`,
+       `amount=buyer_payable`, `fault_party/refund_funder=SELLER`; capture từ hold/ký quỹ
+       rồi đi payout workflow §5.5
+     → nếu không có bằng chứng buyer đã chuyển: chỉ hủy, release hold, không tạo refund
+     → reason do lỗi carrier/platform không được map thành lỗi seller và không tự debit seller
+7. Nếu status = DELIVERED:
      [TX] sub_order.delivered_at   = event_time
           sub_order.claim_deadline_at = event_time + 72h
           status = DELIVERED
           [OUTBOX] schedule job settle.suborder AT claim_deadline_at
           [OUTBOX] noti buyer "Nhớ quay video khi khui hộp"
-7. Nếu status = DELIVERY_FAILED (boom hàng):
+8. Nếu status = DELIVERY_FAILED (boom hàng):
      → chỉ cập nhật RETURNING + outbox; webhook transaction không lock wallet sau sub_order
      → khi RETURNED_TO_SELLER, outbox job riêng resolve IDs rồi khóa theo canonical
        wallet → shop → listings → order → sub_order → hold trước khi chạy reversal matrix:
@@ -536,7 +570,8 @@ D. Hold mồ côi:
      không blind-release khi prepaid/refund có thể còn nghĩa vụ
 
 E. Đơn kẹt:
-   sub_orders ở AWAITING_PAYMENT > 1h, IN_TRANSIT > 14 ngày,
+   sub_orders ở AWAITING_PAYMENT|AWAITING_SELLER_CONFIRMATION quá seller_confirmation_deadline_at,
+   READY_TO_SHIP quá pickup SLA, IN_TRANSIT > 14 ngày,
    DELIVERED quá claim_deadline > 1h mà chưa settle,
    DELIVERED + COD_PENDING quá SLA remittance
    → hàng đợi ops
@@ -914,7 +949,10 @@ Sau 8 lần: status = FAILED, tắt endpoint sau 20 lần FAILED liên tiếp
 | Nạp ký quỹ          | `topup:{psp_txn_id}`                              | PSP            |
 | Rút ký quỹ          | `withdraw:{withdrawal_id}`                        | REBOX          |
 | Checkout init       | `checkout:{client_uuid}`                          | Client gửi lên |
-| Xác nhận thanh toán | `bankwh:{bank_txn_id}`                            | Bank hub       |
+| Quan sát chuyển khoản | `bankwh:{provider}:{account}:{bank_txn_id}`       | Bank hub       |
+| Seller xác nhận nhận tiền | `confirm-payment:{sub_order_id}:{client_uuid}` | Seller client  |
+| Hủy do quá 12 giờ   | `seller-confirm-timeout:{sub_order_id}`             | REBOX worker   |
+| Hủy do lấy hàng lỗi | `pickup-failure:{sub_order_id}:{provider_event_id}`  | ĐVVC           |
 | Webhook ĐVVC        | `carrier:{code}:{provider_event_id}`; fallback HMAC event tuple | ĐVVC |
 | Settle sub-order    | `settle:{sub_order_id}`                           | REBOX          |
 | Xử lý tranh chấp    | `resolve:{dispute_id}`                            | REBOX          |

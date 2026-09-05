@@ -212,7 +212,7 @@ CREATE TABLE shops (
   display_name          TEXT NOT NULL,
   legal_type            TEXT NOT NULL,   -- INDIVIDUAL | HOUSEHOLD | ENTERPRISE
   tax_code              TEXT,
-  kyc_status            TEXT NOT NULL,   -- PENDING | VERIFIED | REJECTED
+  kyc_status            TEXT NOT NULL,   -- PENDING | PROCESSING | VERIFIED | REJECTED | MANUAL_REVIEW
   kyc_verified_at       TIMESTAMPTZ,
   status                TEXT NOT NULL,   -- ONBOARDING | ACTIVE | PAUSED | LOCKED_INSUFFICIENT_FUND | SUSPENDED
   payout_bank_bin       TEXT,            -- ngân hàng nhận tiền bán hàng
@@ -507,7 +507,9 @@ CREATE TABLE sub_orders (                 -- đơn vị nghiệp vụ thực s�
   buyer_payable         BIGINT NOT NULL,
   commission_amount     BIGINT NOT NULL,   -- chốt tại checkout, capture khi settle
   fee_snapshot          JSONB NOT NULL,    -- config version + input/output Fee Engine
-  payment_status        TEXT NOT NULL,     -- UNPAID | COD_PENDING | COD_REMITTED | CONFIRMED | FULL_REFUND_PENDING | PARTIAL_REFUND_PENDING | REFUNDED | PARTIALLY_REFUNDED | CANCELLED
+  payment_status        TEXT NOT NULL,     -- UNPAID | BUYER_REPORTED | PAYMENT_OBSERVED | COD_PENDING | COD_REMITTED | CONFIRMED | FULL_REFUND_PENDING | PARTIAL_REFUND_PENDING | REFUNDED | PARTIALLY_REFUNDED | CANCELLED
+  seller_confirmation_deadline_at TIMESTAMPTZ, -- VIETQR: created_at + 12 giờ
+  seller_confirmed_payment_at TIMESTAMPTZ,
   delivered_at          TIMESTAMPTZ,       -- NGUỒN SỰ THẬT cho cửa sổ khiếu nại
   claim_deadline_at     TIMESTAMPTZ,       -- delivered_at + 3 ngày
   settled_at            TIMESTAMPTZ,
@@ -616,7 +618,7 @@ CREATE TABLE dispute_responses (
 
 CREATE TABLE refunds (
   id                  TEXT PRIMARY KEY,
-  source_type         TEXT NOT NULL,   -- DISPUTE | DELIVERY_FAILURE | SELLER_CANCEL
+  source_type         TEXT NOT NULL,   -- DISPUTE | DELIVERY_FAILURE | SELLER_CANCEL | SELLER_CONFIRMATION_TIMEOUT | PICKUP_FAILURE
   source_id           TEXT NOT NULL,
   dispute_id          TEXT REFERENCES disputes(id),
   sub_order_id        TEXT NOT NULL REFERENCES sub_orders(id),
@@ -1223,15 +1225,20 @@ function computeFees(i: FeeInput) {
 
 ```mermaid
 stateDiagram-v2
-  [*] --> RESERVED: checkout init (hold tạo, TTL 30p)
-  RESERVED --> EXPIRED: quá TTL, chưa trả tiền
+  [*] --> RESERVED: checkout init (hold TTL 30p)
+  RESERVED --> EXPIRED: quá 30p, chưa chọn phương thức
   RESERVED --> AWAITING_PAYMENT: chọn VietQR
   RESERVED --> CONFIRMED: chọn COD (qua kiểm tra rủi ro)
-  AWAITING_PAYMENT --> CONFIRMED: bank webhook khớp số tiền + nội dung
-  AWAITING_PAYMENT --> EXPIRED: quá 30 phút
-  CONFIRMED --> READY_TO_SHIP: seller xác nhận, vận đơn đã tạo
+  AWAITING_PAYMENT --> AWAITING_SELLER_CONFIRMATION: buyer báo đã chuyển hoặc bank event khớp
+  AWAITING_SELLER_CONFIRMATION --> CONFIRMED: seller xác nhận đã nhận tiền
+  AWAITING_PAYMENT --> EXPIRED: quá 12 giờ, chưa có tiền
+  AWAITING_SELLER_CONFIRMATION --> CANCELLED_BY_TIMEOUT: quá 12 giờ, seller chưa xác nhận
+  CONFIRMED --> READY_TO_SHIP: tạo vận đơn sau xác nhận tiền
   CONFIRMED --> CANCELLED_BY_SELLER: seller từ chối / hết hàng
+  READY_TO_SHIP --> CANCELLED_BY_PICKUP_FAILURE: ĐVVC hủy do lấy hàng thất bại
   CANCELLED_BY_SELLER --> [*]
+  CANCELLED_BY_TIMEOUT --> [*]
+  CANCELLED_BY_PICKUP_FAILURE --> [*]
   READY_TO_SHIP --> IN_TRANSIT: ĐVVC nhận hàng
   IN_TRANSIT --> DELIVERED: webhook DELIVERED  ← mốc claim_deadline
   IN_TRANSIT --> DELIVERY_FAILED: giao thất bại
@@ -1251,8 +1258,10 @@ stateDiagram-v2
 | Transition                            | Ledger                                                                                            |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | `→ RESERVED`                          | `HOLD_CREATE`                                                                                     |
-| `→ EXPIRED`                            | `HOLD_RELEASE` toàn bộ; tiền đến muộn vào `payment_unmatched`                                     |
-| `→ CANCELLED_BY_SELLER`                | COD chưa thu: release phần dư; VietQR đã confirm: tạo refund buyer, charge phí/penalty theo lỗi, chỉ release phần còn lại |
+| `→ EXPIRED`                            | Không có bằng chứng chuyển khoản: `payment_status → CANCELLED`, `HOLD_RELEASE` toàn bộ, không tạo refund |
+| `→ CANCELLED_BY_TIMEOUT`               | Nếu provider đã khớp giao dịch: tạo full refund bằng `buyer_payable`, funder `SELLER`, capture từ hold/ký quỹ; nếu chỉ có buyer tự khai thì chuyển review, không auto-payout |
+| `→ CANCELLED_BY_SELLER`                | COD chưa thu: release phần dư; VietQR đã có bằng chứng tiền: tạo refund buyer, charge phí/penalty theo lỗi, chỉ release phần còn lại |
+| `→ CANCELLED_BY_PICKUP_FAILURE`         | ĐVVC hủy vì seller không bàn giao: nếu VietQR đã nhận/đối chiếu thì full refund từ ký quỹ seller; chưa có tiền thì chỉ hủy và release hold |
 | Settle bán thành công                 | Chỉ khi payment đã settle đúng method và không còn case mở: `COMMISSION_CHARGE` + khoản shipping recovery hợp lệ + `HOLD_RELEASE`; carrier invoice hạch toán riêng |
 | Refund được duyệt                     | Tạo obligation theo `execution_mode`/`refund_funder`; **chưa** đổi sang `REFUNDED`, không thu commission và chưa release phần còn cần bảo đảm |
 | Refund `PAID`/`VERIFIED`              | Full: `payment_status → REFUNDED`; partial: `→ PARTIALLY_REFUNDED`. Không đổi logistics status chỉ vì payout thành công |
@@ -1371,9 +1380,10 @@ Abstraction bắt buộc: `CarrierAdapter` với các phương thức `quote()`,
 | Luồng               | Cơ chế                                                                                                        | Ghi chú                                                                   |
 | ------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | VietQR động         | Sinh QR theo chuẩn NAPAS VietQR trỏ về **tài khoản của seller**, `addInfo` chứa mã đối soát `RBX<subOrderId>` | Cần seller liên kết & xác thực tài khoản                                  |
-| Xác nhận thanh toán | Webhook biến động số dư từ bank hub (SePay/Casso) hoặc PSP; đối chiếu `amount` + `addInfo`                    | **Không tin client**; chỉ tin webhook đã verify chữ ký                    |
+| Quan sát chuyển khoản | Webhook biến động số dư từ bank hub/PSP đối chiếu `amount` + `addInfo`, ghi `PAYMENT_OBSERVED` nhưng **không** tự mở fulfillment | **Không tin client**; chỉ tin event đã verify chữ ký |
+| Xác nhận nhận tiền  | Seller bấm xác nhận trên đơn; API ghi actor/time/audit và chuyển đơn sang `CONFIRMED`                         | Chỉ sau bước này mới được tạo vận đơn/bàn giao ĐVVC |
 | Nạp ký quỹ          | Qua PSP có giấy phép về tài khoản REBOX                                                                       | Đây là tiền REBOX giữ hộ ⇒ tài khoản phải tách biệt (xem `05-PHAP-LY` §2) |
-| Chi hoàn tiền buyer | Payout API của PSP                                                                                            | REBOX chi từ ví ký quỹ shop                                               |
+| Chi hoàn tiền buyer | Payout API của PSP; timeout 12 giờ hoặc pickup failure dùng full `buyer_payable` khi có bằng chứng đã chuyển | Capture từ hold/ký quỹ seller; production vẫn chờ A10/Legal               |
 | Rút ký quỹ          | Payout API, có hạn mức + xác thực 2 lớp + delay 24h với lệnh lớn                                              | Chống chiếm đoạt tài khoản                                                |
 
 **Ràng buộc thiết kế:** toàn bộ tương tác thanh toán đi qua interface `PaymentProvider`. PayOS, SePay, Casso hoặc tên vendor khác chỉ là ứng viên cho tới khi A10 được giải quyết. Supabase không giữ tiền và không thay PSP.
