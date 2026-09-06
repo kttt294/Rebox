@@ -1,5 +1,6 @@
 import type { Provider } from "@nestjs/common";
 import {
+  AccountModule,
   IdentityModule,
   InventoryModule,
   KycModule,
@@ -13,6 +14,7 @@ import { createVnptKycProvider } from "./platform/kyc/vnpt-kyc-provider";
 import { SupabaseCatalogMediaStorage } from "./platform/storage/supabase-catalog-media-storage";
 
 export const DATABASE = Symbol("DATABASE");
+export const ACCOUNT = Symbol("ACCOUNT");
 export const IDENTITY = Symbol("IDENTITY");
 export const INVENTORY = Symbol("INVENTORY");
 export const KYC = Symbol("KYC");
@@ -42,6 +44,12 @@ export const backendProviders: Provider[] = [
       createDatabase(
         process.env.DATABASE_URL ?? "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
       )
+  },
+  {
+    provide: ACCOUNT,
+    inject: [DATABASE],
+    useFactory: (database: DatabaseContext): AccountModule =>
+      new AccountModule(database.pool, sellerPiiEncryptionSecret())
   },
   {
     provide: CATALOG_MEDIA_STORAGE,

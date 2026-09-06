@@ -14,6 +14,7 @@ import {
   type PublicListingPage,
   type PublishListingResult,
   type ReturnManifestPreview,
+  type SellerInventoryPackage,
   maxReturnManifestFileBytes,
   publicListingsQuerySchema,
   updateListingDraftSchema
@@ -79,6 +80,14 @@ export class ListingsController {
   @Get("shops/:shopId/listings")
   listShopListings(@CurrentActor() actor: Actor, @Param("shopId") shopId: string): Promise<Listing[]> {
     return this.inventory.listShopListings(actor.id, shopId);
+  }
+
+  @Get("shops/:shopId/return-packages")
+  listSellerInventoryPackages(
+    @CurrentActor() actor: Actor,
+    @Param("shopId") shopId: string
+  ): Promise<SellerInventoryPackage[]> {
+    return this.inventory.listSellerInventoryPackages(actor.id, shopId);
   }
 
   @Patch("shops/:shopId/listings/:listingId")

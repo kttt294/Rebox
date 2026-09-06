@@ -511,6 +511,20 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
     expect(counts.rows[0]).toEqual({ packages: "2", lines: "3" });
     expect(stored.rows[0]?.tracking).not.toContain("TRACK-001");
     expect(stored.rows[0]?.payload).not.toMatch(/TRACK-00[12]|Khách đổi ý/);
+
+    const inventoryPackages = await inventory.listSellerInventoryPackages(verifiedActor, verifiedShop);
+    expect(inventoryPackages).toHaveLength(2);
+    expect(inventoryPackages).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        sourceOrderRef: "SHP-ORDER-0001",
+        title: "Áo thun cotton",
+        lineCount: 2,
+        unitCount: 4,
+        price: 600_000,
+        status: "AVAILABLE"
+      })
+    ]));
+    expect(JSON.stringify(inventoryPackages)).not.toContain("TRACK-001");
   });
 
   it("returns the first result for the same key and payload but rejects a changed payload", async () => {

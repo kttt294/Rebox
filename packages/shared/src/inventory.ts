@@ -177,4 +177,19 @@ export const commitReturnManifestResultSchema = z.object({
 });
 export type CommitReturnManifestResult = z.infer<typeof commitReturnManifestResultSchema>;
 
+export const sellerInventoryPackageSchema = z.object({
+  id: z.string(),
+  sourcePlatform: z.enum(["SHOPEE", "TIKTOK"]),
+  sourceOrderRef: z.string().nullable(),
+  title: z.string(),
+  variantName: z.string().nullable(),
+  imageUrl: z.string().url().nullable(),
+  lineCount: z.number().int().positive(),
+  unitCount: z.number().int().positive(),
+  price: z.number().int().positive(),
+  status: z.enum(["SOURCE_PENDING", "AVAILABLE", "RESERVED", "SOLD", "VOID"]),
+  createdAt: z.string().datetime()
+});
+export type SellerInventoryPackage = z.infer<typeof sellerInventoryPackageSchema>;
+
 export const maxReturnManifestFileBytes = 5 * 1024 * 1024;

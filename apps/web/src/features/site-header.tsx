@@ -4,22 +4,29 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "../platform/auth/browser";
 
-function UtilityNavigation({ compact = false }: { compact?: boolean }) {
-  const router = useRouter();
+function useSignedInEmail() {
   const [email, setEmail] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
-    supabase.auth.getSession().then(({ data }) => {
-      setEmail(data.session?.user.email ?? null);
+    void supabase.auth.getSession().then((result: { data: { session: Session | null } }) => {
+      setEmail(result.data.session?.user.email ?? null);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
       setEmail(session?.user.email ?? null);
     });
     return () => { subscription.unsubscribe(); };
   }, []);
+
+  return email;
+}
+
+function UtilityNavigation({ compact = false }: { compact?: boolean }) {
+  const router = useRouter();
+  const email = useSignedInEmail();
 
   async function logout() {
     await getSupabaseBrowserClient().auth.signOut();
@@ -109,29 +116,6 @@ function CheckoutHeader() {
   );
 }
 
-function AccountHeader() {
-  return (
-    <header className="relative z-40 h-[120px] bg-[var(--accent-header)] px-4 py-1.5 text-white sm:px-6 xl:px-0">
-      <div className="mx-auto w-full max-w-[940px]">
-        <div className="flex h-6 items-center justify-between gap-6 overflow-hidden whitespace-nowrap text-xs text-white/95">
-          <p>Kênh Người Bán&nbsp;&nbsp; | &nbsp;&nbsp;Tải ứng dụng&nbsp;&nbsp; | &nbsp;&nbsp;Kết nối</p>
-          <p className="ml-auto">Thông Báo&nbsp;&nbsp; Hỗ Trợ&nbsp;&nbsp; Tiếng Việt&nbsp;&nbsp; | &nbsp;&nbsp;<Link className="hover:underline" href="/account/profile">Tài khoản</Link></p>
-        </div>
-        <div className="mt-1 flex h-14 items-center gap-[18px]">
-          <Link className="flex h-11 w-40 shrink-0 items-center gap-2.5 text-white" href="/">
-            <Image alt="" aria-hidden height={38} src="/rebox/logo-mark.svg" width={38} />
-            <strong className="text-[27px] leading-none">REBOX</strong>
-          </Link>
-          <SearchField className="h-[42px] flex-1 rounded-none lg:w-[650px] lg:flex-none" />
-          <Link aria-label="Mở giỏ hàng" className="grid size-[30px] shrink-0 place-items-center" href="/cart">
-            <Image alt="" aria-hidden height={30} src="/rebox/cart.svg" width={30} />
-          </Link>
-        </div>
-      </div>
-    </header>
-  );
-}
-
 function SellerUtilityGrid() {
   return (
     <span aria-hidden className="grid size-4 grid-cols-3 gap-[2px]">
@@ -176,7 +160,7 @@ export function SiteHeader() {
   const pathname = usePathname();
   if (pathname === "/checkout") return <CheckoutHeader />;
   if (pathname === "/cart") return <MarketplaceHeader cart />;
-  if (pathname.startsWith("/account/")) return <AccountHeader />;
+  if (pathname.startsWith("/account/")) return <MarketplaceHeader />;
   if (pathname === "/" || pathname.startsWith("/listings/") || pathname === "/search") return <MarketplaceHeader />;
   if (pathname.startsWith("/shops/")) return <MarketplaceHeader shop />;
   if (pathname.startsWith("/seller/")) return <SellerHeader />;

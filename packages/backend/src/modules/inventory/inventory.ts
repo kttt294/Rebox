@@ -13,6 +13,7 @@ import type {
   PublishListingResult,
   ReturnManifestDraft,
   ReturnManifestPreview,
+  SellerInventoryPackage,
   UpdateListingDraftInput
 } from "@rebox/shared";
 import { catalogImageMimeTypes, maxCatalogImageBytes, maxCatalogImages } from "@rebox/shared";
@@ -83,6 +84,20 @@ type ImportBatchRow = {
   can_commit: boolean;
   normalized_payload: StoredManifestPayload;
   commit_result: CommitReturnManifestResult | null;
+};
+
+type SellerInventoryPackageRow = {
+  id: string;
+  source_platform: SellerInventoryPackage["sourcePlatform"];
+  source_order_ref: string | null;
+  product_name: string;
+  variant_name: string | null;
+  image_url: string | null;
+  line_count: string;
+  unit_count: string;
+  package_listing_price_vnd: string;
+  inventory_status: SellerInventoryPackage["status"];
+  created_at: Date;
 };
 
 const publicListingPageSize = 24;
@@ -378,6 +393,50 @@ export class InventoryModule {
         [shopId]
       );
       return result.rows.map((row) => presentListing(row, this.mediaStorage));
+    } finally {
+      client.release();
+    }
+  }
+
+  async listSellerInventoryPackages(actorId: string, shopId: string): Promise<SellerInventoryPackage[]> {
+    const client = await this.pool.connect();
+    try {
+      await this.identity.requireShopCapability(client, actorId, shopId, "CREATE_LISTING");
+      const result = await client.query<SellerInventoryPackageRow>(
+        `SELECT p.id, p.source_platform, p.source_order_ref,
+                first_line.product_name, first_line.variant_name, first_line.image_url,
+                totals.line_count::text, totals.unit_count::text,
+                p.package_listing_price_vnd, p.inventory_status, p.created_at
+         FROM return_packages p
+         JOIN LATERAL (
+           SELECT l.product_name, l.variant_name, l.product_image_urls->>0 AS image_url
+           FROM return_lines l
+           WHERE l.return_package_id = p.id
+           ORDER BY l.created_at, l.id
+           LIMIT 1
+         ) first_line ON true
+         JOIN LATERAL (
+           SELECT count(*) AS line_count, sum(l.source_quantity) AS unit_count
+           FROM return_lines l
+           WHERE l.return_package_id = p.id
+         ) totals ON true
+         WHERE p.shop_id = $1
+         ORDER BY p.created_at DESC, p.id DESC`,
+        [shopId]
+      );
+      return result.rows.map((row) => ({
+        id: row.id,
+        sourcePlatform: row.source_platform,
+        sourceOrderRef: row.source_order_ref,
+        title: row.product_name,
+        variantName: row.variant_name,
+        imageUrl: row.image_url,
+        lineCount: Number(row.line_count),
+        unitCount: Number(row.unit_count),
+        price: Number(row.package_listing_price_vnd),
+        status: row.inventory_status,
+        createdAt: row.created_at.toISOString()
+      }));
     } finally {
       client.release();
     }

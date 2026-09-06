@@ -19,14 +19,19 @@ function AccountNavItem({ active, href, label }: { active: boolean; href: string
   return href ? <Link className={`${className} hover:text-[var(--accent)]`} href={href}>{content}</Link> : <span className={className}>{content}</span>;
 }
 
-export function AccountShell({ activeHref, children }: { activeHref: string; children: ReactNode }) {
+export function AccountShell({ activeHref, children, username = "Tài khoản", initials = "US" }: {
+  activeHref: string;
+  children: ReactNode;
+  username?: string;
+  initials?: string;
+}) {
   return (
     <main className="min-h-[780px] bg-[var(--paper)] px-4 pb-20 pt-[18px] sm:px-6">
       <div className="mx-auto flex w-full max-w-[960px] items-start max-md:flex-col">
         <aside className="w-[190px] shrink-0 max-md:mb-4 max-md:w-full">
           <div className="flex h-[68px] items-center gap-3">
-            <span className="grid size-12 place-items-center rounded-full bg-[var(--accent-soft)] text-sm font-bold text-[var(--accent)]">US</span>
-            <div><strong className="block text-[15px]">Tài khoản</strong><Link className="mt-1 block text-xs text-[var(--muted)] hover:underline" href="/account/profile">Xem hồ sơ</Link></div>
+            <span className="grid size-12 place-items-center rounded-full bg-[var(--accent-soft)] text-sm font-bold text-[var(--accent)]">{initials}</span>
+            <div className="min-w-0"><strong className="block truncate text-[15px]">{username}</strong><Link className="mt-1 block text-xs text-[var(--muted)] hover:underline" href="/account/profile">Sửa hồ sơ</Link></div>
           </div>
           <div className="h-px bg-[var(--line)]" />
           <strong className="block py-1 text-xs">TÀI KHOẢN CỦA TÔI</strong>

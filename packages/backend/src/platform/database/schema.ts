@@ -13,6 +13,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid
 } from "drizzle-orm/pg-core";
 
@@ -26,6 +27,60 @@ export const profiles = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => [check("profiles_status_check", sql`${table.status} IN ('ACTIVE', 'SUSPENDED', 'DELETED')`)]
+);
+
+export const accountAddresses = pgTable(
+  "account_addresses",
+  {
+    id: text("id").primaryKey(),
+    userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    recipientNameEnc: bytea("recipient_name_enc").notNull(),
+    phoneEnc: bytea("phone_enc").notNull(),
+    addressLineEnc: bytea("address_line_enc").notNull(),
+    ward: text("ward").notNull(),
+    district: text("district").notNull(),
+    province: text("province").notNull(),
+    isDefault: boolean("is_default").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    index("idx_account_addresses_user_created").on(table.userId, table.createdAt),
+    uniqueIndex("account_addresses_one_default_per_user").on(table.userId).where(sql`${table.isDefault}`)
+  ]
+);
+
+export const accountPreferences = pgTable("account_preferences", {
+  userId: uuid("user_id").primaryKey().references(() => profiles.id, { onDelete: "cascade" }),
+  orderEmail: boolean("order_email").notNull().default(true),
+  promotionEmail: boolean("promotion_email").notNull().default(false),
+  surveyEmail: boolean("survey_email").notNull().default(true),
+  promotionSms: boolean("promotion_sms").notNull().default(false),
+  promotionZalo: boolean("promotion_zalo").notNull().default(true),
+  personalizedRecommendations: boolean("personalized_recommendations").notNull().default(true),
+  shareUsageAnalytics: boolean("share_usage_analytics").notNull().default(false),
+  publicPurchaseActivity: boolean("public_purchase_activity").notNull().default(false),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+});
+
+export const purchaseOrders = pgTable(
+  "purchase_orders",
+  {
+    id: text("id").primaryKey(),
+    buyerId: uuid("buyer_id").notNull().references(() => profiles.id),
+    status: text("status").notNull().default("PENDING"),
+    totalVnd: bigint("total_vnd", { mode: "number" }).notNull(),
+    itemCount: integer("item_count").notNull(),
+    placedAt: timestamp("placed_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    check("purchase_orders_status_check", sql`${table.status} IN ('PENDING', 'CONFIRMED', 'SHIPPING', 'COMPLETED', 'CANCELLED')`),
+    check("purchase_orders_total_check", sql`${table.totalVnd} >= 0`),
+    check("purchase_orders_item_count_check", sql`${table.itemCount} > 0`),
+    index("idx_purchase_orders_buyer_placed").on(table.buyerId, table.placedAt)
+  ]
 );
 
 export const shops = pgTable(

@@ -1,20 +1,27 @@
 import type {
+  AccountAddress,
+  AccountPaymentOverview,
   AdminKycQueue, AdminKycDetail, KycDecisionInput, KycDecisionResult,
   ActorContext,
   CatalogImageUploadIntent,
   Category,
   CommitReturnManifestResult,
   CreateListingInput,
+  CreateAccountAddressInput,
   CreateShopInput,
   ErrorResponse,
   Listing,
+  NotificationPreferences,
   KycStatusResponse,
   PublicListing,
   PublicListingPage,
   PublicListingsQuery,
+  PrivacyPreferences,
   PublishListingResult,
   ReturnManifestPreview,
+  SellerInventoryPackage,
   SellerDocumentKind,
+  PurchaseOrderSummary,
   UpdateListingDraftInput
 } from "@rebox/shared";
 
@@ -64,6 +71,23 @@ export function createApiClient(options: ApiClientOptions) {
   }
 
   return {
+    listAccountAddresses: () => request<AccountAddress[]>("/v1/account/addresses", { cache: "no-store" }),
+    createAccountAddress: (input: CreateAccountAddressInput) => request<AccountAddress>("/v1/account/addresses", {
+      method: "POST", body: JSON.stringify(input)
+    }),
+    deleteAccountAddress: (id: string) => request<{ deleted: true }>(`/v1/account/addresses/${encodeURIComponent(id)}`, {
+      method: "DELETE"
+    }),
+    getNotificationPreferences: () => request<NotificationPreferences>("/v1/account/notifications", { cache: "no-store" }),
+    updateNotificationPreferences: (input: NotificationPreferences) => request<NotificationPreferences>("/v1/account/notifications", {
+      method: "PUT", body: JSON.stringify(input)
+    }),
+    getPrivacyPreferences: () => request<PrivacyPreferences>("/v1/account/privacy", { cache: "no-store" }),
+    updatePrivacyPreferences: (input: PrivacyPreferences) => request<PrivacyPreferences>("/v1/account/privacy", {
+      method: "PUT", body: JSON.stringify(input)
+    }),
+    getAccountPaymentOverview: () => request<AccountPaymentOverview>("/v1/account/payment-methods", { cache: "no-store" }),
+    listPurchaseOrders: () => request<PurchaseOrderSummary[]>("/v1/account/orders", { cache: "no-store" }),
     listCategories: () => request<Category[]>("/v1/categories", { cache: "no-store" }),
     getMe: () => request<ActorContext>("/v1/me", { cache: "no-store" }),
     listKycReviews: (cursor?: string) => request<AdminKycQueue>(
@@ -109,6 +133,8 @@ export function createApiClient(options: ApiClientOptions) {
       return intent.key;
     },
     listShopListings: (shopId: string) => request<Listing[]>(`/v1/shops/${encodeURIComponent(shopId)}/listings`),
+    listSellerInventoryPackages: (shopId: string) => request<SellerInventoryPackage[]>(
+      `/v1/shops/${encodeURIComponent(shopId)}/return-packages`, { cache: "no-store" }),
     createListing: (shopId: string, input: CreateListingInput) =>
       request<Listing>(`/v1/shops/${encodeURIComponent(shopId)}/listings`, {
         method: "POST",

@@ -64,6 +64,13 @@
       "when": 1788588003000,
       "tag": "0008_kyc_manual_review",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788675376919,
+      "tag": "0009_account_center",
+      "breakpoints": true
     }
   ]
 }

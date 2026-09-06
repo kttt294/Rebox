@@ -14,14 +14,7 @@ export default async function SellerSectionPage({ params }: { params: Promise<{ 
   if (section === "inventory") {
     return (
       <SellerShell>
-        <section className="mx-auto w-full max-w-[1200px]">
-          <div className="border-b border-[var(--line)] pb-5">
-            <p className="text-sm font-bold text-[var(--accent)]">Kênh Người Bán</p>
-            <h1 className="mt-1 text-3xl font-black tracking-[-0.035em] text-[var(--ink)] sm:text-4xl">Quản lý kho hàng</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)] sm:text-base">Đăng sản phẩm mới, quản lý bản nháp và các sản phẩm đang bán của shop.</p>
-          </div>
-          <SellerWorkbench />
-        </section>
+        <SellerWorkbench />
       </SellerShell>
     );
   }

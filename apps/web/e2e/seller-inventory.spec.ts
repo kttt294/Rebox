@@ -53,6 +53,11 @@ test("chooses a category, edits a draft and sends it to policy review", async ({
       return;
     }
 
+    if (path === `/v1/shops/${shopId}/return-packages` && method === "GET") {
+      await route.fulfill({ json: [] });
+      return;
+    }
+
     if (path === `/v1/shops/${shopId}/listings` && method === "POST") {
       const body = request.postDataJSON() as Record<string, unknown>;
       listings.unshift({
@@ -164,12 +169,13 @@ test("chooses a category, edits a draft and sends it to policy review", async ({
 
   await page.getByRole("row", { name: /Draft E2E đã sửa/ }).getByRole("button", { name: "Đăng bán" }).click();
   await expect(page.getByRole("status")).toHaveText("Sản phẩm đã được gửi duyệt và chưa xuất hiện công khai.");
-  await expect(page.getByRole("row", { name: /Draft E2E đã sửa/ })).toContainText("Chờ duyệt");
+  await expect(page.getByRole("row", { name: /Draft E2E đã sửa/ })).toContainText("CHỜ DUYỆT");
   await expect(page.getByRole("row", { name: /Draft E2E đã sửa/ })).not.toContainText("Xem công khai");
 });
 
 test("shows two manifest sources and previews the spreadsheet source only", async ({ page }) => {
   let importRequests = 0;
+  const inventoryPackages: Array<Record<string, unknown>> = [];
   await page.route("**/v1/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
@@ -194,6 +200,10 @@ test("shows two manifest sources and previews the spreadsheet source only", asyn
     }
     if (path === `/v1/shops/${shopId}/listings`) {
       await route.fulfill({ json: [] });
+      return;
+    }
+    if (path === `/v1/shops/${shopId}/return-packages`) {
+      await route.fulfill({ json: inventoryPackages });
       return;
     }
     if (path === `/v1/shops/${shopId}/return-imports/preview`) {
@@ -225,6 +235,19 @@ test("shows two manifest sources and previews the spreadsheet source only", asyn
     }
     if (path.endsWith("/commit")) {
       importRequests += 1;
+      inventoryPackages.push({
+        id: "RBX-01JTESTPACKAGE00000000000",
+        sourcePlatform: "SHOPEE",
+        sourceOrderRef: "SHP-ORDER-001",
+        title: "Áo thun cotton",
+        variantName: "Đen / M",
+        imageUrl: null,
+        lineCount: 1,
+        unitCount: 3,
+        price: 600000,
+        status: "AVAILABLE",
+        createdAt: "2026-09-04T12:00:00.000Z"
+      });
       await route.fulfill({ status: 201, json: {
         batchId: "RBX-01JTESTIMPORTBATCH000000000",
         packageIds: ["RBX-01JTESTPACKAGE00000000000"],
@@ -250,5 +273,10 @@ test("shows two manifest sources and previews the spreadsheet source only", asyn
   await expect(page.getByRole("row", { name: /SHOPEE:TRACK-001/ })).toContainText("Hợp lệ");
   await page.getByRole("button", { name: "Commit bản kê" }).click();
   await expect(page.getByRole("status")).toHaveText("Đã nhập 1 kiện và 1 dòng khai báo.");
+  await expect(page.getByRole("row", { name: /Áo thun cotton/ })).toContainText("600.000đ");
+  await page.getByRole("button", { name: "Hết hàng (0)" }).click();
+  await expect(page.getByRole("row", { name: /Áo thun cotton/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "Còn hàng (1)" }).click();
+  await expect(page.getByRole("row", { name: /Áo thun cotton/ })).toBeVisible();
   expect(importRequests).toBe(2);
 });

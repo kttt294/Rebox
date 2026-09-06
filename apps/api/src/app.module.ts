@@ -4,6 +4,7 @@ import { Inject, Module, type OnApplicationShutdown } from "@nestjs/common";
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import type { DatabaseContext } from "@rebox/backend";
 import { backendProviders, DATABASE } from "./backend.providers";
+import { AccountController } from "./http/controllers/account.controller";
 import { HealthController } from "./http/controllers/health.controller";
 import { IdentityController } from "./http/controllers/identity.controller";
 import { ListingsController } from "./http/controllers/listings.controller";
@@ -13,7 +14,7 @@ import { SupabaseJwtGuard } from "./http/guards/supabase-jwt.guard";
 import { RequestContextInterceptor } from "./http/interceptors/request-context.interceptor";
 
 @Module({
-  controllers: [AdminKycController, HealthController, IdentityController, KycController, ListingsController],
+  controllers: [AccountController, AdminKycController, HealthController, IdentityController, KycController, ListingsController],
   providers: [
     ...backendProviders,
     KycReviewerGuard,
