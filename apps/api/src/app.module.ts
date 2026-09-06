@@ -6,6 +6,7 @@ import type { DatabaseContext } from "@rebox/backend";
 import { backendProviders, DATABASE } from "./backend.providers";
 import { AccountController } from "./http/controllers/account.controller";
 import { HealthController } from "./http/controllers/health.controller";
+import { FinanceController } from "./http/controllers/finance.controller";
 import { IdentityController } from "./http/controllers/identity.controller";
 import { ListingsController } from "./http/controllers/listings.controller";
 import { KycController } from "./http/controllers/kyc.controller";
@@ -14,7 +15,7 @@ import { SupabaseJwtGuard } from "./http/guards/supabase-jwt.guard";
 import { RequestContextInterceptor } from "./http/interceptors/request-context.interceptor";
 
 @Module({
-  controllers: [AccountController, AdminKycController, HealthController, IdentityController, KycController, ListingsController],
+  controllers: [AccountController, AdminKycController, FinanceController, HealthController, IdentityController, KycController, ListingsController],
   providers: [
     ...backendProviders,
     KycReviewerGuard,

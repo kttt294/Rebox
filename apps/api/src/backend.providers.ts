@@ -1,6 +1,7 @@
 import type { Provider } from "@nestjs/common";
 import {
   AccountModule,
+  FinanceModule,
   IdentityModule,
   InventoryModule,
   KycModule,
@@ -16,6 +17,7 @@ import { SupabaseCatalogMediaStorage } from "./platform/storage/supabase-catalog
 
 export const DATABASE = Symbol("DATABASE");
 export const ACCOUNT = Symbol("ACCOUNT");
+export const FINANCE = Symbol("FINANCE");
 export const IDENTITY = Symbol("IDENTITY");
 export const INVENTORY = Symbol("INVENTORY");
 export const KYC = Symbol("KYC");
@@ -52,6 +54,12 @@ export const backendProviders: Provider[] = [
     inject: [DATABASE],
     useFactory: (database: DatabaseContext): AccountModule =>
       new AccountModule(database.pool, sellerPiiEncryptionSecret())
+  },
+  {
+    provide: FINANCE,
+    inject: [DATABASE, IDENTITY],
+    useFactory: (database: DatabaseContext, identity: IdentityModule): FinanceModule =>
+      new FinanceModule(database.pool, identity)
   },
   {
     provide: CATALOG_MEDIA_STORAGE,

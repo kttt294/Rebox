@@ -3,7 +3,7 @@ import { z } from "zod";
 export const shopRoleSchema = z.enum(["OWNER", "MANAGER", "WAREHOUSE", "ACCOUNTING"]);
 export type ShopRole = z.infer<typeof shopRoleSchema>;
 
-export const shopCapabilitySchema = z.enum(["CREATE_LISTING", "PUBLISH_LISTING"]);
+export const shopCapabilitySchema = z.enum(["CREATE_LISTING", "PUBLISH_LISTING", "VIEW_FINANCE"]);
 export type ShopCapability = z.infer<typeof shopCapabilitySchema>;
 
 export const sellerDocumentKindSchema = z.enum(["AVATAR", "CCCD_FRONT", "CCCD_BACK", "SELFIE"]);

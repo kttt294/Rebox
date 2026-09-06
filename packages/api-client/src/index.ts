@@ -21,6 +21,7 @@ import type {
   PublishListingResult,
   ReturnManifestPreview,
   SellerInventoryPackage,
+  SellerFinanceSnapshot,
   SellerDocumentKind,
   PurchaseOrderSummary,
   UpdateListingDraftInput
@@ -94,6 +95,8 @@ export function createApiClient(options: ApiClientOptions) {
     }),
     listCategories: () => request<Category[]>("/v1/categories", { cache: "no-store" }),
     getMe: () => request<ActorContext>("/v1/me", { cache: "no-store" }),
+    getSellerFinance: (shopId: string) => request<SellerFinanceSnapshot>(
+      `/v1/shops/${encodeURIComponent(shopId)}/finance`, { cache: "no-store" }),
     listKycReviews: (cursor?: string) => request<AdminKycQueue>(
       `/v1/admin/kyc?status=MANUAL_REVIEW${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`, { cache: "no-store" }),
     getKycReview: (id: string) => request<AdminKycDetail>(`/v1/admin/kyc/${encodeURIComponent(id)}`, { cache: "no-store" }),

@@ -22,7 +22,8 @@ export type ShopAccess = {
 
 const capabilityRoles: Record<ShopCapability, ReadonlySet<ShopRole>> = {
   CREATE_LISTING: new Set(["OWNER", "MANAGER", "WAREHOUSE"]),
-  PUBLISH_LISTING: new Set(["OWNER", "MANAGER"])
+  PUBLISH_LISTING: new Set(["OWNER", "MANAGER"]),
+  VIEW_FINANCE: new Set(["OWNER", "MANAGER", "ACCOUNTING"])
 };
 
 type MembershipRow = {

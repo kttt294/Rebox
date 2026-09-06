@@ -1,4 +1,5 @@
 import { ApiClientError } from "@rebox/api-client";
+import type { PublicListing } from "@rebox/shared";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CartActions } from "../../../../features/cart-actions";
@@ -6,6 +7,14 @@ import { formatPrice } from "../../../../features/commerce-data";
 import { ProductVisual, ReboxBadge } from "../../../../features/commerce-ui";
 import { ProductCard } from "../../../../features/product-card";
 import { createPublicApiClient } from "../../../../platform/api/server";
+
+const conditionLabels: Record<PublicListing["conditionGrade"], string> = {
+  NEW_SEALED: "Mới nguyên seal",
+  LIKE_NEW_99: "Gần như mới",
+  GOOD: "Còn tốt",
+  FAIR: "Đã qua sử dụng",
+  DEFECT: "Có lỗi"
+};
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -27,8 +36,13 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
     throw error;
   }
 
-  const relatedPage = await api.listPublicListings({ category: listing.categoryId }).catch(() => null);
+  const [relatedPage, categories] = await Promise.all([
+    api.listPublicListings({ category: listing.categoryId }).catch(() => null),
+    api.listCategories().catch(() => [])
+  ]);
   const related = relatedPage?.items.filter((item) => item.id !== listing.id).slice(0, 4) ?? [];
+  const categoryName = categories.find((category) => category.id === listing.categoryId)?.name ?? listing.categoryId;
+  const conditionName = conditionLabels[listing.conditionGrade];
 
   return (
     <main className="bg-[var(--paper)] px-4 pb-9 pt-5 sm:px-6 xl:px-0">
@@ -36,7 +50,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
         <nav aria-label="Breadcrumb" className="flex h-7 items-center gap-2 overflow-hidden text-[13px]">
           <Link className="font-medium text-[var(--accent-strong)]" href="/">REBOX</Link>
           <span className="text-[var(--muted)]">/</span>
-          <Link className="font-medium text-[var(--accent-strong)]" href={`/search?category=${encodeURIComponent(listing.categoryId)}`}>{listing.categoryId}</Link>
+          <Link className="font-medium text-[var(--accent-strong)]" href={`/search?category=${encodeURIComponent(listing.categoryId)}`}>{categoryName}</Link>
           <span className="text-[var(--muted)]">/</span>
           <span className="truncate">{listing.title}</span>
         </nav>
@@ -47,20 +61,20 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
           ) : (
             <ProductVisual
               className="h-[430px] w-full rounded-[10px] bg-[linear-gradient(139deg,#3769b2_14%,#b8d5f7_86%)]"
-              label={listing.categoryId.toUpperCase()}
+              label={categoryName.toUpperCase()}
               labelClassName="text-[44px]"
             />
           )}
 
           <div className="flex flex-col gap-4">
-            <ReboxBadge className="h-[25px] w-fit px-2 font-bold">{listing.conditionGrade.replaceAll("_", " ")}</ReboxBadge>
+            <ReboxBadge className="h-[25px] w-fit px-2 font-bold">{conditionName}</ReboxBadge>
             <h1 className="text-2xl font-medium leading-[34px]">{listing.title}</h1>
             <div className="rounded-lg bg-[var(--accent-soft)] px-4 py-3.5">
               <strong className="text-[30px] leading-[42px] text-[var(--accent-strong)]">{formatPrice(listing.price)}</strong>
             </div>
             <dl className="grid gap-3">
-              <DetailRow label="Danh mục" value={listing.categoryId} />
-              <DetailRow label="Tình trạng" value={listing.conditionGrade.replaceAll("_", " ")} />
+              <DetailRow label="Danh mục" value={categoryName} />
+              <DetailRow label="Tình trạng" value={conditionName} />
               <DetailRow label="Mô tả tình trạng" value={listing.conditionNotes} />
               <DetailRow label="Đăng bán lúc" value={new Date(listing.publishedAt ?? listing.createdAt).toLocaleString("vi-VN")} />
             </dl>

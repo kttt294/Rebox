@@ -33,4 +33,9 @@ enable_signup = true
 [auth.email]
 enable_signup = true
 double_confirm_changes = true
-enable_confirmations = false
+enable_confirmations = true
+otp_length = 6
+
+[auth.email.template.confirmation]
+subject = "Mã xác thực đăng ký REBOX"
+content_path = "./supabase/templates/confirmation.html"
