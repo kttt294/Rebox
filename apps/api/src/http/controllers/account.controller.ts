@@ -6,7 +6,6 @@ import {
   notificationPreferencesSchema,
   privacyPreferencesSchema
 } from "@rebox/shared";
-import { ACCOUNT } from "../../backend.providers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ACCOUNT, SUPABASE_AUTH } from "../../backend.providers";
 import { CurrentActor } from "../decorators/current-actor";
@@ -14,7 +13,6 @@ import type { Actor } from "../types/authenticated-request";
 
 @Controller("v1/account")
 export class AccountController {
-  constructor(@Inject(ACCOUNT) private readonly account: AccountModule) {}
   constructor(
     @Inject(ACCOUNT) private readonly account: AccountModule,
     @Inject(SUPABASE_AUTH) private readonly supabase: SupabaseClient
