@@ -51,3 +51,9 @@ export type PurchaseOrderSummary = {
   itemCount: number;
   placedAt: string;
 };
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Vui lòng nhập mật khẩu hiện tại"),
+  newPassword: z.string().min(8, "Mật khẩu mới phải có ít nhất 8 ký tự")
+}).strict();
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;

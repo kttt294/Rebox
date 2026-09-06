@@ -9,6 +9,7 @@ import {
   type CatalogMediaStorage,
   type DatabaseContext
 } from "@rebox/backend";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { HttpBusinessVerificationProvider } from "./platform/kyc/http-business-verification-provider";
 import { createVnptKycProvider } from "./platform/kyc/vnpt-kyc-provider";
 import { SupabaseCatalogMediaStorage } from "./platform/storage/supabase-catalog-media-storage";
@@ -22,6 +23,7 @@ export const KYC_PROVIDER = Symbol("KYC_PROVIDER");
 export const BUSINESS_VERIFICATION_PROVIDER = Symbol("BUSINESS_VERIFICATION_PROVIDER");
 export const CATALOG_MEDIA_STORAGE = Symbol("CATALOG_MEDIA_STORAGE");
 export const SELLER_KYC_STORAGE = Symbol("SELLER_KYC_STORAGE");
+export const SUPABASE_AUTH = Symbol("SUPABASE_AUTH");
 
 function trackingSecret(name: "RETURN_TRACKING_ENCRYPTION_KEY" | "RETURN_TRACKING_HMAC_KEY"): string {
   const configured = process.env[name];
@@ -119,5 +121,14 @@ export const backendProviders: Provider[] = [
       encryptionSecret: trackingSecret("RETURN_TRACKING_ENCRYPTION_KEY"),
       hmacSecret: trackingSecret("RETURN_TRACKING_HMAC_KEY")
     })
+  },
+  {
+    provide: SUPABASE_AUTH,
+    useFactory: (): SupabaseClient => {
+      const url = process.env.SUPABASE_URL ?? "http://127.0.0.1:54321";
+      const secretKey = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (!secretKey) throw new Error("SUPABASE_SECRET_KEY is required for auth operations");
+      return createClient(url, secretKey, { auth: { persistSession: false } });
+    }
   }
 ];

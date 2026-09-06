@@ -5,6 +5,7 @@ import type {
   ActorContext,
   CatalogImageUploadIntent,
   Category,
+  ChangePasswordInput,
   CommitReturnManifestResult,
   CreateListingInput,
   CreateAccountAddressInput,
@@ -88,6 +89,9 @@ export function createApiClient(options: ApiClientOptions) {
     }),
     getAccountPaymentOverview: () => request<AccountPaymentOverview>("/v1/account/payment-methods", { cache: "no-store" }),
     listPurchaseOrders: () => request<PurchaseOrderSummary[]>("/v1/account/orders", { cache: "no-store" }),
+    changePassword: (input: ChangePasswordInput) => request<{ changed: true }>("/v1/account/change-password", {
+      method: "POST", body: JSON.stringify(input)
+    }),
     listCategories: () => request<Category[]>("/v1/categories", { cache: "no-store" }),
     getMe: () => request<ActorContext>("/v1/me", { cache: "no-store" }),
     listKycReviews: (cursor?: string) => request<AdminKycQueue>(

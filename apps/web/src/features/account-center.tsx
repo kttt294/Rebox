@@ -124,6 +124,7 @@ function AddressForm({ form, onChange, onSubmit, saving }: { form: CreateAccount
 }
 
 export function PasswordSettings() {
+  const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [saving, setSaving] = useState(false);
@@ -132,14 +133,24 @@ export function PasswordSettings() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(undefined); setNotice(undefined);
     if (password.length < 8) return setError("Mật khẩu phải có ít nhất 8 ký tự.");
+    if (password.length < 8) return setError("Mật khẩu mới phải có ít nhất 8 ký tự.");
     if (password !== confirmation) return setError("Mật khẩu nhập lại chưa khớp.");
     setSaving(true);
     const { error: updateError } = await getSupabaseBrowserClient().auth.updateUser({ password });
     setSaving(false);
     if (updateError) return setError(updateError.message);
     setPassword(""); setConfirmation(""); setNotice("Đã đổi mật khẩu.");
+    try {
+      await api.changePassword({ currentPassword, newPassword: password });
+      setCurrentPassword(""); setPassword(""); setConfirmation(""); setNotice("Đã đổi mật khẩu.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể đổi mật khẩu.");
+    } finally {
+      setSaving(false);
+    }
   }
   return <AccountPage activeHref="/account/password"><Panel className="min-h-[574px] px-[30px] py-5"><h1 className="text-xl font-normal">Đổi mật khẩu</h1><div className="mt-3 border-t border-[var(--line)] pt-6"><form className="max-w-[500px]" onSubmit={submit}><Feedback error={error} notice={notice} /><FormField label="Mật khẩu mới"><input autoComplete="new-password" className="h-10 w-full border border-[var(--line)] px-3" minLength={8} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} /></FormField><FormField label="Nhập lại mật khẩu"><input autoComplete="new-password" className="h-10 w-full border border-[var(--line)] px-3" minLength={8} onChange={(event) => setConfirmation(event.target.value)} required type="password" value={confirmation} /></FormField><button className="ml-[160px] mt-3 h-10 bg-[var(--accent-header)] px-6 text-sm font-bold text-white disabled:opacity-60 max-sm:ml-0" disabled={saving} type="submit">{saving ? "ĐANG LƯU…" : "XÁC NHẬN"}</button></form></div></Panel></AccountPage>;
+  return <AccountPage activeHref="/account/password"><Panel className="min-h-[574px] px-[30px] py-5"><h1 className="text-xl font-normal">Đổi mật khẩu</h1><div className="mt-3 border-t border-[var(--line)] pt-6"><form className="max-w-[500px]" onSubmit={submit}><Feedback error={error} notice={notice} /><FormField label="Mật khẩu hiện tại"><input autoComplete="current-password" className="h-10 w-full border border-[var(--line)] px-3" onChange={(event) => setCurrentPassword(event.target.value)} required type="password" value={currentPassword} /></FormField><FormField label="Mật khẩu mới"><input autoComplete="new-password" className="h-10 w-full border border-[var(--line)] px-3" minLength={8} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} /></FormField><FormField label="Nhập lại mật khẩu"><input autoComplete="new-password" className="h-10 w-full border border-[var(--line)] px-3" minLength={8} onChange={(event) => setConfirmation(event.target.value)} required type="password" value={confirmation} /></FormField><button className="ml-[160px] mt-3 h-10 bg-[var(--accent-header)] px-6 text-sm font-bold text-white disabled:opacity-60 max-sm:ml-0" disabled={saving} type="submit">{saving ? "ĐANG LƯU…" : "XÁC NHẬN"}</button></form></div></Panel></AccountPage>;
 }
 
 const importantNotice = "Thông báo và nhắc nhở quan trọng về tài khoản sẽ không thể bị tắt";
