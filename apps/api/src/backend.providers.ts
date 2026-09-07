@@ -1,10 +1,15 @@
 import type { Provider } from "@nestjs/common";
 import {
   AccountModule,
+  CommerceModule,
+  ClaimsModule,
   FinanceModule,
+  FakeCarrierAdapter,
+  FulfillmentModule,
   IdentityModule,
   InventoryModule,
   KycModule,
+  OperationsModule,
   createDatabase,
   type BusinessVerificationProvider,
   type CatalogMediaStorage,
@@ -21,6 +26,10 @@ export const FINANCE = Symbol("FINANCE");
 export const IDENTITY = Symbol("IDENTITY");
 export const INVENTORY = Symbol("INVENTORY");
 export const KYC = Symbol("KYC");
+export const COMMERCE = Symbol("COMMERCE");
+export const FULFILLMENT = Symbol("FULFILLMENT");
+export const CLAIMS = Symbol("CLAIMS");
+export const OPERATIONS = Symbol("OPERATIONS");
 export const KYC_PROVIDER = Symbol("KYC_PROVIDER");
 export const BUSINESS_VERIFICATION_PROVIDER = Symbol("BUSINESS_VERIFICATION_PROVIDER");
 export const CATALOG_MEDIA_STORAGE = Symbol("CATALOG_MEDIA_STORAGE");
@@ -60,6 +69,39 @@ export const backendProviders: Provider[] = [
     inject: [DATABASE, IDENTITY],
     useFactory: (database: DatabaseContext, identity: IdentityModule): FinanceModule =>
       new FinanceModule(database.pool, identity)
+  },
+  {
+    provide: COMMERCE,
+    inject: [DATABASE],
+    useFactory: (database: DatabaseContext): CommerceModule => new CommerceModule(
+      database.pool,
+      sellerPiiEncryptionSecret(),
+      process.env.NODE_ENV !== "production"
+        && (process.env.COMMERCE_MODE ?? "SANDBOX") === "SANDBOX"
+        && (process.env.PAYMENT_MODE ?? "DISABLED") === "DISABLED"
+    )
+  },
+  {
+    provide: FULFILLMENT,
+    inject: [DATABASE],
+    useFactory: (database: DatabaseContext): FulfillmentModule => new FulfillmentModule(
+      database.pool,
+      new FakeCarrierAdapter(),
+      process.env.NODE_ENV !== "production" && (process.env.FULFILLMENT_MODE ?? "FAKE") === "FAKE"
+    )
+  },
+  {
+    provide: CLAIMS,
+    inject: [DATABASE],
+    useFactory: (database: DatabaseContext): ClaimsModule => new ClaimsModule(
+      database.pool,
+      process.env.NODE_ENV !== "production" && (process.env.EVIDENCE_MODE ?? "FAKE_METADATA") === "FAKE_METADATA"
+    )
+  },
+  {
+    provide: OPERATIONS,
+    inject: [DATABASE],
+    useFactory: (database: DatabaseContext): OperationsModule => new OperationsModule(database.pool)
   },
   {
     provide: CATALOG_MEDIA_STORAGE,

@@ -1,17 +1,25 @@
 "use client";
 
-import type { PublicListing } from "@rebox/shared";
+import type { AccountAddress, CommerceOrder, PublicListing } from "@rebox/shared";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatPrice } from "./commerce-data";
 import { ProductVisual } from "./commerce-ui";
 import { createBrowserApiClient } from "../platform/api/browser";
+import { readCart, writeCart } from "./cart-storage";
+import { useRouter } from "next/navigation";
 
 const api = createBrowserApiClient();
 
 export function CheckoutPreview({ listingIds }: { listingIds: string[] }) {
   const [items, setItems] = useState<PublicListing[]>([]);
   const [loading, setLoading] = useState(true);
+  const [addresses, setAddresses] = useState<AccountAddress[]>([]);
+  const [addressId, setAddressId] = useState("");
+  const [order, setOrder] = useState<CommerceOrder>();
+  const [error, setError] = useState<string>();
+  const [submitting, setSubmitting] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     void Promise.all(listingIds.map(async (listingId) => {
@@ -25,6 +33,27 @@ export function CheckoutPreview({ listingIds }: { listingIds: string[] }) {
       setLoading(false);
     });
   }, [listingIds]);
+
+  useEffect(() => {
+    void api.listAccountAddresses().then((value) => { setAddresses(value); setAddressId(value.find((item) => item.isDefault)?.id ?? value[0]?.id ?? ""); })
+      .catch((caught) => {
+        if (caught instanceof Error && "status" in caught && caught.status === 401) router.replace(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+      });
+  }, [router]);
+
+  async function placeOrder() {
+    const item = items[0];
+    if (!item || !addressId) return;
+    setSubmitting(true); setError(undefined);
+    try {
+      const initialized = await api.initCheckout({ items: [{ listingId: item.id, quantity: 1 }], addressId }, crypto.randomUUID());
+      const confirmed = await api.payCheckout(initialized.id, crypto.randomUUID());
+      setOrder(confirmed);
+      writeCart(readCart().filter((line) => line.listingId !== item.id));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Không thể đặt đơn sandbox.");
+    } finally { setSubmitting(false); }
+  }
 
   const subtotal = items.reduce((sum, listing) => sum + listing.price, 0);
 
@@ -58,10 +87,17 @@ export function CheckoutPreview({ listingIds }: { listingIds: string[] }) {
             <section className="mt-4 rounded-lg border border-[var(--line)] bg-white p-6 text-right">
               <p className="text-sm text-[var(--muted)]">Tạm tính từ dữ liệu listing hiện tại</p>
               <strong className="mt-2 block text-2xl text-[var(--accent)]">{formatPrice(subtotal)}</strong>
-              <p className="mt-6 rounded-md bg-amber-50 p-4 text-left text-sm text-amber-800">
-                Đặt hàng, địa chỉ, phí vận chuyển và thanh toán chưa có API/backend nên chưa được giả lập trên giao diện này.
-              </p>
-              <button className="mt-4 h-12 w-52 cursor-not-allowed rounded-md bg-slate-400 font-medium text-white" disabled type="button">Đặt hàng chưa khả dụng</button>
+              {order ? <div className="mt-6 rounded-md bg-emerald-50 p-4 text-left text-sm text-emerald-800" role="status"><strong>Đơn {order.id} đã xác nhận SANDBOX_COD.</strong><br />Đây là giao dịch mô phỏng, không phải thanh toán thật. <Link className="underline" href={`/account/orders/${order.id}`}>Xem chi tiết</Link></div> : <>
+                <label className="mt-6 block text-left text-sm font-bold">Địa chỉ nhận hàng
+                  <select className="mt-2 h-11 w-full rounded border border-[var(--line)] px-3 font-normal" onChange={(event) => setAddressId(event.target.value)} value={addressId}>
+                    <option value="">Chọn địa chỉ</option>{addresses.map((address) => <option key={address.id} value={address.id}>{address.label} · {address.district}, {address.province}</option>)}
+                  </select>
+                </label>
+                {addresses.length === 0 ? <p className="mt-3 text-left text-sm"><Link className="text-[var(--accent)] underline" href="/account/address">Thêm địa chỉ trước khi đặt hàng</Link></p> : null}
+                <p className="mt-4 rounded-md bg-amber-50 p-4 text-left text-sm text-amber-800">SANDBOX_COD chỉ tạo dữ liệu mô phỏng; không thu hoặc chuyển tiền thật.</p>
+                {error ? <p className="mt-3 text-left text-sm text-red-700" role="alert">{error}</p> : null}
+                <button className="mt-4 h-12 w-52 rounded-md bg-[var(--accent)] font-medium text-white disabled:opacity-50" disabled={!addressId || items.length !== 1 || submitting} onClick={() => void placeOrder()} type="button">{submitting ? "Đang đặt..." : "Đặt đơn SANDBOX_COD"}</button>
+              </>}
             </section>
           </>
         )}

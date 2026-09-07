@@ -16,7 +16,7 @@
     "test:e2e": "playwright test",
     "db:start": "supabase start",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "corepack pnpm --filter @rebox/backend build && corepack pnpm --filter @rebox/backend migrate",
     "db:seed": "corepack pnpm --filter @rebox/shared build && corepack pnpm --filter @rebox/backend build && corepack pnpm --filter @rebox/backend seed",
     "db:reset": "supabase db reset --local --no-seed && corepack pnpm db:migrate && corepack pnpm db:seed",
     "supabase": "supabase"

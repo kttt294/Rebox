@@ -1,8 +1,8 @@
 # REBOX
 
-Nền tảng TMĐT B2B2C cho phép seller bán lại **nguyên kiện hàng hoàn chưa mở kiểm tra**. Seller nhập bản kê bằng một trong hai kênh ngang hàng: kết nối trực tiếp Shopee/TikTok hoặc tải CSV/XLSX; cả hai cùng đi qua một luồng preview → commit. Sau đó seller quét mã vận đơn để tìm kiện đã nhập và đăng bán nguyên kiện.
+Nền tảng TMĐT B2B2C cho phép seller bán lại **nguyên kiện hàng hoàn chưa mở kiểm tra**. Contract hỗ trợ hai kênh nhập bản kê ngang hàng, nhưng MVP hiện chỉ bật CSV/XLSX; kết nối trực tiếp Shopee/TikTok vẫn ghi “Sắp có”. Sau preview → commit, seller quét mã để tìm kiện đã nhập và đăng bán nguyên kiện.
 
-Repo này hiện chứa **tài liệu thiết kế hệ thống** và [skeleton monorepo](CODEBASE.md). Skeleton chưa có mã nguồn hoặc dependency; implementation sẽ được bổ sung theo lộ trình trong kế hoạch triển khai.
+Repo hiện chứa MVP web/API/worker chạy end-to-end bằng dữ liệu synthetic: package-backed listing, checkout `SANDBOX_COD`, ledger/hold cân sổ, fake fulfillment, dispute/evidence metadata, legal/privacy/notification và finance projection. Đây chưa phải production marketplace; payment, carrier và evidence provider thật vẫn bị khóa bởi các gate pháp lý/nhà cung cấp.
 
 ## Bắt đầu từ đâu
 
@@ -34,7 +34,7 @@ Công thức hold, activation deposit, checkout một seller, TTL và phạm vi 
 
 `REBOX.docx` là tài liệu nguồn cục bộ và được loại trừ qua `.gitignore`. Bản prototype làm việc hiện nằm tại `docs/REBOX-UI/`, chỉ là tham chiếu UX và không phải nguồn quyết định canonical. Trước khi publish repo, chủ dự án phải rà soát quyền chia sẻ và dữ liệu nhạy cảm của các asset này.
 
-## Chạy Sprint 1 trên máy local
+## Chạy MVP sandbox trên máy local
 
 Yêu cầu: Node `24.11.1`, Docker Desktop đang chạy và Corepack đi kèm Node.
 
@@ -53,11 +53,12 @@ thay `DATABASE_URL`, issuer/JWKS và các biến public theo khối mẫu Cloud 
 `.env.example`. Không đưa `SECRET_KEY`,
 `SERVICE_ROLE_KEY` hoặc database credential vào biến `NEXT_PUBLIC_*`.
 
-Hai tài khoản local synthetic để kiểm tra publish gate:
+Ba tài khoản local synthetic để kiểm tra seller và admin gate:
 
 ```text
 verified-seller@rebox.test / Synthetic-Test-Password-123!
 pending-seller@rebox.test  / Synthetic-Test-Password-123!
+moderator@rebox.test       / Synthetic-Test-Password-123!
 ```
 
 Chạy ba runtime ở ba terminal:

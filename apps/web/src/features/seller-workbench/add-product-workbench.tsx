@@ -26,6 +26,8 @@ export function AddProductWorkbench() {
   const [manifestFileName, setManifestFileName] = useState<string>();
   const [manifestIdempotencyKey, setManifestIdempotencyKey] = useState<string>();
   const [manifestCommitted, setManifestCommitted] = useState(false);
+  const [committedPackageIds, setCommittedPackageIds] = useState<string[]>([]);
+  const [scanCode, setScanCode] = useState("");
   const manifestFileInput = useRef<HTMLInputElement>(null);
 
   const shop = actor?.shops[0];
@@ -139,6 +141,7 @@ export function AddProductWorkbench() {
     try {
       const result = await api.commitReturnManifest(shop.id, manifestPreview.batchId, manifestIdempotencyKey);
       setManifestCommitted(true);
+      setCommittedPackageIds(result.packageIds);
       setSuccess(`Đã nhập ${result.packageIds.length} kiện và ${result.lineCount} dòng khai báo.`);
     } catch (caught) {
       setError(caught instanceof ApiClientError && caught.code === "MANIFEST_PACKAGE_CONFLICT"
@@ -149,6 +152,30 @@ export function AddProductWorkbench() {
     } finally {
       setAction(undefined);
     }
+  }
+
+  async function scanPackage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!shop || !scanCode.trim()) return;
+    setAction("scan-package"); setError(undefined);
+    try {
+      const result = await api.scanReturnPackage(shop.id, { scannedCode: scanCode, codeType: "UNKNOWN", platformHint: null }, crypto.randomUUID());
+      setListings((current) => current.some((listing) => listing.id === result.listing.id) ? current : [result.listing, ...current]);
+      setSuccess(`Đã mở bản nháp cho kiện ${result.packageId}. Kiện chưa mở kiểm tra.`);
+    } catch (caught) {
+      setError(caught instanceof ApiClientError && caught.code === "SOURCE_MANIFEST_NOT_FOUND" ? "Không tìm thấy mã trong bản kê của shop." : "Không thể tạo listing từ kiện này.");
+    } finally { setAction(undefined); }
+  }
+
+  async function createAllPackageDrafts() {
+    if (!shop || committedPackageIds.length === 0) return;
+    setAction("batch-package"); setError(undefined);
+    try {
+      const results = await api.batchCreatePackageListings(shop.id, committedPackageIds);
+      const created = results.flatMap((result) => result.listing ? [result.listing] : []);
+      setListings((current) => [...created.filter((item) => !current.some((old) => old.id === item.id)), ...current]);
+      setSuccess(`Đã xử lý ${results.length} kiện: ${created.length} bản nháp sẵn sàng.`);
+    } catch { setError("Không thể tạo bản nháp hàng loạt."); } finally { setAction(undefined); }
   }
 
   if (loading) {
@@ -259,6 +286,8 @@ export function AddProductWorkbench() {
         ) : null}
       </section>
 
+      {manifestCommitted ? <section className="rounded-[18px] border border-[var(--line)] bg-white p-5 sm:p-7"><h2 className="text-xl font-black">Quét hoặc chọn kiện để đăng bán</h2><p className="mt-2 text-sm text-[var(--muted)]">Mỗi kiện tạo đúng một listing, số lượng luôn là 1 và disclosure “Kiện chưa mở kiểm tra”.</p><form className="mt-4 flex gap-3" onSubmit={scanPackage}><input aria-label="Mã kiện" className="min-w-0 flex-1 rounded-xl border border-[var(--line-strong)] px-4" onChange={(event) => setScanCode(event.target.value)} placeholder="Nhập mã tracking đã import" value={scanCode} /><button className="rounded-xl bg-[var(--accent)] px-5 py-3 font-bold text-white disabled:opacity-50" disabled={action === "scan-package"}>Tạo bản nháp</button></form><button className="mt-3 rounded-xl border border-[var(--accent)] px-5 py-3 font-bold text-[var(--accent)] disabled:opacity-50" disabled={action === "batch-package"} onClick={() => void createAllPackageDrafts()} type="button">Tạo bản nháp cho cả {committedPackageIds.length} kiện</button></section> : null}
+
       <form id="listing-form" key={editingListing?.id ?? "new"} className="scroll-mt-28 rounded-[18px] border border-[var(--line)] bg-white shadow-[0_12px_35px_rgba(35,63,101,0.06)]" onSubmit={saveListing}>
         <div className="border-b border-[var(--line)] px-5 py-5 sm:px-7">
           <h2 className="text-xl font-black tracking-tight">{editingListing ? "Chỉnh sửa bản nháp" : "Thông tin sản phẩm"}</h2>
@@ -349,4 +378,3 @@ export function AddProductWorkbench() {
     </div>
   );
 }
-

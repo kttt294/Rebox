@@ -68,7 +68,10 @@ ON CONFLICT (id) DO NOTHING;
 
 -- Local/test only. Staff still must enroll and verify TOTP to obtain AAL2.
 INSERT INTO platform_staff_roles (user_id, role, status)
-VALUES ('10000000-0000-4000-8000-000000000003', 'MODERATOR', 'ACTIVE')
+VALUES
+  ('10000000-0000-4000-8000-000000000003', 'MODERATOR', 'ACTIVE'),
+  ('10000000-0000-4000-8000-000000000003', 'DISPUTE_ARBITRATOR', 'ACTIVE'),
+  ('10000000-0000-4000-8000-000000000003', 'SUPPORT', 'ACTIVE')
 ON CONFLICT (user_id, role) DO NOTHING;
 
 INSERT INTO categories (id, name, active, sort_order)
@@ -244,3 +247,14 @@ VALUES
     '[]'::jsonb, 'SELLER_DECLARED', 'DRAFT', NULL
   )
 ON CONFLICT (id) DO NOTHING;
+WITH seeded AS (
+  INSERT INTO ledger_transactions(id,kind,reference_id,status)
+  VALUES('RBX-LTX-SANDBOX-SEED','SANDBOX_BALANCE_SEED','RBX-01JTESTVERIFIED0000000000:DEFAULT','DRAFT')
+  ON CONFLICT(kind,reference_id) DO NOTHING RETURNING id
+)
+INSERT INTO ledger_postings(id,transaction_id,account_key,amount_vnd)
+SELECT 'RBX-LP-SANDBOX-SHOP',id,'shop:RBX-01JTESTVERIFIED0000000000:available',10000000 FROM seeded
+UNION ALL SELECT 'RBX-LP-SANDBOX-CLEARING',id,'sandbox:clearing',-10000000 FROM seeded;
+
+UPDATE ledger_transactions SET status='POSTED'
+WHERE id='RBX-LTX-SANDBOX-SEED' AND status='DRAFT';

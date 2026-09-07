@@ -29,6 +29,7 @@ function MetricCards({ finance }: { finance: SellerFinanceSnapshot }) {
 }
 
 function RevenueTrend({ finance }: { finance: SellerFinanceSnapshot }) {
+  if (finance.monthlyRevenue.length === 0) return <article className="grid h-[270px] place-items-center rounded-xl text-sm text-[var(--muted)] ring-1 ring-inset ring-[var(--line)]">Chưa có đơn hoàn thành để tổng hợp doanh thu.</article>;
   const amounts = finance.monthlyRevenue.map((item) => item.amountVnd);
   const min = Math.min(...amounts);
   const range = Math.max(1, Math.max(...amounts) - min);
@@ -119,6 +120,7 @@ export default function SellerFinancePage() {
     <SellerShell>
       <FinanceWorkspace active="overview">
         {error ? <div className="grid min-h-[420px] place-items-center text-sm text-red-600" role="alert">{error}</div> : !finance ? <div className="grid min-h-[420px] place-items-center text-sm text-[var(--muted)]">Đang tải dữ liệu tài chính...</div> : <>
+        <p className="rounded-lg bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">Dữ liệu mô phỏng — không phải số dư có thể rút.</p>
         <MetricCards finance={finance} />
         <div className="flex h-[562px] max-h-[562px] min-h-0 flex-1 flex-col gap-3">
           <RevenueTrend finance={finance} />

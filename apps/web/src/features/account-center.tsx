@@ -6,7 +6,7 @@ import type {
   CreateAccountAddressInput,
   NotificationPreferences,
   PrivacyPreferences,
-  PurchaseOrderSummary
+  CommerceOrder
 } from "@rebox/shared";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
@@ -132,14 +132,9 @@ export function PasswordSettings() {
   const [notice, setNotice] = useState<string>();
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(undefined); setNotice(undefined);
-    if (password.length < 8) return setError("Mật khẩu phải có ít nhất 8 ký tự.");
     if (password.length < 8) return setError("Mật khẩu mới phải có ít nhất 8 ký tự.");
     if (password !== confirmation) return setError("Mật khẩu nhập lại chưa khớp.");
     setSaving(true);
-    const { error: updateError } = await getSupabaseBrowserClient().auth.updateUser({ password });
-    setSaving(false);
-    if (updateError) return setError(updateError.message);
-    setPassword(""); setConfirmation(""); setNotice("Đã đổi mật khẩu.");
     try {
       await api.changePassword({ currentPassword, newPassword: password });
       setCurrentPassword(""); setPassword(""); setConfirmation(""); setNotice("Đã đổi mật khẩu.");
@@ -149,7 +144,6 @@ export function PasswordSettings() {
       setSaving(false);
     }
   }
-  return <AccountPage activeHref="/account/password"><Panel className="min-h-[574px] px-[30px] py-5"><h1 className="text-xl font-normal">Đổi mật khẩu</h1><div className="mt-3 border-t border-[var(--line)] pt-6"><form className="max-w-[500px]" onSubmit={submit}><Feedback error={error} notice={notice} /><FormField label="Mật khẩu mới"><input autoComplete="new-password" className="h-10 w-full border border-[var(--line)] px-3" minLength={8} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} /></FormField><FormField label="Nhập lại mật khẩu"><input autoComplete="new-password" className="h-10 w-full border border-[var(--line)] px-3" minLength={8} onChange={(event) => setConfirmation(event.target.value)} required type="password" value={confirmation} /></FormField><button className="ml-[160px] mt-3 h-10 bg-[var(--accent-header)] px-6 text-sm font-bold text-white disabled:opacity-60 max-sm:ml-0" disabled={saving} type="submit">{saving ? "ĐANG LƯU…" : "XÁC NHẬN"}</button></form></div></Panel></AccountPage>;
   return <AccountPage activeHref="/account/password"><Panel className="min-h-[574px] px-[30px] py-5"><h1 className="text-xl font-normal">Đổi mật khẩu</h1><div className="mt-3 border-t border-[var(--line)] pt-6"><form className="max-w-[500px]" onSubmit={submit}><Feedback error={error} notice={notice} /><FormField label="Mật khẩu hiện tại"><input autoComplete="current-password" className="h-10 w-full border border-[var(--line)] px-3" onChange={(event) => setCurrentPassword(event.target.value)} required type="password" value={currentPassword} /></FormField><FormField label="Mật khẩu mới"><input autoComplete="new-password" className="h-10 w-full border border-[var(--line)] px-3" minLength={8} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} /></FormField><FormField label="Nhập lại mật khẩu"><input autoComplete="new-password" className="h-10 w-full border border-[var(--line)] px-3" minLength={8} onChange={(event) => setConfirmation(event.target.value)} required type="password" value={confirmation} /></FormField><button className="ml-[160px] mt-3 h-10 bg-[var(--accent-header)] px-6 text-sm font-bold text-white disabled:opacity-60 max-sm:ml-0" disabled={saving} type="submit">{saving ? "ĐANG LƯU…" : "XÁC NHẬN"}</button></form></div></Panel></AccountPage>;
 }
 
@@ -158,9 +152,10 @@ const notificationDefaults: NotificationPreferences = { orderEmail: true, promot
 
 export function NotificationSettings() {
   const [preferences, setPreferences] = useState(notificationDefaults);
+  const [inbox, setInbox] = useState<Array<{ id: string; title: string; body: string; readAt: string | null; createdAt: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
-  useEffect(() => { void api.getNotificationPreferences().then(setPreferences).catch(() => setError("Không thể tải cài đặt thông báo.")).finally(() => setLoading(false)); }, []);
+  useEffect(() => { void Promise.all([api.getNotificationPreferences(), api.listNotifications()]).then(([nextPreferences, notifications]) => { setPreferences(nextPreferences); setInbox(notifications); }).catch(() => setError("Không thể tải thông báo.")).finally(() => setLoading(false)); }, []);
   async function toggle(key: keyof NotificationPreferences) {
     const next = { ...preferences, [key]: !preferences[key] };
     setPreferences(next); setError(undefined);
@@ -176,7 +171,7 @@ export function NotificationSettings() {
     { title: "Thông báo SMS", items: [{ key: "promotionSms", title: "Khuyến mãi", description: "Cập nhật về các ưu đãi và khuyến mãi sắp tới" }] },
     { title: "Thông báo Zalo", items: [{ key: "promotionZalo", title: "Khuyến mãi (REBOX Việt Nam)", description: "Cập nhật về các ưu đãi và khuyến mãi sắp tới" }] }
   ];
-  return <AccountPage activeHref="/account/notifications"><Panel>{error ? <div className="px-[30px] pt-4"><Feedback error={error} /></div> : null}{loading ? <div className="p-10"><EmptyText>Đang tải cài đặt...</EmptyText></div> : groups.map((group) => <section className="border-b border-[var(--line)] px-[30px] py-6 last:border-b-0" key={group.title}><div className="flex items-start gap-4"><div><h1 className="text-xl font-normal">{group.title}</h1><p className="mt-1 text-[13px] text-[var(--muted)]">{importantNotice}</p></div><div className="ml-auto"><Toggle checked disabled label={`${group.title} quan trọng`} /></div></div><div className="mt-4 space-y-3 pl-6 max-sm:pl-0">{group.items.map((item) => <div className="flex min-h-[58px] items-start gap-4" key={item.key}><div><h2>{item.title}</h2><p className="mt-1 text-[13px] leading-5 text-[var(--muted)]">{item.description}</p></div><div className="ml-auto pt-1"><Toggle checked={preferences[item.key]} label={item.title} onChange={() => void toggle(item.key)} /></div></div>)}</div></section>)}</Panel></AccountPage>;
+  return <AccountPage activeHref="/account/notifications"><Panel>{error ? <div className="px-[30px] pt-4"><Feedback error={error} /></div> : null}{loading ? <div className="p-10"><EmptyText>Đang tải cài đặt...</EmptyText></div> : <><section className="border-b border-[var(--line)] px-[30px] py-6"><h1 className="text-xl font-normal">Hộp thư trong ứng dụng</h1><div className="mt-4 space-y-2">{inbox.length === 0 ? <EmptyText>Chưa có thông báo.</EmptyText> : inbox.map((item) => <button className={`block w-full border p-3 text-left ${item.readAt ? "opacity-60" : "bg-blue-50"}`} key={item.id} onClick={() => void api.markNotificationRead(item.id).then(() => setInbox((rows) => rows.map((row) => row.id === item.id ? { ...row, readAt: new Date().toISOString() } : row)))} type="button"><strong className="text-sm">{item.title}</strong><p className="mt-1 text-xs">{item.body}</p></button>)}</div></section>{groups.map((group) => <section className="border-b border-[var(--line)] px-[30px] py-6 last:border-b-0" key={group.title}><div className="flex items-start gap-4"><div><h1 className="text-xl font-normal">{group.title}</h1><p className="mt-1 text-[13px] text-[var(--muted)]">{importantNotice}</p></div><div className="ml-auto"><Toggle checked disabled label={`${group.title} quan trọng`} /></div></div><div className="mt-4 space-y-3 pl-6 max-sm:pl-0">{group.items.map((item) => <div className="flex min-h-[58px] items-start gap-4" key={item.key}><div><h2>{item.title}</h2><p className="mt-1 text-[13px] leading-5 text-[var(--muted)]">{item.description}</p></div><div className="ml-auto pt-1"><Toggle checked={preferences[item.key]} label={item.title} onChange={() => void toggle(item.key)} /></div></div>)}</div></section>)}</>}</Panel></AccountPage>;
 }
 
 function Toggle({ checked, disabled = false, label, onChange }: { checked: boolean; disabled?: boolean; label: string; onChange?: () => void }) {
@@ -189,17 +184,24 @@ export function PrivacySettings() {
   const [preferences, setPreferences] = useState(privacyDefaults);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
+  const [requestNotice, setRequestNotice] = useState<string>();
   useEffect(() => { void api.getPrivacyPreferences().then(setPreferences).catch(() => setError("Không thể tải thiết lập riêng tư.")).finally(() => setLoading(false)); }, []);
   async function toggle(key: keyof PrivacyPreferences) {
     const next = { ...preferences, [key]: !preferences[key] }; setPreferences(next);
     try { setPreferences(await api.updatePrivacyPreferences(next)); } catch { setPreferences(preferences); setError("Không thể lưu thay đổi."); }
+  }
+  async function requestPrivacy(type: "ACCESS_EXPORT" | "CORRECTION" | "DELETION_ANONYMIZATION") {
+    if (type === "DELETION_ANONYMIZATION" && !window.confirm("Xóa dữ liệu tài khoản synthetic có thể đăng xuất bạn. Tiếp tục?")) return;
+    setError(undefined); setRequestNotice(undefined);
+    try { const result = await api.createPrivacyRequest(type); setRequestNotice(`Yêu cầu ${result.id}: ${result.status}. Receipt đã lưu ngoại lệ ledger/audit/legal hold.`); }
+    catch { setError("Yêu cầu riêng tư nhạy cảm cần đăng nhập MFA/AAL2."); }
   }
   const rows: Array<{ key: keyof PrivacyPreferences; title: string; description: string }> = [
     { key: "personalizedRecommendations", title: "Gợi ý sản phẩm phù hợp", description: "Dùng hoạt động mua sắm để cá nhân hóa đề xuất trong REBOX." },
     { key: "shareUsageAnalytics", title: "Chia sẻ dữ liệu sử dụng", description: "Cho phép dùng dữ liệu tổng hợp để cải thiện trải nghiệm." },
     { key: "publicPurchaseActivity", title: "Hiển thị hoạt động mua hàng", description: "Cho phép người khác xem đánh giá và hoạt động mua hàng công khai." }
   ];
-  return <AccountPage activeHref="/account/privacy"><Panel className="min-h-[574px] px-[30px] py-5"><h1 className="text-xl font-normal">Thiết lập riêng tư</h1><p className="mt-1 text-sm text-[var(--muted)]">Bạn có thể thay đổi các lựa chọn này bất cứ lúc nào.</p><div className="mt-4 border-t border-[var(--line)] pt-4"><Feedback error={error} />{loading ? <EmptyText>Đang tải thiết lập...</EmptyText> : rows.map((row) => <div className="flex min-h-[82px] items-center gap-4 border-b border-[var(--line)]" key={row.key}><div><h2 className="text-base">{row.title}</h2><p className="mt-1 text-[13px] leading-5 text-[var(--muted)]">{row.description}</p></div><div className="ml-auto"><Toggle checked={preferences[row.key]} label={row.title} onChange={() => void toggle(row.key)} /></div></div>)}</div></Panel></AccountPage>;
+  return <AccountPage activeHref="/account/privacy"><Panel className="min-h-[574px] px-[30px] py-5"><h1 className="text-xl font-normal">Thiết lập riêng tư</h1><p className="mt-1 text-sm text-[var(--muted)]">Bạn có thể thay đổi các lựa chọn này bất cứ lúc nào.</p><div className="mt-4 border-t border-[var(--line)] pt-4"><Feedback error={error} notice={requestNotice} />{loading ? <EmptyText>Đang tải thiết lập...</EmptyText> : rows.map((row) => <div className="flex min-h-[82px] items-center gap-4 border-b border-[var(--line)]" key={row.key}><div><h2 className="text-base">{row.title}</h2><p className="mt-1 text-[13px] leading-5 text-[var(--muted)]">{row.description}</p></div><div className="ml-auto"><Toggle checked={preferences[row.key]} label={row.title} onChange={() => void toggle(row.key)} /></div></div>)}<section className="mt-6"><h2 className="font-bold">Yêu cầu quyền dữ liệu</h2><p className="mt-1 text-xs text-[var(--muted)]">Yêu cầu nhạy cảm cần MFA/AAL2; ledger, audit và legal hold được giữ theo ngoại lệ.</p><div className="mt-3 flex flex-wrap gap-2"><button className="border px-3 py-2 text-sm" onClick={() => void requestPrivacy("ACCESS_EXPORT")}>Xuất dữ liệu synthetic</button><button className="border px-3 py-2 text-sm" onClick={() => void requestPrivacy("CORRECTION")}>Yêu cầu chỉnh sửa</button><button className="border border-red-300 px-3 py-2 text-sm text-red-700" onClick={() => void requestPrivacy("DELETION_ANONYMIZATION")}>Xóa/ẩn danh synthetic</button></div></section></div></Panel></AccountPage>;
 }
 
 type PersonalData = { email: string; phone: string; fullName: string; citizenId: string; dateOfBirth: string; gender: string; address: string; status: string };
@@ -222,11 +224,11 @@ export function PersonalInformation() {
 }
 
 export function PurchaseOrders() {
-  const [orders, setOrders] = useState<PurchaseOrderSummary[]>([]);
+  const [orders, setOrders] = useState<CommerceOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
-  useEffect(() => { void api.listPurchaseOrders().then(setOrders).catch(() => setError("Không thể tải đơn mua.")).finally(() => setLoading(false)); }, []);
-  return <AccountPage activeHref="/account/orders"><Panel className="min-h-[574px] px-[30px] py-5"><h1 className="text-xl font-normal">Đơn mua</h1><div className="mt-3 border-t border-[var(--line)] pt-5"><Feedback error={error} />{loading ? <EmptyText>Đang tải đơn hàng...</EmptyText> : orders.length === 0 ? <EmptyState title="Bạn chưa có đơn mua" description="Đơn hàng hoàn tất checkout sẽ xuất hiện tại đây." /> : <div className="space-y-3">{orders.map((order) => <article className="border border-[var(--line)] p-4" key={order.id}><div className="flex items-center"><strong className="text-sm">{order.id}</strong><span className="ml-auto text-xs font-medium text-[var(--accent)]">{orderStatus(order.status)}</span></div><div className="mt-3 flex items-end"><p className="text-sm text-[var(--muted)]">{order.itemCount} sản phẩm · {new Date(order.placedAt).toLocaleDateString("vi-VN")}</p><strong className="ml-auto text-[var(--accent)]">{order.totalVnd.toLocaleString("vi-VN")} ₫</strong></div></article>)}</div>}</div></Panel></AccountPage>;
+  useEffect(() => { void api.listCommerceOrders().then(setOrders).catch(() => setError("Không thể tải đơn mua.")).finally(() => setLoading(false)); }, []);
+  return <AccountPage activeHref="/account/orders"><Panel className="min-h-[574px] px-[30px] py-5"><h1 className="text-xl font-normal">Đơn mua</h1><div className="mt-3 border-t border-[var(--line)] pt-5"><Feedback error={error} />{loading ? <EmptyText>Đang tải đơn hàng...</EmptyText> : orders.length === 0 ? <EmptyState title="Bạn chưa có đơn mua" description="Đơn hàng hoàn tất checkout sẽ xuất hiện tại đây." /> : <div className="space-y-3">{orders.map((order) => <Link className="block border border-[var(--line)] p-4" href={`/account/orders/${order.id}`} key={order.id}><div className="flex items-center"><strong className="text-sm">{order.id}</strong><span className="ml-auto text-xs font-medium text-[var(--accent)]">{order.status.replaceAll("_", " ")}</span></div><div className="mt-3 flex items-end"><p className="text-sm text-[var(--muted)]">1 kiện · {new Date(order.createdAt).toLocaleDateString("vi-VN")}</p><strong className="ml-auto text-[var(--accent)]">{order.totalVnd.toLocaleString("vi-VN")} ₫</strong></div></Link>)}</div>}</div></Panel></AccountPage>;
 }
 
 function EmptyState({ description, title }: { description?: string; title: string }) {
@@ -244,8 +246,4 @@ function initials(value: string): string {
 
 function maskIdentity(value: string): string {
   return value ? `${"*".repeat(Math.max(0, value.length - 4))}${value.slice(-4)}` : "";
-}
-
-function orderStatus(status: PurchaseOrderSummary["status"]): string {
-  return ({ PENDING: "Chờ xác nhận", CONFIRMED: "Đã xác nhận", SHIPPING: "Đang giao", COMPLETED: "Hoàn thành", CANCELLED: "Đã hủy" })[status];
 }

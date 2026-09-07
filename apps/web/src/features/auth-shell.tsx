@@ -61,9 +61,9 @@ export function OrDivider() {
 
 function SocialButton({ icon, provider }: { icon: string; provider: string }) {
   return (
-    <button className="flex h-10 flex-1 items-center justify-center gap-2.5 border border-[var(--line)] bg-white text-sm" type="button">
+    <button className="flex h-10 flex-1 cursor-not-allowed items-center justify-center gap-2.5 border border-[var(--line)] bg-slate-50 text-sm text-slate-500" disabled type="button">
       <span className="grid size-7 place-items-center rounded-full bg-[var(--accent-header)] font-bold text-white">{icon}</span>
-      {provider}
+      {provider} · Sắp có
     </button>
   );
 }
@@ -80,7 +80,7 @@ export function SocialLogin() {
 export function AuthTerms({ action }: { action: "đăng ký" | "đăng nhập" }) {
   return (
     <p className="text-center text-[11px] leading-[15px] text-[var(--muted)]">
-      Bằng việc {action}, bạn đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của REBOX.
+      Bằng việc {action}, bạn đồng ý với <Link className="text-[var(--accent)] underline" href="/legal/marketplace-rules">Điều khoản dịch vụ</Link> và <Link className="text-[var(--accent)] underline" href="/legal/privacy-policy">Chính sách bảo mật</Link> của REBOX.
     </p>
   );
 }

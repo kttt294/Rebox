@@ -18,6 +18,9 @@ export class RequestContextInterceptor implements NestInterceptor {
     const startedAt = performance.now();
     request.requestId = requestId;
     response.setHeader("x-request-id", requestId);
+    response.setHeader("x-content-type-options", "nosniff");
+    response.setHeader("referrer-policy", "strict-origin-when-cross-origin");
+    response.setHeader("permissions-policy", "camera=(self), microphone=(), geolocation=()");
 
     return next.handle().pipe(
       tap({

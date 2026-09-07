@@ -67,7 +67,8 @@ export const listingSchema = createListingSchema.extend({
   images: z.array(listingImageSchema).max(maxCatalogImages),
   status: z.enum(["DRAFT", "PENDING_REVIEW", "ACTIVE", "HIDDEN_BY_FUND", "RESERVED", "SOLD", "RELISTABLE", "SUSPENDED", "DELISTED"]),
   publishedAt: z.string().datetime().nullable(),
-  createdAt: z.string().datetime()
+  createdAt: z.string().datetime(),
+  returnPackageId: z.string().nullable().optional()
 });
 export type Listing = z.infer<typeof listingSchema>;
 
@@ -85,7 +86,22 @@ export const publishListingResultSchema = z.object({
 });
 export type PublishListingResult = z.infer<typeof publishListingResultSchema>;
 
-export const publicListingSchema = listingSchema.omit({ status: true, weightGram: true });
+export const publicListingSchema = listingSchema.omit({ status: true, weightGram: true, returnPackageId: true }).extend({
+  availableQuantity: z.union([z.literal(0), z.literal(1)]).optional(),
+  package: z.object({
+    disclosure: z.literal("UNOPENED_UNINSPECTED"),
+    sealStatus: z.enum(["INTACT", "DAMAGED", "UNKNOWN"]),
+    manifestSummary: z.object({ lineCount: z.number().int().positive(), unitCount: z.number().int().positive() }),
+    lines: z.array(z.object({
+      productName: z.string(),
+      variantName: z.string().nullable(),
+      brand: z.string().nullable(),
+      quantity: z.number().int().positive(),
+      categoryId: z.string(),
+      originalUnitPriceVnd: z.number().int().positive().nullable()
+    }))
+  }).optional()
+});
 export type PublicListing = z.infer<typeof publicListingSchema>;
 
 const optionalQueryText = (maxLength: number) =>
@@ -224,5 +240,34 @@ export const sellerInventoryPackageSchema = z.object({
   createdAt: z.string().datetime()
 });
 export type SellerInventoryPackage = z.infer<typeof sellerInventoryPackageSchema>;
+
+export const scanReturnPackageSchema = z.object({
+  scannedCode: z.string().trim().min(1).max(200),
+  codeType: z.enum(["ORDER_SN", "TRACKING_NO", "UNKNOWN"]),
+  platformHint: z.enum(["SHOPEE", "TIKTOK"]).nullable()
+}).strict();
+export type ScanReturnPackageInput = z.infer<typeof scanReturnPackageSchema>;
+
+export const packageListingManifestLineSchema = z.object({
+  productName: z.string(), variantName: z.string().nullable(), brand: z.string().nullable(),
+  quantity: z.number().int().positive(), categoryId: z.string(), originalUnitPriceVnd: z.number().int().positive().nullable()
+});
+export const packageListingDraftResultSchema = z.object({
+  packageId: z.string(), listing: listingSchema,
+  disclosure: z.literal("UNOPENED_UNINSPECTED"), sealStatus: z.enum(["INTACT", "DAMAGED", "UNKNOWN"]),
+  manifestLines: z.array(packageListingManifestLineSchema)
+});
+export type PackageListingDraftResult = z.infer<typeof packageListingDraftResultSchema>;
+
+export const batchCreatePackageListingsSchema = z.object({ packageIds: z.array(z.string()).min(1).max(100) }).strict();
+export type BatchCreatePackageListingsInput = z.infer<typeof batchCreatePackageListingsSchema>;
+export type BatchCreatePackageListingsResult = Array<{
+  packageId: string; listing?: Listing; error?: { code: string; message: string };
+}>;
+
+export const listingReviewDecisionSchema = z.object({
+  decision: z.enum(["APPROVE", "REJECT"]), reason: z.string().trim().min(1).max(1000)
+}).strict();
+export type ListingReviewDecisionInput = z.infer<typeof listingReviewDecisionSchema>;
 
 export const maxReturnManifestFileBytes = 5 * 1024 * 1024;

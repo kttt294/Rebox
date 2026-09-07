@@ -40,7 +40,7 @@ function UtilityNavigation({ compact = false }: { compact?: boolean }) {
         &nbsp;&nbsp; | &nbsp;&nbsp;Trở thành đối tác REBOX&nbsp;&nbsp; | &nbsp;&nbsp;Tải ứng dụng
       </p>
       <p className="ml-auto whitespace-nowrap">
-        Thông báo&nbsp;&nbsp; Hỗ trợ&nbsp;&nbsp; Tiếng Việt&nbsp;&nbsp; | &nbsp;&nbsp;
+        <Link className="hover:underline" href="/account/notifications">Thông báo</Link>&nbsp;&nbsp; <Link className="hover:underline" href="/support">Hỗ trợ</Link>&nbsp;&nbsp; Tiếng Việt&nbsp;&nbsp; | &nbsp;&nbsp;
         {email ? (
           <>
             <Link className="opacity-90 hover:underline" href="/account/profile">{email.split("@")[0]}</Link>

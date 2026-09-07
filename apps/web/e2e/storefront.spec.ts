@@ -53,6 +53,90 @@ async function createPublishedListing(request: APIRequestContext, prefix: string
   return { id: listing.id, title };
 }
 
+async function authenticate(request: APIRequestContext, email: string) {
+  const response = await request.post(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+    headers: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+      ? { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }
+      : undefined,
+    data: { email, password: sellerPassword }
+  });
+  await requireOk(response, `E2E authentication for ${email}`);
+  const { access_token: accessToken } = await response.json() as { access_token: string };
+  return { authorization: `Bearer ${accessToken}` };
+}
+
+async function createPublishedPackageListing(request: APIRequestContext, prefix: string) {
+  const headers = await authenticate(request, "verified-seller@rebox.test");
+  const tracking = `E2E-${crypto.randomUUID()}`.toUpperCase();
+  const title = `${prefix} ${crypto.randomUUID()}`;
+  const csv = Buffer.from([
+    "source_platform,source_order_ref,source_return_ref,source_tracking_no,source_item_ref,source_sku,source_quantity,product_name,variant_name,brand,source_category,original_unit_price_vnd,return_reason_raw,return_reason,returned_at,package_weight_gram,package_length_cm,package_width_cm,package_height_cm,product_image_urls,rebox_category_id,package_disclosure,outer_package_notes,package_listing_price_vnd",
+    `SHOPEE,ORDER-${crypto.randomUUID()},RETURN-${crypto.randomUUID()},${tracking},LINE-1,SKU-1,1,${title},Mẫu test,REBOX,Danh mục,120000,Đổi ý,CHANGE_MIND,2026-09-07T00:00:00Z,500,20,20,10,https://example.test/item.jpg,fashion,UNOPENED_UNINSPECTED,Seal nguyên,120000`
+  ].join("\n"));
+  const previewResponse = await request.post(
+    `http://127.0.0.1:3001/v1/shops/${reviewShopId}/return-imports/preview`,
+    { headers, multipart: { file: { name: "e2e.csv", mimeType: "text/csv", buffer: csv } } }
+  );
+  await requireOk(previewResponse, "E2E package manifest preview");
+  const preview = await previewResponse.json() as { batchId: string };
+  const commitResponse = await request.post(
+    `http://127.0.0.1:3001/v1/shops/${reviewShopId}/return-imports/${preview.batchId}/commit`,
+    { headers, data: { idempotencyKey: crypto.randomUUID() } }
+  );
+  await requireOk(commitResponse, "E2E package manifest commit");
+  const scanResponse = await request.post(
+    `http://127.0.0.1:3001/v1/shops/${reviewShopId}/return-packages/scan`,
+    {
+      headers: { ...headers, "idempotency-key": crypto.randomUUID() },
+      data: { scannedCode: tracking, codeType: "TRACKING_NO", platformHint: "SHOPEE" }
+    }
+  );
+  await requireOk(scanResponse, "E2E package scan");
+  const { listing } = await scanResponse.json() as { listing: { id: string } };
+
+  const intentResponse = await request.post(
+    `http://127.0.0.1:3001/v1/shops/${reviewShopId}/listings/${listing.id}/images/init`,
+    { headers, data: { mimeType: "image/png", sizeBytes: image.byteLength } }
+  );
+  await requireOk(intentResponse, "E2E package image upload initialization");
+  const intent = await intentResponse.json() as { key: string; uploadUrl: string; headers: Record<string, string> };
+  await requireOk(await request.put(intent.uploadUrl, { headers: intent.headers, data: image }), "E2E package image upload");
+  await requireOk(await request.post(
+    `http://127.0.0.1:3001/v1/shops/${reviewShopId}/listings/${listing.id}/images/complete`,
+    { headers, data: { key: intent.key } }
+  ), "E2E package image completion");
+  await requireOk(await request.post(
+    `http://127.0.0.1:3001/v1/shops/${reviewShopId}/listings/${listing.id}/publish`, { headers }
+  ), "E2E package publication");
+  return { id: listing.id, title };
+}
+
+async function ensureBuyerAddress(request: APIRequestContext) {
+  const headers = await authenticate(request, "moderator@rebox.test");
+  const listed = await request.get("http://127.0.0.1:3001/v1/account/addresses", { headers });
+  await requireOk(listed, "E2E buyer address lookup");
+  if ((await listed.json() as unknown[]).length > 0) return;
+  await requireOk(await request.post("http://127.0.0.1:3001/v1/account/addresses", {
+    headers,
+    data: {
+      label: "Nhà synthetic",
+      recipientName: "Synthetic Buyer",
+      phone: "0901234567",
+      addressLine: "123 Đường Synthetic",
+      ward: "Phường Test",
+      district: "Quận Test",
+      province: "Hà Nội",
+      isDefault: true
+    }
+  }), "E2E buyer address creation");
+}
+
+async function signInBuyer(page: Page) {
+  await page.getByRole("textbox", { name: "Email" }).fill("moderator@rebox.test");
+  await page.getByRole("textbox", { name: "Mật khẩu" }).fill(sellerPassword);
+  await page.getByRole("button", { name: "ĐĂNG NHẬP" }).click();
+}
+
 async function signInAsReviewer(page: Page) {
   const user = {
     id: "10000000-0000-4000-8000-000000000003",
@@ -101,9 +185,10 @@ test("does not expose a draft listing", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Không tìm thấy listing" })).toBeVisible();
 });
 
-test("normalizes the cart and checks out exactly one synthetic listing", async ({ page, request }) => {
-  const first = await createPublishedListing(request, "Cart E2E A");
-  const second = await createPublishedListing(request, "Cart E2E B");
+test("normalizes the cart and places cart and buy-now sandbox orders", async ({ page, request }) => {
+  const first = await createPublishedPackageListing(request, "Cart E2E A");
+  const second = await createPublishedPackageListing(request, "Cart E2E B");
+  await ensureBuyerAddress(request);
 
   await page.goto(`/listings/${first.id}`);
   await page.getByRole("button", { name: "Thêm vào giỏ hàng" }).click();
@@ -128,15 +213,24 @@ test("normalizes the cart and checks out exactly one synthetic listing", async (
   await expect(page.getByRole("radio", { checked: true })).toHaveCount(1);
   await page.getByRole("radio", { name: `Chọn ${second.title}` }).check();
   await page.getByRole("link", { name: "Mua hàng" }).click();
+  await expect(page).toHaveURL(/\/login\?next=/);
+  await signInBuyer(page);
   await expect(page).toHaveURL(`/checkout?items=${encodeURIComponent(second.id)}`);
   await expect(page.getByRole("heading", { name: "Xác nhận sản phẩm" })).toBeVisible();
   await expect(page.getByRole("link", { name: second.title })).toBeVisible();
   await expect(page.getByRole("link", { name: first.title })).toHaveCount(0);
+  await page.getByRole("button", { name: "Đặt đơn SANDBOX_COD" }).click();
+  await expect(page.getByRole("status")).toContainText("đã xác nhận SANDBOX_COD");
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("rebox.cart.v1"))).toBe(
+    JSON.stringify([{ listingId: first.id, quantity: 1 }])
+  );
 
   await page.goto(`/listings/${first.id}`);
   await page.getByRole("link", { name: "Mua ngay" }).click();
   await expect(page).toHaveURL(`/checkout?items=${encodeURIComponent(first.id)}`);
   await expect(page.getByRole("link", { name: first.title })).toBeVisible();
+  await page.getByRole("button", { name: "Đặt đơn SANDBOX_COD" }).click();
+  await expect(page.getByRole("status")).toContainText("đã xác nhận SANDBOX_COD");
 });
 
 test("shows the review form only to an eligible buyer", async ({ page }) => {

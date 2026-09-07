@@ -11,6 +11,10 @@ import type {
   PublicListingPage,
   PublicListingsQuery,
   PublicShop,
+  PackageListingDraftResult,
+  ScanReturnPackageInput,
+  BatchCreatePackageListingsResult,
+  ListingReviewDecisionInput,
   ShopReview,
   ShopReviewEligibility,
   PublishListingResult,
@@ -46,6 +50,14 @@ type ListingRow = {
   status: Listing["status"];
   published_at: Date | null;
   created_at: Date;
+  return_package_id: string | null;
+  package_status: "SOURCE_PENDING" | "AVAILABLE" | "RESERVED" | "SOLD" | "VOID" | null;
+  disclosure: "UNOPENED_UNINSPECTED" | null;
+  seal_status: "INTACT" | "DAMAGED" | "UNKNOWN" | null;
+  manifest_lines: Array<{
+    productName: string; variantName: string | null; brand: string | null; quantity: number;
+    categoryId: string; originalUnitPriceVnd: number | null;
+  }> | null;
 };
 
 type CatalogCursor = { sort: PublicListingsQuery["sort"]; value: string; id: string };
@@ -132,9 +144,20 @@ const listingSelect = `
   SELECT l.id, l.shop_id, s.display_name AS shop_display_name,
          l.title, l.description, l.category_id, l.condition_grade,
          l.condition_notes, l.price, l.weight_gram, l.images,
-         l.status, l.published_at, l.created_at
+         l.status, l.published_at, l.created_at, l.return_package_id,
+         p.inventory_status AS package_status, p.disclosure, p.seal_status,
+         manifest.lines AS manifest_lines
   FROM listings l
-  JOIN shops s ON s.id = l.shop_id`;
+  JOIN shops s ON s.id = l.shop_id
+  LEFT JOIN return_packages p ON p.id = l.return_package_id
+  LEFT JOIN LATERAL (
+    SELECT jsonb_agg(jsonb_build_object(
+      'productName', rl.product_name, 'variantName', rl.variant_name, 'brand', rl.brand,
+      'quantity', rl.source_quantity, 'categoryId', rl.rebox_category_id,
+      'originalUnitPriceVnd', rl.original_unit_price_vnd
+    ) ORDER BY rl.source_item_ref, rl.id) AS lines
+    FROM return_lines rl WHERE rl.return_package_id = p.id
+  ) manifest ON true`;
 
 function presentImages(row: ListingRow, storage: CatalogMediaStorage): ListingImage[] {
   return row.images.map((image) => ({ ...image, url: storage.publicUrl(image.key) }));
@@ -157,6 +180,19 @@ function presentPublicListing(row: ListingRow, storage: CatalogMediaStorage): Pu
   if (row.description !== null) {
     listing.description = row.description;
   }
+  if (row.return_package_id && row.package_status && row.disclosure && row.seal_status && row.manifest_lines) {
+    const unitCount = row.manifest_lines.reduce((total, line) => total + line.quantity, 0);
+    listing.availableQuantity = row.package_status === "AVAILABLE" ? 1 : 0;
+    listing.package = {
+      disclosure: row.disclosure,
+      sealStatus: row.seal_status,
+      manifestSummary: { lineCount: row.manifest_lines.length, unitCount },
+      lines: row.manifest_lines.map((line) => ({
+        ...line,
+        originalUnitPriceVnd: line.originalUnitPriceVnd === null ? null : Number(line.originalUnitPriceVnd)
+      }))
+    };
+  }
   return listing;
 }
 
@@ -164,7 +200,8 @@ function presentListing(row: ListingRow, storage: CatalogMediaStorage): Listing 
   return {
     ...presentPublicListing(row, storage),
     weightGram: row.weight_gram,
-    status: row.status
+    status: row.status,
+    returnPackageId: row.return_package_id
   };
 }
 
@@ -383,6 +420,182 @@ export class InventoryModule {
     }
   }
 
+  async scanReturnPackage(
+    actorId: string,
+    shopId: string,
+    input: ScanReturnPackageInput,
+    idempotencyKey?: string
+  ): Promise<PackageListingDraftResult> {
+    const requestHash = hashJson({ shopId, input });
+    if (idempotencyKey) {
+      const idem = await this.pool.connect();
+      try {
+        await idem.query("BEGIN");
+        await this.identity.requireShopCapability(idem, actorId, shopId, "CREATE_LISTING");
+        await idem.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`scan:${actorId}:${idempotencyKey}`]);
+        const prior = (await idem.query<{ request_hash: string; response: PackageListingDraftResult | null }>(
+          "SELECT request_hash,response FROM idempotency_records WHERE actor_id=$1 AND scope='inventory.scan' AND idempotency_key=$2",
+          [actorId, idempotencyKey]
+        )).rows[0];
+        if (prior?.request_hash !== undefined && prior.request_hash !== requestHash) throw new DomainError("IDEMPOTENCY_CONFLICT", 409, "Idempotency key payload differs");
+        if (prior?.response) { await idem.query("COMMIT"); return prior.response; }
+        if (!prior) await idem.query(
+          "INSERT INTO idempotency_records(actor_id,scope,idempotency_key,request_hash) VALUES($1,'inventory.scan',$2,$3)",
+          [actorId, idempotencyKey, requestHash]
+        );
+        await idem.query("COMMIT");
+      } catch (error) { await idem.query("ROLLBACK"); throw error; } finally { idem.release(); }
+    }
+    const normalized = normalizeScannedCode(input.scannedCode);
+    const trackingHash = createHmac("sha256", this.trackingSecrets.hmacSecret).update(normalized).digest("hex");
+    const found = await this.pool.query<{ id: string }>(
+      `SELECT id FROM return_packages
+       WHERE shop_id = $1 AND source_tracking_hash = $2
+         AND ($3::text IS NULL OR source_platform = $3)
+       LIMIT 1`,
+      [shopId, trackingHash, input.platformHint]
+    );
+    const packageId = found.rows[0]?.id;
+    if (!packageId) throw new DomainError("SOURCE_MANIFEST_NOT_FOUND", 404, "No imported return package matches this code");
+    const result = await this.createPackageListingDraft(actorId, shopId, packageId);
+    if (idempotencyKey) await this.pool.query(
+      "UPDATE idempotency_records SET response=$3::jsonb WHERE actor_id=$1 AND scope='inventory.scan' AND idempotency_key=$2",
+      [actorId, idempotencyKey, JSON.stringify(result)]
+    );
+    return result;
+  }
+
+  async createPackageListingDraft(
+    actorId: string,
+    shopId: string,
+    packageId: string
+  ): Promise<PackageListingDraftResult> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const access = await this.identity.requireShopCapability(client, actorId, shopId, "CREATE_LISTING");
+      await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`package-listing:${packageId}`]);
+      const packageResult = await client.query<{
+        id: string; inventory_status: string; disclosure: "UNOPENED_UNINSPECTED";
+        seal_status: "INTACT" | "DAMAGED" | "UNKNOWN"; package_weight_gram: number | null;
+        package_listing_price_vnd: string;
+      }>(
+        `SELECT id, inventory_status, disclosure, seal_status, package_weight_gram, package_listing_price_vnd
+         FROM return_packages WHERE id = $1 AND shop_id = $2 FOR UPDATE`,
+        [packageId, shopId]
+      );
+      const pkg = packageResult.rows[0];
+      if (!pkg) throw new DomainError("RESOURCE_NOT_FOUND", 404, "Return package not found");
+
+      const existing = (await client.query<ListingRow>(`${listingSelect} WHERE l.return_package_id = $1`, [packageId])).rows[0];
+      if (existing) {
+        await client.query("COMMIT");
+        return this.packageDraftResult(existing, access.displayName);
+      }
+      if (pkg.inventory_status !== "AVAILABLE") {
+        throw new DomainError("PACKAGE_STATE_CONFLICT", 409, "Only an available package can become a listing");
+      }
+      const firstLine = (await client.query<{
+        product_name: string; rebox_category_id: string;
+      }>(
+        `SELECT product_name, rebox_category_id FROM return_lines
+         WHERE return_package_id = $1 ORDER BY source_item_ref, id LIMIT 1`,
+        [packageId]
+      )).rows[0];
+      if (!firstLine) throw new DomainError("SOURCE_MANIFEST_NOT_FOUND", 404, "The return package has no manifest lines");
+
+      const listingId = `RBX-${ulid()}`;
+      await client.query(
+        `INSERT INTO listings (
+           id, return_package_id, shop_id, title, category_id, condition_grade,
+           condition_notes, price, weight_gram, images, price_source, status
+         ) VALUES ($1, $2, $3, $4, $5, 'NEW_SEALED', $6, $7, $8, '[]'::jsonb, 'VERIFIED_CSV', 'DRAFT')`,
+        [listingId, packageId, shopId, firstLine.product_name, firstLine.rebox_category_id,
+          "Kiện chưa mở kiểm tra; chỉ mô tả tình trạng bên ngoài.", Number(pkg.package_listing_price_vnd), pkg.package_weight_gram ?? 1]
+      );
+      const row = await this.selectOwnedListingRow(client, listingId, shopId);
+      await client.query("COMMIT");
+      return this.packageDraftResult(row, access.displayName);
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async batchCreatePackageListings(
+    actorId: string,
+    shopId: string,
+    packageIds: string[]
+  ): Promise<BatchCreatePackageListingsResult> {
+    const results: BatchCreatePackageListingsResult = [];
+    for (const packageId of [...new Set(packageIds)]) {
+      try {
+        results.push({ packageId, listing: (await this.createPackageListingDraft(actorId, shopId, packageId)).listing });
+      } catch (error) {
+        if (!(error instanceof DomainError)) throw error;
+        results.push({ packageId, error: { code: error.code, message: error.message } });
+      }
+    }
+    return results;
+  }
+
+  async listPendingListingReviews(actor: { id: string; aal?: "aal1" | "aal2" }): Promise<Listing[]> {
+    await this.requireListingModerator(actor);
+    const result = await this.pool.query<ListingRow>(
+      `${listingSelect} WHERE l.status = 'PENDING_REVIEW' ORDER BY l.created_at`,
+    );
+    return result.rows.map((row) => presentListing(row, this.mediaStorage));
+  }
+
+  async decideListingReview(
+    actor: { id: string; aal?: "aal1" | "aal2" },
+    listingId: string,
+    input: ListingReviewDecisionInput,
+    idempotencyKey: string
+  ): Promise<Listing> {
+    if (!/^[0-9a-f-]{36}$/i.test(idempotencyKey)) throw new DomainError("VALIDATION_FAILED", 422, "A UUID idempotency key is required");
+    await this.requireListingModerator(actor);
+    const requestHash = hashJson({ listingId, ...input });
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`listing-review:${actor.id}:${idempotencyKey}`]);
+      const prior = (await client.query<{ listing_id: string; request_hash: string }>(
+        "SELECT listing_id, request_hash FROM listing_reviews WHERE reviewer_id = $1 AND idempotency_key = $2",
+        [actor.id, idempotencyKey]
+      )).rows[0];
+      if (prior && prior.request_hash !== requestHash) throw new DomainError("IDEMPOTENCY_CONFLICT", 409, "Idempotency key payload differs");
+      if (!prior) {
+        const updated = await client.query(
+          `UPDATE listings SET status = $2, published_at = CASE WHEN $2 = 'ACTIVE' THEN now() ELSE NULL END
+           WHERE id = $1 AND status = 'PENDING_REVIEW' RETURNING id`,
+          [listingId, input.decision === "APPROVE" ? "ACTIVE" : "DELISTED"]
+        );
+        if (!updated.rowCount) throw new DomainError("RESOURCE_NOT_FOUND", 404, "Pending listing not found");
+        await client.query(
+          `INSERT INTO listing_reviews (id, listing_id, reviewer_id, decision, reason, idempotency_key, request_hash)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [`RBX-LR-${ulid()}`, listingId, actor.id, input.decision, input.reason, idempotencyKey, requestHash]
+        );
+        await client.query(
+          `INSERT INTO outbox_events (id, topic, aggregate_id, payload)
+           VALUES ($1, 'listing.reviewed', $2, $3::jsonb)`,
+          [`RBX-${ulid()}`, listingId, JSON.stringify({ listingId, decision: input.decision })]
+        );
+      }
+      const row = await this.selectOwnedListingRow(client, listingId);
+      await client.query("COMMIT");
+      return presentListing(row, this.mediaStorage);
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async createDraft(actorId: string, shopId: string, input: CreateListingInput): Promise<Listing> {
     const client = await this.pool.connect();
     try {
@@ -448,7 +661,7 @@ export class InventoryModule {
            SELECT l.product_name, l.variant_name, l.product_image_urls->>0 AS image_url
            FROM return_lines l
            WHERE l.return_package_id = p.id
-           ORDER BY l.created_at, l.id
+           ORDER BY l.source_item_ref, l.id
            LIMIT 1
          ) first_line ON true
          JOIN LATERAL (
@@ -820,8 +1033,8 @@ export class InventoryModule {
     }
     const eligible = (await this.pool.query<{ eligible: boolean }>(
       `SELECT EXISTS (
-         SELECT 1 FROM purchase_orders
-         WHERE buyer_id = $1 AND shop_id = $2 AND status = 'COMPLETED'
+         SELECT 1 FROM orders o JOIN sub_orders so ON so.order_id = o.id
+         WHERE o.buyer_id = $1 AND so.shop_id = $2 AND o.status = 'COMPLETED'
        ) AS eligible`,
       [actorId, shopId]
     )).rows[0]!.eligible;
@@ -898,16 +1111,43 @@ export class InventoryModule {
   }
 
   private async selectOwnedListing(client: PoolClient, listingId: string, shopId: string): Promise<Listing> {
+    return presentListing(await this.selectOwnedListingRow(client, listingId, shopId), this.mediaStorage);
+  }
+
+  private async selectOwnedListingRow(client: PoolClient, listingId: string, shopId?: string): Promise<ListingRow> {
     const result = await client.query<ListingRow>(
       `${listingSelect}
-       WHERE l.id = $1 AND l.shop_id = $2`,
-      [listingId, shopId]
+       WHERE l.id = $1 ${shopId ? "AND l.shop_id = $2" : ""}`,
+      shopId ? [listingId, shopId] : [listingId]
     );
     const row = result.rows[0];
     if (!row) {
       throw new DomainError("RESOURCE_NOT_FOUND", 404, "Listing not found");
     }
-    return presentListing(row, this.mediaStorage);
+    return row;
+  }
+
+  private packageDraftResult(row: ListingRow, shopDisplayName: string): PackageListingDraftResult {
+    if (!row.return_package_id || !row.disclosure || !row.seal_status || !row.manifest_lines) {
+      throw new DomainError("INTERNAL_ERROR", 500, "Package listing projection is incomplete");
+    }
+    return {
+      packageId: row.return_package_id,
+      listing: { ...presentListing(row, this.mediaStorage), shopDisplayName },
+      disclosure: row.disclosure,
+      sealStatus: row.seal_status,
+      manifestLines: row.manifest_lines.map((line) => ({ ...line, originalUnitPriceVnd: line.originalUnitPriceVnd === null ? null : Number(line.originalUnitPriceVnd) }))
+    };
+  }
+
+  private async requireListingModerator(actor: { id: string; aal?: "aal1" | "aal2" }): Promise<void> {
+    if (actor.aal !== "aal2") throw new DomainError("MFA_REQUIRED", 403, "AAL2 is required");
+    const allowed = await this.pool.query(
+      `SELECT 1 FROM platform_staff_roles
+       WHERE user_id = $1 AND status = 'ACTIVE' AND role IN ('MODERATOR', 'SUPER_ADMIN')`,
+      [actor.id]
+    );
+    if (!allowed.rowCount) throw new DomainError("FORBIDDEN", 403, "Listing moderation capability denied");
   }
 
   private async requirePublicShop(shopId: string): Promise<void> {
@@ -959,7 +1199,7 @@ export class InventoryModule {
     return {
       sourceTrackingEnc: Buffer.concat([nonce, cipher.getAuthTag(), encrypted]).toString("base64"),
       sourceTrackingHash: createHmac("sha256", this.trackingSecrets.hmacSecret)
-        .update(sourceTrackingNo)
+        .update(normalizeScannedCode(sourceTrackingNo))
         .digest("hex")
     };
   }
@@ -1003,6 +1243,10 @@ export class InventoryModule {
 
 function hashJson(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+
+function normalizeScannedCode(value: string): string {
+  return value.trim().toUpperCase();
 }
 
 function canonicalManifest(drafts: ReturnManifestDraft[]): ReturnManifestDraft[] {

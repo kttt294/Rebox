@@ -1,6 +1,8 @@
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import type { OutboxModule } from "@rebox/backend";
 import { OUTBOX } from "./worker.providers";
+import { COMMERCE } from "./worker.providers";
+import type { CommerceModule } from "@rebox/backend";
 
 @Injectable()
 export class OutboxConsumer implements OnModuleInit, OnModuleDestroy {
@@ -8,7 +10,10 @@ export class OutboxConsumer implements OnModuleInit, OnModuleDestroy {
   private stopped = false;
   private timer?: NodeJS.Timeout;
 
-  constructor(@Inject(OUTBOX) private readonly outbox: OutboxModule) {}
+  constructor(
+    @Inject(OUTBOX) private readonly outbox: OutboxModule,
+    @Inject(COMMERCE) private readonly commerce: CommerceModule
+  ) {}
 
   onModuleInit(): void {
     void this.poll();
@@ -27,8 +32,9 @@ export class OutboxConsumer implements OnModuleInit, OnModuleDestroy {
     }
     try {
       const processed = await this.outbox.processBatch();
-      if (processed > 0) {
-        this.logger.log({ event: "outbox.batch.processed", processed });
+      const expired = await this.commerce.expireReservations();
+      if (processed > 0 || expired > 0) {
+        this.logger.log({ event: "outbox.batch.processed", processed, expired });
       }
     } catch (error) {
       this.logger.error({

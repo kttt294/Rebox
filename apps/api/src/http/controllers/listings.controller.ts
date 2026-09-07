@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Patch, Post, Put, Query, UploadedFile, UseInterceptors } from "@nestjs/common";
+import { Body, Controller, Get, Headers, Inject, Param, Patch, Post, Put, Query, UploadedFile, UseInterceptors } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { DomainError, type InventoryModule } from "@rebox/backend";
 import {
@@ -21,7 +21,12 @@ import {
   maxReturnManifestFileBytes,
   publicListingsQuerySchema,
   upsertShopReviewSchema,
-  updateListingDraftSchema
+  updateListingDraftSchema,
+  scanReturnPackageSchema,
+  batchCreatePackageListingsSchema,
+  listingReviewDecisionSchema,
+  type PackageListingDraftResult,
+  type BatchCreatePackageListingsResult
 } from "@rebox/shared";
 import { INVENTORY } from "../../backend.providers";
 import { CurrentActor } from "../decorators/current-actor";
@@ -79,6 +84,47 @@ export class ListingsController {
       throw new DomainError("VALIDATION_FAILED", 422, parsed.error.issues[0]?.message ?? "Invalid commit request");
     }
     return this.inventory.commitReturnManifest(actor.id, shopId, batchId, parsed.data.idempotencyKey);
+  }
+
+  @Post("shops/:shopId/return-packages/scan")
+  scanReturnPackage(
+    @CurrentActor() actor: Actor,
+    @Param("shopId") shopId: string,
+    @Body() body: unknown,
+    @Headers("idempotency-key") key: string
+  ): Promise<PackageListingDraftResult> {
+    if (!key) throw new DomainError("VALIDATION_FAILED", 422, "Idempotency-Key is required");
+    const parsed = scanReturnPackageSchema.safeParse(body);
+    if (!parsed.success) throw new DomainError("VALIDATION_FAILED", 422, "Invalid scanned package code");
+    return this.inventory.scanReturnPackage(actor.id, shopId, parsed.data, key);
+  }
+
+  @Post("shops/:shopId/return-packages/listings/batch")
+  batchCreatePackageListings(
+    @CurrentActor() actor: Actor,
+    @Param("shopId") shopId: string,
+    @Body() body: unknown
+  ): Promise<BatchCreatePackageListingsResult> {
+    const parsed = batchCreatePackageListingsSchema.safeParse(body);
+    if (!parsed.success) throw new DomainError("VALIDATION_FAILED", 422, "Invalid package batch");
+    return this.inventory.batchCreatePackageListings(actor.id, shopId, parsed.data.packageIds);
+  }
+
+  @Get("admin/listings/reviews")
+  listPendingReviews(@CurrentActor() actor: Actor): Promise<Listing[]> {
+    return this.inventory.listPendingListingReviews(actor);
+  }
+
+  @Post("admin/listings/:listingId/decision")
+  decideListingReview(
+    @CurrentActor() actor: Actor,
+    @Param("listingId") listingId: string,
+    @Body() body: unknown,
+    @Headers("idempotency-key") key: string
+  ): Promise<Listing> {
+    const parsed = listingReviewDecisionSchema.safeParse(body);
+    if (!parsed.success) throw new DomainError("VALIDATION_FAILED", 422, "Invalid listing review decision");
+    return this.inventory.decideListingReview(actor, listingId, parsed.data, key);
   }
 
   @Get("shops/:shopId/listings")

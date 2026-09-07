@@ -1,7 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@rebox/api-client", "@rebox/shared"]
+  transpilePackages: ["@rebox/api-client", "@rebox/shared"],
+  async headers() {
+    return [{ source: "/(.*)", headers: [
+      { key: "X-Content-Type-Options", value: "nosniff" },
+      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+      { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
+      { key: "Content-Security-Policy", value: "default-src 'self'; img-src 'self' data: https:; connect-src 'self' http://127.0.0.1:* https:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'" }
+    ] }];
+  }
 };
 
 export default nextConfig;

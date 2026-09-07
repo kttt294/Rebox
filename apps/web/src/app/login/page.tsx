@@ -29,7 +29,7 @@ export default function LoginPage() {
         return;
       }
       const next = new URLSearchParams(window.location.search).get("next");
-      router.replace(next === "/seller/onboarding" ? next : "/");
+      router.replace(next && /^\/(?!\/)[^\\]*$/.test(next) ? next : "/");
     } catch {
       setError("Không thể kết nối dịch vụ đăng nhập. Vui lòng thử lại.");
     } finally {
@@ -47,7 +47,7 @@ export default function LoginPage() {
           </div>
           <AuthField autoComplete="email" name="email" placeholder="Email" required type="email" />
           <AuthField autoComplete="current-password" name="password" placeholder="Mật khẩu" required type="password" />
-          <div className="flex h-[18px] justify-end"><button className="text-[13px] text-[var(--accent)] hover:underline" type="button">Quên mật khẩu?</button></div>
+          <div className="flex h-[18px] justify-end"><Link className="text-[13px] text-[var(--accent)] hover:underline" href="/forgot-password">Quên mật khẩu?</Link></div>
           <button aria-busy={submitting} className="h-10 w-full bg-[var(--accent-header)] text-sm font-bold text-white hover:bg-[var(--accent-strong)] disabled:cursor-wait disabled:opacity-60" disabled={submitting} type="submit">
             {submitting ? "ĐANG ĐĂNG NHẬP..." : "ĐĂNG NHẬP"}
           </button>

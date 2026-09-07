@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SellerShell } from "../../../features/seller-shell";
 import { SellerWorkbench } from "../../../features/seller-workbench/seller-workbench";
+import { SellerDisputes, SellerOrders } from "../../../features/seller-operations";
 
 const sections = {
   returns: "Khiếu nại / Hoàn trả",
@@ -17,6 +18,10 @@ export default async function SellerSectionPage({ params }: { params: Promise<{ 
         <SellerWorkbench />
       </SellerShell>
     );
+  }
+  if (section === "orders" || section === "returns") {
+    const Content = section === "orders" ? SellerOrders : SellerDisputes;
+    return <SellerShell><Content /></SellerShell>;
   }
 
   const title = sections[section as keyof typeof sections];

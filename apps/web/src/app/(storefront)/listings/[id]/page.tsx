@@ -78,7 +78,8 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
               <DetailRow label="Mô tả tình trạng" value={listing.conditionNotes} />
               <DetailRow label="Đăng bán lúc" value={new Date(listing.publishedAt ?? listing.createdAt).toLocaleString("vi-VN")} />
             </dl>
-            <CartActions listingId={listing.id} />
+            {listing.package ? <div className="rounded-lg border border-amber-200 bg-amber-50 p-4"><strong>Kiện chưa mở kiểm tra</strong><p className="mt-1 text-sm">Seal bên ngoài: {listing.package.sealStatus} · {listing.package.manifestSummary.lineCount} dòng · {listing.package.manifestSummary.unitCount} sản phẩm khai báo</p></div> : null}
+            <CartActions available={listing.availableQuantity !== 0} listingId={listing.id} />
           </div>
         </section>
 
@@ -95,6 +96,8 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
           <h2 className="border-b border-[var(--line)] pb-3 text-base font-medium">MÔ TẢ SẢN PHẨM</h2>
           <p className="mt-4 text-[13px] leading-6">{listing.description ?? listing.conditionNotes}</p>
         </section>
+
+        {listing.package ? <section className="mt-6 rounded-[10px] border border-[var(--line)] bg-white p-6"><h2 className="border-b border-[var(--line)] pb-3 text-base font-medium">BẢN KÊ NGUỒN ĐƯỢC PHÉP HIỂN THỊ</h2><ul className="mt-4 space-y-3">{listing.package.lines.map((line, index) => <li className="rounded border border-[var(--line)] p-3" key={`${line.productName}-${index}`}><strong>{line.productName}</strong><p className="text-sm text-[var(--muted)]">{line.variantName ?? "Không có phân loại"} · SL khai báo {line.quantity}</p></li>)}</ul></section> : null}
 
         <section className="mt-6">
           <h2 className="mb-4 text-lg font-medium">SẢN PHẨM LIÊN QUAN</h2>

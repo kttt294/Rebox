@@ -125,7 +125,7 @@ test("chooses a category, edits a draft and sends it to policy review", async ({
     await route.fulfill({ status: 404, json: { error: { code: "RESOURCE_NOT_FOUND", message: "Not found", requestId: "e2e" } } });
   });
 
-  await page.goto("/seller/inventory");
+  await page.goto("/seller/products/new");
   await page.getByLabel("Tên sản phẩm *").fill("Draft E2E ban đầu");
   await page.getByLabel("Danh mục *").selectOption("cosmetics");
   await page.getByLabel("Giá bán dự kiến (VNĐ) *").fill("120000");
@@ -134,6 +134,7 @@ test("chooses a category, edits a draft and sends it to policy review", async ({
   await page.getByRole("button", { name: "Lưu bản nháp" }).click();
   await expect(page.getByRole("status")).toHaveText("Đã lưu bản nháp.");
 
+  await page.goto("/seller/inventory");
   await page.getByLabel("Thêm ảnh cho Draft E2E ban đầu").setInputFiles({
     name: "catalog.png",
     mimeType: "image/png",
@@ -142,7 +143,7 @@ test("chooses a category, edits a draft and sends it to policy review", async ({
   await expect(page.getByRole("status")).toHaveText("Đã thêm ảnh sản phẩm.");
   await expect(page.getByRole("row", { name: /Draft E2E ban đầu/ })).toContainText("1/6 ảnh");
 
-  await page.getByRole("row", { name: /Draft E2E ban đầu/ }).getByRole("button", { name: "Chỉnh sửa" }).click();
+  await page.getByRole("row", { name: /Draft E2E ban đầu/ }).getByRole("link", { name: "Chỉnh sửa" }).click();
   await page.getByLabel("Tên sản phẩm *").fill("Draft E2E đã sửa");
   await page.getByLabel("Giá bán dự kiến (VNĐ) *").fill("135000");
   await page.getByRole("button", { name: "Lưu thay đổi" }).click();
@@ -151,6 +152,7 @@ test("chooses a category, edits a draft and sends it to policy review", async ({
   await expect(page.getByLabel("Giá bán dự kiến (VNĐ) *")).toHaveValue("135000");
   await page.getByRole("button", { name: "Lưu thay đổi" }).click();
   await expect(page.getByRole("status")).toHaveText("Đã cập nhật bản nháp.");
+  await page.goto("/seller/inventory");
   await expect(page.getByRole("row", { name: /Draft E2E đã sửa/ })).toContainText("135.000đ");
   await expect(page.getByRole("row", { name: /Draft E2E đã sửa/ })).toContainText("1/6 ảnh");
 
@@ -258,7 +260,7 @@ test("shows two manifest sources and previews the spreadsheet source only", asyn
     await route.fulfill({ status: 404, json: { error: { code: "RESOURCE_NOT_FOUND", message: "Not found", requestId: "e2e" } } });
   });
 
-  await page.goto("/seller/inventory");
+  await page.goto("/seller/products/new");
   const platformButton = page.getByRole("button", { name: /Import trực tiếp từ Shopee\/TikTok/ });
   await expect(platformButton).toBeDisabled();
   await expect(platformButton).toContainText("Sắp có");
@@ -273,6 +275,7 @@ test("shows two manifest sources and previews the spreadsheet source only", asyn
   await expect(page.getByRole("row", { name: /SHOPEE:TRACK-001/ })).toContainText("Hợp lệ");
   await page.getByRole("button", { name: "Commit bản kê" }).click();
   await expect(page.getByRole("status")).toHaveText("Đã nhập 1 kiện và 1 dòng khai báo.");
+  await page.goto("/seller/inventory");
   await expect(page.getByRole("row", { name: /Áo thun cotton/ })).toContainText("600.000đ");
   await page.getByRole("button", { name: "Hết hàng (0)" }).click();
   await expect(page.getByRole("row", { name: /Áo thun cotton/ })).toHaveCount(0);

@@ -1,128 +1,187 @@
-# REBOX — Kế hoạch hoàn thiện giỏ hàng và checkout COD
+# REBOX — Kế hoạch hoàn thiện MVP synthetic, tạm hoãn payment production
 
-> Cập nhật ngày 07/09/2026 sau khi kiểm tra luồng buyer thực tế. Kế hoạch này thay thế kế hoạch shop review trước đó, vì phần verified shop review đã được triển khai. Mục tiêu mới là sửa invariant giỏ hàng, làm E2E ổn định và triển khai checkout COD đúng mô hình một listing = một kiện hoàn.
+> Cập nhật ngày 07/09/2026 sau khi rà soát code và đối chiếu toàn bộ docs. Kế hoạch này thay thế kế hoạch chỉ tập trung checkout COD trước đó. Mục tiêu là hoàn thiện các luồng GĐ1 còn lại thành một MVP chạy end-to-end bằng dữ liệu synthetic/fake provider, đồng thời hoãn mọi tích hợp chuyển tiền thật cho tới khi các gate pháp lý và nhà cung cấp được đóng.
 
-## 1. Kết quả kiểm tra hiện tại
+## 1. Quyết định phạm vi
 
-Đang hoạt động:
+### 1.1. “Tạm bỏ payment” nghĩa là gì
 
-- Trang chi tiết đọc được listing `ACTIVE` từ public API.
-- `Thêm vào giỏ hàng` lưu listing vào `localStorage`.
-- Trang giỏ tải lại listing, cho chọn sản phẩm và tính tổng tạm tính.
-- `Mua hàng` từ giỏ và `Mua ngay` từ chi tiết đều mở `/checkout?items=...`.
-- Trang checkout hiển thị đúng listing và tạm tính.
-- `corepack pnpm --filter @rebox/web typecheck` đang pass.
+Tạm hoãn toàn bộ side effect tiền thật và tích hợp tài chính bên ngoài:
 
-Chưa hoàn thiện hoặc đang sai:
+- PSP production, VietQR thật và webhook ngân hàng.
+- Nạp/rút ký quỹ thật.
+- COD remittance và đối soát thật với đơn vị vận chuyển.
+- Refund payout thật cho buyer.
+- Lưu thẻ hoặc ví điện tử.
+- Tự động đánh dấu giao dịch `PAID`, `VERIFIED`, `SETTLED` dựa trên dữ liệu giả.
 
-- `addCartItem` tăng `quantity` khi thêm lại cùng listing; trang giỏ còn có nút tăng/giảm số lượng. Điều này sai invariant một listing bán đúng một kiện, quantity luôn bằng `1`.
-- Giỏ có thể chọn nhiều listing rồi truyền nhiều ID sang checkout, trong khi MVP chỉ cho checkout đúng một package.
-- Checkout đang tin quantity từ `localStorage`; dữ liệu client không được dùng làm authority nghiệp vụ.
-- Checkout chỉ là preview frontend. Chưa có địa chỉ, phí vận chuyển, tạo order, reservation, fund hold, chọn COD hoặc xác nhận đặt hàng.
-- Bảng `listings` hiện chưa có liên kết trực tiếp tới `return_packages`; chưa thể khóa đúng kiện dưới transaction khi checkout.
-- Codebase chưa có ledger kép và `fund_holds`; chưa đủ điều kiện triển khai checkout thật theo flow canonical.
-- `purchase_orders` hiện là bảng nhẹ phục vụ account/review demo, không thay thế aggregate `orders + sub_orders + sub_order_items` trong technical spec.
-- Test `adds a database listing to cart and opens checkout preview` phụ thuộc fixture cố định `RBX-01JTESTCATALOG-TECH-001`. Fixture có trong `db/seeds/sprint1.sql` nhưng không tồn tại trong database đang chạy, nên test chờ nút 30 giây rồi timeout thay vì báo lỗi setup rõ ràng.
+Không được bỏ các seam nghiệp vụ mà phần còn lại đang phụ thuộc:
 
-## 2. Mục tiêu và định nghĩa hoàn thành
+- `orders`, `sub_orders`, `sub_order_items` và state machine đơn hàng.
+- Reservation package, TTL và chống double-sell.
+- `fund_holds`, ledger kép tối thiểu và số dư synthetic để kiểm thử invariant.
+- Fee/hold snapshot do backend tính.
+- Payment/refund status ở mức contract và record nội bộ.
+- Idempotency, outbox và reconciliation seam.
 
-Luồng cần đạt:
+Lý do: nếu bỏ luôn các aggregate trên thì checkout, fulfillment, review eligibility, dispute và refund record đều phải viết lại khi payment được mở. MVP này phải chứng minh được nghiệp vụ, nhưng tuyệt đối không được chuyển tiền thật.
+
+### 1.2. Mode chạy của MVP
+
+MVP dùng mode rõ ràng:
 
 ```text
-Chi tiết listing ACTIVE/package AVAILABLE
-→ thêm vào giỏ, thêm lại vẫn chỉ có một dòng quantity 1
-→ chọn đúng một listing để checkout
-→ chọn địa chỉ của buyer
-→ backend khóa listing + ReturnPackage và tính phí từ dữ liệu server
-→ tạo order RESERVED + đúng một sub-order + snapshot item/fee + fund hold
-→ buyer chọn COD
-→ backend kiểm tra eligibility/risk và chuyển đơn sang CONFIRMED/COD_PENDING
-→ ReturnPackage chuyển RESERVED → SOLD
-→ UI hiện trang đặt hàng thành công và giỏ bỏ listing vừa mua
+COMMERCE_MODE=SANDBOX
+PAYMENT_MODE=DISABLED
+FULFILLMENT_MODE=FAKE
+EVIDENCE_MODE=FAKE_METADATA
+NOTIFICATION_MODE=IN_APP_OR_LOG
 ```
 
-Hoàn thành kỹ thuật khi:
+Nếu project dùng tên biến khác thì giữ một nguồn cấu hình duy nhất, không rải `if (development)` trong nghiệp vụ. Production phải fail closed khi provider/gate chưa được cấu hình; không tự fallback từ provider thật sang fake.
 
-- Hai tab cùng mua một listing chỉ có một request thành công.
-- Mọi tầng đều ép `quantity = 1`; sửa `localStorage` hoặc request thủ công không bypass được backend.
-- Checkout nhiều package trả `422 ONE_PACKAGE_PER_CHECKOUT`.
-- Buyer không sở hữu địa chỉ nhận `404` hoặc `403`, không lộ dữ liệu địa chỉ.
-- Giá, shop, package, phí và tổng tiền đều được backend đọc/tính lại và snapshot.
-- Retry cùng `Idempotency-Key` không tạo order/hold thứ hai.
-- COD thành công tạo đúng một order, một sub-order, một item và một active hold.
-- Test unit/integration/E2E mới pass ổn định trên database được chuẩn bị theo một lệnh rõ ràng.
+## 2. Baseline hiện tại
 
-## 3. Ranh giới an toàn
+### 2.1. Đã hoạt động và phải giữ nguyên
 
-- Không chỉ bật nút `Đặt hàng` ở frontend khi backend chưa có transaction reservation và hold.
-- Không mở checkout thật trước khi lát ledger/fund hold tối thiểu đã pass test cân sổ và concurrency.
-- Không dùng `purchase_orders` làm aggregate checkout mới. Có thể giữ nó tạm thời như read model/demo cho account và review, sau đó chuyển projection sang `orders/sub_orders`.
-- Không tin `price`, `quantity`, `shopId`, phí, địa chỉ dạng text hoặc trạng thái do frontend gửi.
-- Không cho checkout listing không gắn `ReturnPackage`; fixture E2E phải là package-backed listing.
-- COD trong local/test dùng fake carrier và fake risk inputs. Không tạo vận đơn thật hoặc xử lý tiền thật trước khi hợp đồng ĐVVC, settlement mode và beneficiary được phê duyệt.
-- Production COD vẫn bị chặn cho đến khi chốt luồng ĐVVC chi hộ, đối soát gross/net/deduction và các gate pháp lý liên quan.
+- Supabase email auth, JWT/JWKS guard và actor context.
+- Account profile, địa chỉ, notification/privacy preferences và payment overview read-only.
+- Seller onboarding, eKYC local/provider adapter, trạng thái KYC và admin manual review có MFA/AAL2.
+- Listing thủ công: tạo/sửa draft, upload ảnh, policy gate, publish và public catalog.
+- Tìm kiếm PostgreSQL FTS, trang chi tiết SSR, shop profile và verified shop review.
+- Import CSV/XLSX: preview, validate, chặn cột PII, commit `ReturnPackage`/`ReturnLine` idempotent.
+- Seller inventory đọc được package đã import.
+- Giỏ local đã normalize quantity về `1`, deduplicate và chỉ chọn một listing để checkout.
+- Transactional outbox và worker polling cơ bản.
+- Seller finance UI hiện đọc snapshot demo.
 
-## 4. Thứ tự triển khai đề xuất
+### 2.2. Khoảng trống phải hoàn thiện
 
-Làm theo 5 session nhỏ. Không gộp toàn bộ checkout vào một diff.
+| Nhóm | Trạng thái hiện tại | Đích của kế hoạch |
+|---|---|---|
+| Package-backed listing | Package import xong chưa scan/tạo listing được | Scan hoặc chọn package → đúng một listing nguyên kiện |
+| Public package catalog | Payload vẫn theo listing thủ công/condition grade | Disclosure, manifest summary và `availableQuantity` 0/1 đúng package |
+| Listing moderation | Có thể sinh `PENDING_REVIEW` nhưng chưa có hàng đợi admin | Admin duyệt/từ chối có audit và idempotency |
+| Commerce | Checkout chỉ là preview | Order/reservation/hold synthetic chạy trong transaction |
+| Buyer order | `purchase_orders` là read model demo | Đọc từ aggregate canonical và có detail/timeline |
+| Funds | Chỉ có `seller_finance_snapshots` | Ledger/hold synthetic cân sổ; chưa có top-up/withdraw thật |
+| Fulfillment | Seller chỉ chọn GHN/GHTK trong onboarding | Fake carrier quote/create/label/status, state machine đầy đủ |
+| Dispute/refund | Seller route là placeholder | Buyer/seller/admin hoàn tất case; refund chỉ tới trạng thái chờ payout |
+| Evidence | Chưa có pipeline | Fake metadata/version/hash, processing record và UI video/file có gate |
+| Notification | Mới có preferences | In-app/log delivery từ outbox; email/SMS/Zalo chỉ fake adapter |
+| Legal/CSKH/privacy | Chưa có trang và workflow | Artifact versioned, acceptance, ticket và privacy request synthetic |
+| Account | Đổi mật khẩu đang sai flow; quên mật khẩu chưa hoạt động | Các luồng auth/account cơ bản pass E2E |
+| Documentation | README/CODEBASE/API catalog lệch code | Trạng thái docs khớp implementation |
 
-### Session A — Sửa invariant giỏ hàng và làm E2E deterministic
+### 2.3. Những thứ cố ý không làm trong kế hoạch này
 
-#### A1. Chuẩn hóa dữ liệu giỏ
+- Mobile app và AI triage GĐ3.
+- Phân tích hàng hoàn theo SKU GĐ3.
+- Live Shopee/TikTok API; nút tiếp tục hiển thị “Sắp có”.
+- Multi-package hoặc multi-seller checkout.
+- Voucher, loyalty, paid promotion, đa ngôn ngữ, đa tiền tệ.
+- Public API ERP.
+- Redis/BullMQ, Kubernetes hoặc search engine ngoài PostgreSQL.
+- Provider payment/evidence/shipping production khi chưa có hợp đồng và legal gate.
 
-File chính:
+## 3. Định nghĩa hoàn thành toàn kế hoạch
 
-- `apps/web/src/features/cart-storage.ts`
-- `apps/web/src/app/cart/page.tsx`
-- `apps/web/src/features/checkout-preview.tsx`
+### 3.1. Seller journey
 
-Thay đổi tối thiểu:
+```text
+Đăng ký seller synthetic
+→ KYC verified hoặc manual review
+→ import CSV/XLSX
+→ preview và commit package
+→ scan/chọn package
+→ tạo listing nguyên kiện
+→ upload ảnh ngoài kiện và publish
+→ admin duyệt nếu policy yêu cầu
+→ listing xuất hiện public
+→ nhận order sandbox
+→ fake carrier tạo shipment/label
+→ cập nhật trạng thái giao hàng
+→ xem đối soát synthetic
+→ phản hồi dispute nếu có
+```
 
-1. Giữ shape `{ listingId, quantity }` để không phải migration storage phức tạp, nhưng mọi hàm đọc/ghi đều normalize `quantity` về `1`.
-2. `addCartItem(listingId)` trở thành idempotent: nếu listing đã có thì không tăng số lượng và không thêm dòng trùng.
-3. `readCart()` loại dòng hỏng, deduplicate theo `listingId` và trả quantity `1`.
-4. `writeCart()` cũng deduplicate/normalize để mọi caller đi qua cùng invariant.
-5. Xóa nút `+`/`−` và hàm `changeQuantity`; chỉ hiển thị `Số lượng: 1`.
-6. Checkout preview luôn hiển thị quantity `1`, không lấy quantity từ `localStorage`.
+### 3.2. Buyer journey
 
-Không cần tạo cart backend trong session này.
+```text
+Đăng ký/đăng nhập
+→ tìm listing package-backed
+→ xem disclosure và bản kê nguồn
+→ thêm giỏ quantity 1
+→ chọn địa chỉ
+→ checkout một package
+→ backend reserve package và tạo hold synthetic
+→ xác nhận SANDBOX_COD
+→ xem order detail/timeline
+→ fake delivery hoàn tất
+→ đánh giá shop
+→ mở dispute, gửi evidence tùy chọn và kháng nghị
+```
 
-#### A2. Chỉ cho chọn một listing để checkout
+### 3.3. Admin journey
 
-- Giỏ vẫn được lưu nhiều listing để buyer xem lại.
-- UI chỉ cho chọn một listing tại một thời điểm; ưu tiên radio hoặc selection state đơn thay vì mảng checkbox.
-- Bỏ `Chọn tất cả` vì trái với checkout một package của MVP.
-- CTA `Mua hàng` chỉ truyền đúng một `listingId`.
-- `Mua ngay` tiếp tục truyền đúng listing hiện tại.
+```text
+Đăng nhập staff + AAL2
+→ duyệt KYC
+→ duyệt listing PENDING_REVIEW
+→ xem hàng đợi dispute theo SLA
+→ xem evidence derivative/fake metadata
+→ nhập quyết định và lý do
+→ hệ thống tạo refund obligation nhưng không payout
+→ audit trail truy được actor/time/idempotency key
+```
 
-#### A3. Sửa E2E fixture
+### 3.4. Tiêu chí kỹ thuật toàn cục
 
-Nguyên nhân cần xử lý: test đang phụ thuộc trạng thái database bên ngoài nhưng không có preflight/setup đảm bảo fixture đã được seed.
+- Không có đường nào bán hai lần một `ReturnPackage`.
+- Public API không lộ tracking, source order/return ref, buyer gốc hoặc internal PII.
+- Mọi mutation quan trọng lấy actor từ JWT, kiểm tra ownership/capability và có test IDOR.
+- Mọi amount được tính lại ở backend, snapshot config/version và dùng integer VNĐ.
+- Mọi ledger transaction synthetic có tổng posting bằng `0`.
+- Retry cùng idempotency key trả cùng kết quả; cùng key khác payload trả conflict.
+- Worker retry không tạo shipment, hold, notification hoặc transition trùng.
+- Không có adapter fake nào được bật ngầm trong production.
+- Lint, typecheck, unit/integration test, build và E2E critical journey đều pass trên setup synthetic tái lập được.
 
-Giải pháp khuyến nghị:
+## 4. Guardrail bắt buộc
 
-1. Tách helper E2E tạo và publish một listing synthetic qua API từ flow đã có ở cuối `storefront.spec.ts`.
-2. Cart test tự tạo listing của chính nó rồi dùng ID trả về, thay vì hardcode `RBX-01JTESTCATALOG-TECH-001`.
-3. Khi checkout package-backed được triển khai, helper phải tạo/import `ReturnPackage` trước rồi tạo listing gắn package; không dùng listing thủ công không có package.
-4. Nếu chưa tách helper ngay, thêm preflight đọc fixture và fail sớm với thông báo yêu cầu chạy `corepack pnpm db:seed`; đây chỉ là bước tạm, không phải đích cuối.
-5. Không đổi test sang một ID demo khác chỉ để hết fail vì vẫn giữ cùng coupling với seed ngoài test.
+1. Không nhập dữ liệu CCCD, nhãn vận đơn, payment hoặc evidence thật trước A14/Legal go-no-go.
+2. Không gọi HTTP provider bên ngoài trong database transaction; transaction chỉ ghi state + outbox.
+3. Không tin client về price, fee, quantity, shop, package, address text, actor hoặc trạng thái.
+4. Không dùng `purchase_orders` làm aggregate commerce. Nếu giữ làm read model tạm thì phải có owner/sync mechanism và test.
+5. Không dùng `seller_finance_snapshots` làm nguồn sự thật khi đã có ledger.
+6. Không đánh dấu refund `PAID/VERIFIED` trong sandbox khi không có side effect được xác minh.
+7. Không phục vụ evidence gốc cho seller; fake derivative vẫn phải đi qua cùng authorization seam.
+8. Video không phải điều kiện để mở dispute; thiếu evidence vẫn nhận case và chuyển admin review.
+9. Listing package-backed luôn bán cả kiện, quantity 1; không tạo `ReturnUnit` hoặc form kiểm đếm bên trong.
+10. Mọi session chỉ sửa phần cần thiết, để lại ít nhất một runnable check cho logic không tầm thường.
 
-Test bắt buộc cho Session A:
+## 5. Thứ tự triển khai
 
-- Thêm cùng listing hai lần → giỏ có một dòng, quantity `1`.
-- `localStorage` chứa quantity `5` hoặc dòng trùng → khi đọc được normalize về một dòng quantity `1`.
-- Không còn nút tăng/giảm số lượng.
-- Giỏ có hai listing → chỉ một listing được chọn để checkout.
-- `Mua hàng` từ giỏ và `Mua ngay` đều tới checkout với đúng một ID.
-- Cart E2E không phụ thuộc fixture tồn tại từ một lần seed trước.
+Làm tuần tự theo session dưới đây. Mỗi session phải merge/pass độc lập; không gộp toàn bộ roadmap vào một diff.
 
-### Session B — Nối listing với package và dựng nền commerce
+### Session A — Cart invariant và E2E deterministic — `COMPLETED`
 
-#### B1. Migration inventory linkage
+Đã hoàn thành trong code hiện tại:
 
-Migration dự kiến kế tiếp là `0013_checkout_cod.sql`, nhưng phải kiểm tra `db/migrations/meta/_journal.json` trước khi đặt số.
+- `readCart`/`writeCart` deduplicate và ép quantity `1`.
+- Thêm lại cùng listing không tăng quantity.
+- Bỏ nút tăng/giảm số lượng.
+- Giỏ chỉ chọn một listing để checkout.
+- `Mua hàng` và `Mua ngay` truyền đúng một ID.
+- Storefront E2E tự tạo listing synthetic thay vì phụ thuộc âm thầm vào fixture cũ.
 
-Thêm:
+Không làm lại Session A trừ khi test hồi quy thất bại.
+
+### Session B — Package-backed listing và scan-to-list — `COMPLETED`
+
+#### B1. Migration và domain link
+
+Thêm tối thiểu:
 
 ```text
 listings.return_package_id TEXT NULL REFERENCES return_packages(id)
@@ -132,56 +191,113 @@ return_packages.reserved_until TIMESTAMPTZ NULL
 
 Quy tắc:
 
-- Listing package-backed khi publish phải có đúng một `return_package_id` thuộc cùng shop.
-- Một package có tối đa một listing hiệu lực.
-- Checkout từ chối listing không có package bằng error rõ ràng, không tự tạo package ngầm.
-- Cập nhật seed bằng package synthetic và liên kết các listing dùng cho checkout/E2E.
-- Không backfill package giả cho dữ liệu không xác định được nguồn.
+- Package thuộc đúng shop mới được gắn listing.
+- Một package có tối đa một listing hiện hành ở MVP.
+- Package `RESERVED/SOLD/VOID` không được tạo listing mới.
+- Không backfill package giả cho listing thủ công không rõ nguồn.
+- Listing thủ công tiếp tục tồn tại như flow riêng nhưng không được checkout trong MVP package-backed.
 
-#### B2. Aggregate commerce canonical
+#### B2. Scan/chọn package
 
-Thêm module `commerce` tối thiểu trong backend và các bảng canonical cần cho vertical slice:
+Thêm contract và endpoint:
 
-- `orders`
-- `sub_orders`, unique `order_id` cho quan hệ một-một MVP
-- `sub_order_items`, unique `return_package_id`
-- `fund_holds`
-- ledger tối thiểu theo thiết kế Sprint 3: `ledger_transactions` và `ledger_postings`
+```http
+POST /v1/shops/{shopId}/return-packages/scan
+Idempotency-Key: <uuid>
 
-Không thêm shipment/dispute/refund trong migration đầu nếu COD confirmation chưa dùng tới chúng.
+{
+  "scannedCode": "...",
+  "codeType": "ORDER_SN | TRACKING_NO | UNKNOWN",
+  "platformHint": "SHOPEE | TIKTOK | null"
+}
+```
 
-Snapshot bắt buộc:
+Backend chuẩn hóa mã, HMAC lookup trong phạm vi shop và get-or-create đúng một listing `DRAFT`. Miss trả `SOURCE_MANIFEST_NOT_FOUND`; không tự gọi API sàn hoặc tạo package giả.
 
-- Item: listing ID, package ID, title, ảnh, tình trạng, giá.
-- Địa chỉ: dữ liệu mã hóa + hash; không chỉ lưu `addressId` vì địa chỉ có thể đổi sau khi đặt.
-- Fee: input, output, breakdown, config version/effective time.
-- Shop/payment method/status theo state machine canonical.
+UI tối thiểu:
 
-#### B3. Ledger và hold trước checkout
+- Ô scan/nhập tay trên web.
+- Hiển thị package, manifest lines, disclosure `UNOPENED_UNINSPECTED` và seal status.
+- Cho bổ sung cân nặng/kích thước bên ngoài nếu thiếu.
+- Retry offline/double submit không tạo listing trùng.
+- Sau commit manifest có CTA rõ ràng “Quét hoặc chọn kiện để đăng bán”.
 
-Không tự viết số dư trực tiếp. Tạo một interface ghi sổ duy nhất:
+#### B3. Đăng bán hàng loạt và moderation
 
-- `HOLD_CREATE`
-- `HOLD_RELEASE`
-- sau này mới thêm capture/settlement nếu chưa cần cho COD confirmation.
+- Cho chọn nhiều package `AVAILABLE` chưa có listing để tạo draft hàng loạt; mỗi package vẫn thành một listing riêng quantity 1.
+- Không bulk-publish qua lỗi: kết quả phải báo theo package/listing.
+- Thêm admin queue/detail/decision cho listing `PENDING_REVIEW` với MFA/capability, reason và idempotency.
+- Policy snapshot/version và audit không do client gửi.
+
+#### B4. Public package response
+
+Public listing package-backed phải có:
+
+- `availableQuantity: 0 | 1` suy từ package state.
+- Disclosure “Kiện chưa mở kiểm tra”.
+- Seal status bên ngoài.
+- Manifest summary/lines allowlisted.
+- Price source và original price/discount chỉ khi nguồn được phép.
+- Không serialize tracking, source ref hoặc internal package/line ID.
 
 Test bắt buộc:
 
-- Mỗi transaction tổng debit = tổng credit.
-- Retry cùng idempotency key chỉ tạo một transaction/hold.
-- Số dư khả dụng không âm.
-- Hai checkout cạnh tranh không double hold.
-- Release hold hết hạn chỉ chạy một lần.
+- Scan hit/miss, ownership, retry và package state conflict.
+- Hai request đồng thời chỉ tạo một listing.
+- Batch create trả kết quả từng package và không duplicate.
+- Admin listing review yêu cầu AAL2/capability và chống IDOR.
+- Public serializer không lộ field riêng tư.
+- Listing package status `RESERVED/SOLD` trả `availableQuantity=0`.
 
-### Session C — Checkout init và trang xác nhận thật
+### Session C — Commerce aggregate và ledger/hold synthetic — `COMPLETED`
 
-#### C1. Contract/API
+#### C1. Aggregate canonical
 
-Thêm shared schema, OpenAPI, generated client và API client cho:
+Thêm module `commerce` và bảng tối thiểu:
+
+- `orders`.
+- `sub_orders`, unique `order_id` cho quan hệ một-một MVP.
+- `sub_order_items`, unique `return_package_id`.
+- `fund_holds`.
+- `ledger_transactions`.
+- `ledger_postings`.
+- `idempotency_records` nếu pattern hiện có chưa đủ.
+
+Snapshot bắt buộc:
+
+- Item: listing/package ID, title, image, disclosure, seal, manifest summary và giá.
+- Shop: ID/display name/status tại thời điểm đặt.
+- Address: encrypted snapshot + hash, không chỉ lưu `addressId`.
+- Fee: inputs, breakdown, config version/effective time.
+- Mode: `SANDBOX`, không giả là production payment.
+
+#### C2. Ledger tối thiểu
+
+Tạo một interface posting duy nhất cho:
+
+- `SANDBOX_BALANCE_SEED` chỉ dùng seed/test.
+- `HOLD_CREATE`.
+- `HOLD_RELEASE`.
+- `HOLD_CAPTURE_SIMULATED` chỉ khi cần đóng order sandbox; không có nghĩa đã thu tiền thật.
+
+Không triển khai top-up, withdrawal, PSP payout hoặc bank reconciliation. Seed cấp số dư synthetic rõ ràng cho shop test.
+
+Test bắt buộc:
+
+- Tổng debit/credit của từng transaction bằng `0`.
+- Transaction đã `POSTED` bất biến.
+- Available balance không âm.
+- Retry không tạo posting/hold thứ hai.
+- Hai transaction cạnh tranh không double hold.
+- Release/capture chỉ xảy ra một lần.
+
+### Session D — Checkout SANDBOX_COD và lịch sử đơn — `COMPLETED`
+
+#### D1. Checkout init
 
 ```http
 POST /v1/checkout/init
-Idempotency-Key: <client UUID>
+Idempotency-Key: <uuid>
 
 {
   "items": [{ "listingId": "...", "quantity": 1 }],
@@ -189,202 +305,352 @@ Idempotency-Key: <client UUID>
 }
 ```
 
-Response tối thiểu:
-
-```ts
-type CheckoutInitResponse = {
-  orderId: string;
-  subOrderId: string;
-  status: "RESERVED";
-  item: CheckoutItemSnapshot;
-  feeBreakdown: FeeBreakdown;
-  buyerPayable: number;
-  expiresAt: string;
-};
-```
-
-Error tối thiểu:
-
-- `ONE_PACKAGE_PER_CHECKOUT`
-- `MULTI_SELLER_CHECKOUT_NOT_SUPPORTED`
-- `ITEM_BEING_PURCHASED`
-- `ITEM_SOLD`
-- `SHOP_UNAVAILABLE`
-- `ADDRESS_NOT_FOUND`
-- `INSUFFICIENT_SHOP_FUNDS`
-- `IDEMPOTENCY_CONFLICT`
-
-#### C2. Transaction checkout init
-
-Trong một transaction và đúng lock order canonical:
+Trong một transaction theo lock order canonical:
 
 ```text
 wallet → shop → listing → ReturnPackage → order → sub_order → fund_hold
 ```
 
-Backend phải:
+Backend phải re-read dữ liệu, tính fee, tạo snapshot, reserve package/listing trong 30 phút, tạo order/sub-order/item/hold và ghi outbox expiry.
 
-1. Lấy actor từ JWT và xác nhận địa chỉ thuộc actor.
-2. Chỉ nhận đúng một item, quantity đúng `1`.
-3. Re-read listing, shop, package, giá và trạng thái dưới lock.
-4. Yêu cầu shop `ACTIVE`, KYC `VERIFIED`, không debt/block.
-5. Yêu cầu listing `ACTIVE`, package `AVAILABLE`.
-6. Tính phí server-side và snapshot cấu hình.
-7. Tạo hold TTL 30 phút.
-8. Tạo order + đúng một sub-order + một item snapshot.
-9. Chuyển listing/package sang `RESERVED`, ghi `reserved_until` và outbox expiry.
-10. Commit rồi trả breakdown; mọi lỗi rollback toàn bộ.
+Error tối thiểu:
 
-#### C3. UI checkout
+- `ONE_PACKAGE_PER_CHECKOUT`.
+- `MULTI_SELLER_CHECKOUT_NOT_SUPPORTED`.
+- `ITEM_BEING_PURCHASED`.
+- `ITEM_SOLD`.
+- `SHOP_UNAVAILABLE`.
+- `ADDRESS_NOT_FOUND`.
+- `INSUFFICIENT_SHOP_FUNDS`.
+- `IDEMPOTENCY_CONFLICT`.
 
-Thay `CheckoutPreview` bằng checkout có state rõ ràng:
+#### D2. Xác nhận sandbox
 
-- Bắt buộc đăng nhập; giữ return URL để quay lại sau login.
-- Tải danh sách địa chỉ qua API hiện có.
-- Chọn/tạo địa chỉ; chưa có địa chỉ thì CTA dẫn tới account address.
-- Chỉ hiển thị giá ước tính trước init; sau init hiển thị snapshot/backend total.
-- Hiển thị countdown `expiresAt` và trạng thái hết hạn.
-- Không tự tính phí nghiệp vụ trong React component.
-- Khi init lỗi sold/reserved, thông báo rõ và đưa buyer về giỏ.
-
-### Session D — Chọn COD và xác nhận đặt hàng
-
-#### D1. API chọn COD
-
-Thêm:
+Giữ seam tương thích flow canonical:
 
 ```http
 POST /v1/checkout/{orderId}/pay
-Idempotency-Key: <client UUID>
+Idempotency-Key: <uuid>
 
-{ "method": "COD" }
+{ "method": "SANDBOX_COD" }
 ```
 
-Chỉ owner của order được gọi. Backend khóa lại toàn bộ aggregate và yêu cầu:
+Endpoint này không gọi PSP/ngân hàng. Tên method phải làm rõ đây là synthetic. Thành công chuyển order/sub-order sang trạng thái đã xác nhận sandbox, package/listing sang `SOLD`, giữ/capture hold theo policy synthetic và ghi outbox.
 
-- order/sub-order đang `RESERVED`;
-- hold còn hiệu lực;
-- payment method chưa chốt hoặc đã là `COD` do retry cùng request;
-- listing/package vẫn gắn đúng order;
-- carrier/fake carrier hỗ trợ COD cho địa chỉ snapshot.
+Production phải từ chối `SANDBOX_COD`; local/test không được trả trạng thái khiến người dùng hiểu là tiền thật đã được thanh toán.
 
-Risk policy phải nằm ở backend và có versioned config. Các ngưỡng đang ghi trong `docs/02-BACKEND-FLOWS.md` chỉ được code khi Business/Legal xác nhận là cấu hình hiện hành; không hardcode trong UI.
+#### D3. UI và order projection
 
-Khi đủ điều kiện, cùng transaction:
+- Checkout bắt buộc đăng nhập và giữ return URL.
+- Chọn/tạo địa chỉ từ API hiện có.
+- Trước init chỉ hiển thị ước tính; sau init dùng total từ backend.
+- Hiển thị countdown reservation.
+- Success chỉ sau response backend; sau đó xóa đúng listing khỏi cart.
+- `/account/orders` và order detail đọc aggregate/projection canonical.
+- Seller có order list/detail cơ bản.
+- Review eligibility chuyển sang completed canonical order.
+
+Test bắt buộc:
+
+- Sửa localStorage/request price/quantity không bypass backend.
+- Address của buyer khác bị từ chối không lộ dữ liệu.
+- Hai browser context mua cùng package chỉ một thành công.
+- Retry init/pay không tạo aggregate thứ hai.
+- E2E cart và buy-now đều đặt được SANDBOX_COD.
+
+### Session E — Reservation expiry và commerce E2E ổn định — `COMPLETED`
+
+- Worker xử lý reservation hết hạn idempotently.
+- Order còn `RESERVED` quá TTL → `EXPIRED`, package/listing available lại và `HOLD_RELEASE`.
+- Order đã confirm không bị expiry worker release.
+- Dead-letter/retry có thông tin lỗi; unsupported topic không được im lặng coi là thành công.
+- E2E tự chuẩn bị package-backed listing synthetic, không phụ thuộc seed tồn tại từ lần chạy trước.
+- Thêm test concurrency, clock/deadline và retry worker.
+
+Hoàn thành Session E khi buyer journey tới order success pass ổn định và không có double-sell/double-hold.
+
+### Session F — Fulfillment bằng fake carrier — `COMPLETED`
+
+#### F1. Deep module và adapter
+
+Thêm module `fulfillment` với interface:
+
+- `quote`.
+- `createOrder`.
+- `getLabel`.
+- `getStatus`.
+- normalized webhook/poll event.
+
+Chỉ implement `FakeCarrierAdapter`. Không gọi GHN/GHTK production dù onboarding đã cho chọn carrier. Fake adapter phải deterministic theo seed/input, hỗ trợ failure injection trong test và có stable provider key.
+
+#### F2. State machine
+
+Triển khai transition tối thiểu:
 
 ```text
-orders.payment_method = COD
-sub_orders.status = CONFIRMED
-sub_orders.payment_status = COD_PENDING
-listings.status = SOLD
-return_packages.inventory_status = SOLD
-fund hold vẫn ACTIVE
-outbox ghi sự kiện ORDER_COD_CONFIRMED
+CONFIRMED
+→ READY_TO_SHIP
+→ PICKED_UP
+→ IN_TRANSIT
+→ DELIVERED
+→ COMPLETED
 ```
 
-Response trả order summary và không chứa PII thô không cần thiết.
+Và các nhánh lỗi:
 
-#### D2. UI xác nhận COD
+- `CANCELLED_BY_SELLER`.
+- `CANCELLED_BY_PICKUP_FAILURE`.
+- `DELIVERY_FAILED`/return flow synthetic nếu canonical state machine yêu cầu.
 
-- Hiển thị phương thức `Thanh toán khi nhận hàng (COD)`.
-- Buyer phải chủ động chọn COD và bấm `Đặt hàng`.
-- Disable nút trong lúc request; retry dùng cùng idempotency key.
-- Không optimistic-success trước response backend.
-- Thành công chuyển tới `/account/orders/{subOrderId}` hoặc trang success tối thiểu.
-- Xóa đúng listing vừa mua khỏi cart sau khi backend xác nhận; không xóa trước.
-- Nếu COD bị từ chối, giữ reservation cho phép chọn phương thức khác khi có, hoặc cho buyer hủy/đợi expiry; không tự đánh dấu SOLD.
+Mọi transition sai phải bị từ chối. Carrier callback lặp không tạo transition/outbox trùng.
 
-#### D3. Projection lịch sử đơn
+#### F3. UI
 
-- Chuyển `GET /v1/account/orders` đọc từ aggregate canonical hoặc một projection được cập nhật cùng transaction/outbox.
-- Giữ review eligibility hoạt động với order `COMPLETED` của đúng shop.
-- Nếu giữ `purchase_orders` làm read model tạm thời, phải ghi rõ owner/sync mechanism và có test; không dual-write rời rạc từ controller.
+- Seller xem shipment, tải/in fake label có watermark “SYNTHETIC — NOT FOR SHIPPING”.
+- Buyer/seller xem timeline normalized.
+- Admin/test có endpoint hoặc fixture an toàn để mô phỏng carrier event; production không expose test mutation.
 
-### Session E — Timeout, concurrency và E2E hoàn chỉnh
+Test bắt buộc:
 
-#### E1. Worker reservation expiry
+- Contract test fake carrier.
+- State transition table.
+- Same event ID/same hash no-op; same ID/different hash conflict/P0 log.
+- Polling bù và webhook path hội tụ cùng state.
+- Order completed mở review eligibility.
 
-- Worker claim outbox/job idempotently.
-- Khi quá 30 phút và order vẫn `RESERVED`: chuyển `EXPIRED`, trả listing/package về khả dụng và `HOLD_RELEASE`.
-- Nếu order đã `CONFIRMED`, worker không được release.
-- Retry job không tạo posting thứ hai.
+### Session G — Dispute, evidence sandbox và refund obligation — `COMPLETED`
 
-#### E2. E2E buyer journey
+#### G1. Claims aggregate
 
-Tách các test độc lập, mỗi test tự chuẩn bị dữ liệu synthetic:
+Thêm module `claims` và bảng tối thiểu:
 
-1. Xem chi tiết → thêm giỏ → thêm lại không tăng quantity.
-2. Giỏ → chọn một listing → checkout → chọn địa chỉ → COD → success.
-3. Chi tiết → Mua ngay → checkout → COD → success.
-4. Hai browser context cùng mua một listing → một success, một `ITEM_BEING_PURCHASED/ITEM_SOLD`.
-5. Sửa `localStorage` quantity `5` → UI normalize, backend vẫn chỉ tạo một item quantity `1`.
-6. Gửi request hai item → `422 ONE_PACKAGE_PER_CHECKOUT`.
-7. Dùng address của buyer khác → bị từ chối.
-8. Retry init/pay cùng key → cùng kết quả, không thêm order/hold.
-9. Reservation hết hạn → listing mua lại được.
+- `dispute_cases`.
+- `dispute_case_events` append-only.
+- `processing_records` và purpose events.
+- `dispute_evidences` metadata/version/hash.
+- `evidence_derivatives`.
+- `refunds`/refund obligations.
+- Appeal/remediation fields theo state machine canonical.
 
-Không dùng test timeout để biểu diễn thiếu fixture. Setup lỗi phải fail sớm trong vài giây với thông báo cụ thể.
+#### G2. Buyer/seller flow
 
-## 5. File dự kiến thay đổi
+- Buyer mở dispute từ eligible order; late claim vẫn nhận và gắn `LATE_CLAIM`.
+- Hiển thị hướng dẫn quay trước camera/file picker.
+- Video tối đa 90 giây; video là tùy chọn, không phải prerequisite.
+- Trước file picker/camera phải tạo processing record hợp lệ.
+- Seller phản hồi và upload evidence qua cùng pipeline.
+- Seller chỉ thấy derivative/fake-redacted view, không có fallback sang original.
+- Buyer có appeal trong window; case chỉ `CLOSED` sau appeal/remediation.
 
-### Session A
+#### G3. Evidence mode
 
-- `apps/web/src/features/cart-storage.ts`
-- `apps/web/src/app/cart/page.tsx`
-- `apps/web/src/features/checkout-preview.tsx`
-- `apps/web/e2e/storefront.spec.ts`
-- Có thể thêm đúng một helper trong `apps/web/e2e/` nếu được dùng bởi ít nhất hai test.
+`FAKE_METADATA` chỉ dùng synthetic bytes nhỏ hoặc fixture, nhưng vẫn lưu provider/bucket/key/version/checksum/lock metadata qua adapter interface. Không tuyên bố đây là WORM production. Test authorization và target exact version ngay từ đầu.
 
-### Session B–E
+#### G4. Admin và refund record
 
-- `packages/backend/src/platform/database/schema.ts`
-- `db/migrations/<next>_checkout_cod.sql`
-- `db/migrations/meta/_journal.json`
-- `db/seeds/sprint1.sql`
-- `db/seeds/finance-demo.sql` khi demo UI cần package-backed listing
-- `packages/backend/src/modules/commerce/`
-- `packages/backend/src/index.ts`
-- `apps/api/src/http/controllers/checkout.controller.ts`
-- `apps/api/src/app.module.ts` hoặc provider registration hiện hành
-- `apps/worker/src/outbox.consumer.ts`
-- `packages/shared/src/commerce.ts`
-- `packages/shared/src/errors.ts`
-- `packages/shared/src/index.ts`
-- `packages/api-client/openapi/rebox.yaml`
-- `packages/api-client/src/generated.ts`
-- `packages/api-client/src/index.ts`
-- `apps/web/src/app/checkout/page.tsx`
-- `apps/web/src/features/checkout-preview.tsx` — có thể đổi tên khi không còn là preview
-- `apps/web/src/app/account/` cho order success/detail nếu cần
-- Test nhỏ tương ứng trong `packages/shared/test`, `packages/backend/test` và `apps/web/e2e`.
+- Queue theo SLA/value/risk rule, không hiển thị AI score.
+- Manual resolve yêu cầu reason tối thiểu 30 ký tự và audit actor/time.
+- Quyết định tạo refund obligation đúng funder/amount/return requirement.
+- Refund dừng ở `APPROVED`, `WAITING_*`, `PAYOUT_READY` hoặc `SELLER_ACTION_REQUIRED`; không chuyển `PAID/VERIFIED` khi payment disabled.
+- Partial refund không bắt return và tổng effective refund không vượt buyer payable.
 
-Không tạo file trong danh sách chỉ vì kế hoạch nêu tên; trước mỗi session phải reuse module/helper/pattern đang có nếu phù hợp.
+Test bắt buộc:
 
-## 6. Ma trận test backend tối thiểu
+- Claim không evidence vẫn được nhận.
+- Processing record bắt buộc trước upload.
+- Seller không đọc original.
+- Admin capability/AAL2/IDOR.
+- Appeal giữ hold/case mở.
+- Concurrent refund không over-refund.
+- Không có path sandbox nào tự đánh dấu payout thành công.
 
-| Tình huống | Kết quả |
+### Session H — Account và KYC hardening — `COMPLETED`
+
+#### H1. Account/auth
+
+- Sửa đổi mật khẩu: xác minh current password trước khi update, chỉ có một flow và thông báo đúng kết quả.
+- Làm quên mật khẩu/reset qua Supabase Auth.
+- Quyết định rõ social login: hoặc implement đúng provider đã cấu hình, hoặc bỏ/disable với nhãn “Sắp có”; không để button inert.
+- Terms/privacy trong auth UI phải là link thật tới artifact đang hiệu lực.
+- Kiểm tra return URL bằng allowlist path nội bộ, tránh open redirect.
+
+#### H2. Seller onboarding/KYC
+
+- Thêm notice artifact + processing record trước khi xử lý CCCD/selfie.
+- Tách lifecycle request/provider event idempotent; fake/provider retry dùng stable key.
+- Phone verification phải có trạng thái rõ: fake OTP ở test hoặc ghi “chưa xác minh”; không hiển thị như verified.
+- Không để source KYC image tồn tại vô hạn; có retention/delete receipt theo policy test.
+- Production KYC vẫn fail closed khi VNPT/business verification credential hoặc Legal policy chưa đủ.
+
+Test bắt buộc:
+
+- Password change success/failure và không đổi trước khi current password hợp lệ.
+- Forgot/reset password E2E mock/Supabase local.
+- KYC processing record chronology.
+- Provider event retry và same-ID/different-hash.
+- Source image cleanup/retention worker synthetic.
+
+### Session I — Notification, legal pages, CSKH và privacy request — `COMPLETED`
+
+#### I1. Notification
+
+- Tạo notification record và in-app inbox cho các sự kiện GĐ1 quan trọng.
+- Worker dispatch qua adapter; local dùng in-app/log, email/SMS/Zalo dùng fake adapter.
+- Preference chỉ áp cho marketing/optional event; security/order/dispute notice bắt buộc không bị tắt.
+- Stable notification key chống gửi trùng.
+
+#### I2. Legal artifact và acceptance
+
+Tạo artifact versioned/hash/body bất biến cho tối thiểu:
+
+- Quy chế sàn.
+- Chính sách bảo mật.
+- Quy trình giải quyết tranh chấp.
+- Điều khoản người bán.
+- Notice xử lý eKYC/evidence.
+
+Web có route công khai, footer/auth/onboarding link đúng version. Acceptance lưu user/version/time/source; không sửa đè acceptance cũ.
+
+#### I3. CSKH
+
+- Form ticket có category, nội dung, order/case reference tùy chọn và trạng thái.
+- Hiển thị hotline/email cấu hình; không hardcode thông tin chưa được Business xác nhận.
+- Admin/support queue tối thiểu và audit reply/status.
+
+#### I4. Privacy request
+
+- `POST /privacy/requests`, `GET /privacy/requests/{id}` với ownership.
+- Loại request tối thiểu: access/export, correction và deletion/anonymization.
+- Step-up auth cho request nhạy cảm.
+- Synthetic export và delete/anonymize workflow có exception cho ledger/audit/legal hold.
+- Lưu receipt/status/SLA; không hứa xóa bytes đang bị provider lock.
+
+Test bắt buộc:
+
+- Artifact/version/acceptance bất biến.
+- Mandatory notification không bị preference tắt.
+- Dispatch retry không gửi trùng.
+- CSKH ticket IDOR/capability.
+- Privacy request ownership, step-up và exception/receipt.
+
+### Session J — Finance projection synthetic và seller UX hoàn chỉnh — `COMPLETED`
+
+- Chuyển seller finance khỏi JSON snapshot demo sang projection từ ledger/order/hold synthetic.
+- Tách rõ available, order-locked, withdrawal-pending, unmatched-reserve và debt; bucket chưa dùng vẫn trả `0` với contract ổn định.
+- Gắn nhãn rõ “Dữ liệu mô phỏng — không phải số dư có thể rút”.
+- Hiển thị listing `HIDDEN_BY_FUND` cùng số tiền synthetic thiếu và CTA giải thích; không mở top-up thật.
+- Seller returns route dùng claims thật thay placeholder.
+- Seller order/inventory filters phản ánh state canonical.
+- Reports/SKU analytics vẫn giữ ngoài phạm vi GĐ3, không dựng dữ liệu giả để làm đẹp UI.
+
+Test bắt buộc:
+
+- Projection khớp ledger theo từng account/bucket.
+- Không cộng pending/reserve/debt vào available.
+- Coverage hide/unhide deterministic từ số dư synthetic.
+- Không có CTA nạp/rút tiền hoạt động khi payment disabled.
+
+### Session K — Docs, security, recovery và release candidate — `COMPLETED`
+
+#### K1. Đồng bộ docs
+
+- Cập nhật `README.md`, `CODEBASE.md`, `docs/09-API-CATALOG.md` và changelog theo implementation thật.
+- Mọi endpoint ghi đúng `IMPLEMENTED_LOCAL`, `SANDBOX_ONLY`, `BLOCKED_PROVIDER` hoặc `DEFERRED_GĐ3`.
+- Sinh lại OpenAPI types và có contract drift check trong CI.
+- Xóa claim “skeleton chưa có source code”.
+
+#### K2. Hardening
+
+- Rà OWASP Top 10, IDOR, upload boundary, SSRF/open redirect và log PII.
+- Rate limit theo IP/user/endpoint cho auth, checkout, upload, dispute và admin mutation.
+- Security headers, CSP phù hợp, audit log và request correlation.
+- Load test synthetic cho catalog, 50 checkout cạnh tranh và worker backlog.
+
+#### K3. Recovery/runbook
+
+- Backup/restore local hoặc staging synthetic; không dùng production data.
+- Test replay outbox, idempotency, deletion/anonymization tombstone và active hold.
+- Runbook tối thiểu cho database down, worker backlog, provider fake failure, stuck reservation, duplicate event, evidence unavailable, KYC outage và rollback migration.
+
+#### K4. Release candidate
+
+- Chạy 20 đơn synthetic end-to-end.
+- Không double-sell, ledger lệch `0`, worker không duplicate side effect.
+- Tất cả critical E2E pass ba lần liên tiếp trên database reset/seed sạch.
+- UI không có CTA production payment/shipping/evidence hoạt động.
+- Nếu deploy staging cần thao tác hạ tầng/tài khoản ngoài repo, phải được user cấp quyền riêng; kế hoạch này không tự suy quyền deploy.
+
+## 6. Dependency graph
+
+```text
+Session A completed
+  ↓
+Session B package-backed listing
+  ↓
+Session C commerce + synthetic ledger/hold
+  ↓
+Session D checkout + order projection
+  ↓
+Session E expiry/concurrency
+  ↓
+Session F fake fulfillment
+  ↓
+Session G dispute/evidence/refund record
+
+Session H account/KYC hardening ─┐
+Session I legal/CSKH/privacy ────┼→ Session K release candidate
+Session J finance/seller UX ─────┘
+```
+
+Không bắt đầu Session D trước khi C pass ledger/hold/concurrency. Không bắt đầu refund/dispute financial obligation trước khi order snapshot và buyer payable ở D ổn định.
+
+## 7. File/module dự kiến
+
+Chỉ tạo file khi session thực sự cần; kiểm tra helper/pattern có sẵn trước.
+
+| Phạm vi | Vị trí chính |
 |---|---|
-| quantity `0`, `2`, số thập phân hoặc thiếu | `422`, không tạo dữ liệu |
-| hai item dù cùng shop | `422 ONE_PACKAGE_PER_CHECKOUT` |
-| listing không gắn package | checkout bị từ chối |
-| listing không `ACTIVE` | `409 ITEM_SOLD` hoặc state error phù hợp |
-| package không `AVAILABLE` | `409 ITEM_BEING_PURCHASED/ITEM_SOLD` |
-| shop inactive/KYC chưa verified/debt/block | `409 SHOP_UNAVAILABLE` |
-| address không thuộc actor | từ chối, không lộ địa chỉ |
-| giá client giả | bị bỏ qua; dùng giá database |
-| hai request đồng thời cho cùng package | đúng một order thắng |
-| retry cùng key + cùng payload | trả cùng kết quả |
-| cùng key + payload khác | `409 IDEMPOTENCY_CONFLICT` |
-| COD trên order hết hạn | từ chối, không SOLD |
-| COD hợp lệ | `CONFIRMED + COD_PENDING + SOLD`, hold còn active |
-| expiry chạy sau COD confirmed | không release hold/package |
+| Domain contracts/errors | `packages/shared/src/` |
+| OpenAPI/generated client | `packages/api-client/openapi/rebox.yaml`, `packages/api-client/src/` |
+| Database schema/migrations | `packages/backend/src/platform/database/schema.ts`, `db/migrations/` |
+| Inventory/scan/moderation | `packages/backend/src/modules/inventory/`, `apps/api/src/http/controllers/`, seller/admin web |
+| Commerce/ledger/hold | `packages/backend/src/modules/commerce/`, module funds seam nếu cần |
+| Fulfillment | `packages/backend/src/modules/fulfillment/`, worker + fake adapter |
+| Claims/evidence/refund | `packages/backend/src/modules/claims/`, buyer/seller/admin web |
+| Notifications/legal/privacy | backend modules/controllers, worker handlers và public/account/admin routes |
+| Web | `apps/web/src/app/`, `apps/web/src/features/` |
+| API wiring | `apps/api/src/app.module.ts`, `apps/api/src/backend.providers.ts` |
+| Worker | `apps/worker/src/`, `packages/backend/src/platform/outbox/` |
+| Tests | `packages/shared/test/`, `packages/backend/test/`, `apps/api/test/`, `apps/web/e2e/` |
 
-## 7. Lệnh kiểm tra sau từng session
+Không tạo interface có một implementation nếu seam không cần cho provider/concurrency test. Các seam fake/production như carrier, evidence và notification là ngoại lệ hợp lệ vì production provider sẽ được gắn sau gate.
 
-Trước khi chạy E2E, bảo đảm Supabase local/API/web đang chạy và chỉ dùng dữ liệu synthetic.
+## 8. Ma trận test tối thiểu toàn MVP
+
+| Nhóm | Trường hợp bắt buộc |
+|---|---|
+| Inventory | scan hit/miss; HMAC lookup; ownership; one package-one listing; public serializer không PII |
+| Moderation | banned/manual-review/disclosure; AAL2; reason; idempotency; audit |
+| Cart/checkout | quantity tamper; one package; address IDOR; server-side fee; retry; two buyers concurrent |
+| Ledger/hold | balanced posting; immutable posted transaction; non-negative; create/release/capture once |
+| Worker | retry; crash/resume; duplicate event; same-ID/different-hash; dead-letter |
+| Fulfillment | valid/invalid transition; webhook/poll convergence; fake label watermark |
+| Claims | late/no-evidence claim; processing record; seller derivative-only; appeal; SLA |
+| Refund record | no over-refund; partial no-return; payment-disabled không thành PAID |
+| Account/KYC | password reset/change; provider retry; image cleanup; admin capability |
+| Legal/privacy | artifact immutable; acceptance version; step-up; export/delete exception/receipt |
+| Notifications | mandatory vs optional preference; dedupe; adapter failure/retry |
+| End-to-end | seller import→listing; buyer buy→delivery→review; dispute→admin→refund pending |
+
+## 9. Lệnh kiểm tra sau mỗi session
+
+Trước integration/E2E, chạy đúng local synthetic stack:
 
 ```bash
 git status --short
+corepack pnpm db:start
+corepack pnpm db:migrate
+corepack pnpm db:seed
 corepack pnpm lint
 corepack pnpm typecheck
 corepack pnpm test
@@ -393,77 +659,44 @@ corepack pnpm test:e2e
 git diff --check
 ```
 
-Trong lúc phát triển, ưu tiên vòng lặp nhỏ:
+Không tự chạy `db:reset` khi chưa xác nhận database chỉ chứa fixture bỏ được. Khi cần clean run:
 
 ```bash
-corepack pnpm --filter @rebox/web typecheck
-corepack pnpm test:e2e --grep "cart|checkout|COD"
-corepack pnpm --filter @rebox/backend test
+corepack pnpm db:reset
 ```
 
-Nếu migration thay đổi:
+Chỉ chạy lệnh trên với Supabase local synthetic đã xác nhận đúng target.
 
-```bash
-corepack pnpm db:migrate
-corepack pnpm db:seed
-```
+Mỗi session phải ghi trong handoff:
 
-Không tự chạy `db:reset` trên database có dữ liệu cần giữ. Chỉ reset local synthetic khi đã xác nhận đúng target.
+- File đã đổi và trách nhiệm từng file.
+- Migration đã chạy hay chưa.
+- Test nào pass/fail/skipped và nguyên nhân.
+- Invariant nào được chứng minh.
+- Scope nào vẫn deferred/blocked.
+- Session tiếp theo bắt đầu ở đâu.
 
-## 8. Ngoài phạm vi của vertical slice COD đầu tiên
+## 10. Gate trước khi gọi là production-ready
 
-- VietQR, bank webhook và seller confirm payment.
-- ĐVVC production, tạo/in nhãn thật và webhook tracking thật.
-- Đối soát COD production, `COD_REMITTED`, gross/net/deduction và settlement ledger đầy đủ.
-- Refund, dispute, return shipment và payout.
-- Multi-package hoặc multi-seller checkout.
-- Voucher, loyalty, nhiều đơn vị tiền tệ và lưu thẻ.
-- Tự động bật production payment/shipping trước các gate hợp đồng và pháp lý.
+Hoàn thành roadmap này chỉ tạo **MVP synthetic/sandbox**, chưa phải production marketplace. Trước production vẫn phải đóng:
 
-Các phần trên tiếp tục theo Sprint 4–6 trong `docs/04-IMPLEMENTATION-PLAN.md`; không nhét vào diff checkout COD đầu tiên.
+| Gate | Điều kiện |
+|---|---|
+| A10 Payment | PSP/custody/top-up/refund/payout/withdrawal được Business + Legal duyệt và contract test đạt |
+| A12 Evidence | WORM provider/version/Object Lock/legal hold/delete/watchdog được duyệt |
+| A14 Data | DPA/subprocessor/region/backup/data-transfer và Legal go-no-go cho dữ liệu thật |
+| Legal TMĐT | Hồ sơ sàn, quy chế/chính sách hiện hành và checklist nghĩa vụ được Legal ký |
+| Legal catalog | Danh mục cấm/hạn chế có version được Legal phê duyệt |
+| Physical label | Khảo sát 20–30 kiện thật và test matrix mã vận đơn/PII label |
+| Carrier | Hợp đồng, beneficiary, label, webhook/poll, COD gross/net/deduction được xác nhận |
 
-## 9. Prompt bắt đầu Session A
+Không blocker nào cho phép bật tiền thật, dữ liệu thật hoặc provider thật bằng giả định.
 
-```text
-Làm việc trong repo /Users/minhsang/Rebox và thực hiện Session A trong
-docs/10-NEXT-SESSION-PLAN.md.
+## 11. Handoff hoàn thành
 
-Mục tiêu duy nhất của session này:
-1. Mọi listing trong cart luôn có quantity = 1; thêm lại không tăng số lượng.
-2. Bỏ nút +/- và chỉ cho chọn đúng một listing để checkout.
-3. Checkout preview không tin quantity từ localStorage.
-4. Sửa cart E2E để không phụ thuộc âm thầm vào fixture
-   RBX-01JTESTCATALOG-TECH-001 có sẵn trong database.
+Hoàn thành ngày 07/09/2026 ở phạm vi synthetic/sandbox:
 
-Chưa xây checkout backend, order, ledger, COD hoặc shipping trong Session A.
-
-Trước khi sửa:
-- chạy git status và giữ nguyên mọi thay đổi hiện có;
-- đọc cart-storage.ts, cart/page.tsx, checkout-preview.tsx,
-  storefront.spec.ts và flow publish listing hiện có;
-- nêu vòng lặp test red/green ngắn.
-
-Test bắt buộc:
-- thêm cùng listing hai lần vẫn một dòng quantity 1;
-- localStorage quantity 5/dòng trùng được normalize;
-- không còn nút tăng giảm;
-- giỏ hai listing chỉ checkout một listing;
-- mua từ giỏ và Mua ngay vẫn mở đúng listing;
-- test E2E fail nhanh, rõ nếu setup hỏng và pass khi tự chuẩn bị fixture;
-- lint, typecheck, test liên quan và git diff --check pass.
-```
-
-## 10. Prompt bắt đầu Session B sau khi Session A pass
-
-```text
-Làm việc trong repo /Users/minhsang/Rebox và thực hiện Session B trong
-docs/10-NEXT-SESSION-PLAN.md.
-
-Mục tiêu: tạo nền backend an toàn cho checkout package-backed, gồm liên kết
-listing → ReturnPackage, aggregate orders/sub_orders/sub_order_items và lát
-ledger/fund hold tối thiểu. Chưa mở nút xác nhận COD production.
-
-Tuân thủ lock order và transaction trong docs/02-BACKEND-FLOWS.md; không dùng
-purchase_orders làm aggregate checkout; không cho listing thiếu ReturnPackage
-đi qua checkout. Viết migration + integration tests trước khi nối UI.
-```
+- Migration `0013`–`0015` đã chạy thành công từ Supabase local reset sạch; seed chỉ chứa fixture synthetic.
+- `86/86` unit/integration test pass, gồm 20 đơn release candidate, 50 checkout cạnh tranh, ledger cân bằng/bất biến, expiry, fake carrier, claims, legal/support/privacy và notification dedupe.
+- `27/27` Playwright E2E pass ba lượt liên tiếp; mỗi lượt đều reset → migrate → seed sạch và cart/buy-now đều tạo đơn package-backed `SANDBOX_COD` thật qua API.
+- `lint`, `typecheck`, `build` và OpenAPI generation pass; payment/provider production tiếp tục fail closed và vẫn thuộc các gate ở mục 10.

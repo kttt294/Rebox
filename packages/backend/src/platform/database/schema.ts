@@ -317,6 +317,7 @@ export const returnPackages = pgTable(
     packageDimensionsCm: jsonb("package_dimensions_cm").$type<{ length: number; width: number; height: number }>(),
     packageListingPriceVnd: bigint("package_listing_price_vnd", { mode: "number" }).notNull(),
     inventoryStatus: text("inventory_status").notNull().default("AVAILABLE"),
+    reservedUntil: timestamp("reserved_until", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => [
@@ -363,6 +364,7 @@ export const listings = pgTable(
   "listings",
   {
     id: text("id").primaryKey(),
+    returnPackageId: text("return_package_id").references(() => returnPackages.id),
     shopId: text("shop_id")
       .notNull()
       .references(() => shops.id),
@@ -391,9 +393,161 @@ export const listings = pgTable(
       sql`${table.status} IN ('DRAFT', 'PENDING_REVIEW', 'ACTIVE', 'HIDDEN_BY_FUND', 'RESERVED', 'SOLD', 'RELISTABLE', 'SUSPENDED', 'DELISTED')`
     ),
     index("idx_listings_public").on(table.status, table.id),
-    index("idx_listings_shop_created").on(table.shopId, table.createdAt)
+    index("idx_listings_shop_created").on(table.shopId, table.createdAt),
+    uniqueIndex("listings_return_package_unique").on(table.returnPackageId).where(sql`${table.returnPackageId} IS NOT NULL`)
   ]
 );
+
+export const listingReviews = pgTable("listing_reviews", {
+  id: text("id").primaryKey(),
+  listingId: text("listing_id").notNull().references(() => listings.id),
+  reviewerId: uuid("reviewer_id").notNull().references(() => profiles.id),
+  decision: text("decision").notNull(), reason: text("reason").notNull(),
+  idempotencyKey: uuid("idempotency_key").notNull(), requestHash: text("request_hash").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+}, (table) => [
+  unique("listing_reviews_listing_unique").on(table.listingId),
+  unique("listing_reviews_reviewer_key_unique").on(table.reviewerId, table.idempotencyKey),
+  check("listing_reviews_decision_check", sql`${table.decision} IN ('APPROVE', 'REJECT')`)
+]);
+
+export const idempotencyRecords = pgTable("idempotency_records", {
+  actorId: uuid("actor_id").notNull().references(() => profiles.id), scope: text("scope").notNull(),
+  idempotencyKey: text("idempotency_key").notNull(), requestHash: text("request_hash").notNull(),
+  response: jsonb("response"), createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+}, (table) => [primaryKey({ columns: [table.actorId, table.scope, table.idempotencyKey] })]);
+
+export const ledgerTransactions = pgTable("ledger_transactions", {
+  id: text("id").primaryKey(), kind: text("kind").notNull(), referenceId: text("reference_id").notNull(),
+  status: text("status").notNull().default("DRAFT"), createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+}, (table) => [unique("ledger_transactions_kind_reference_unique").on(table.kind, table.referenceId)]);
+
+export const ledgerPostings = pgTable("ledger_postings", {
+  id: text("id").primaryKey(), transactionId: text("transaction_id").notNull().references(() => ledgerTransactions.id),
+  accountKey: text("account_key").notNull(), amountVnd: bigint("amount_vnd", { mode: "number" }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+}, (table) => [index("idx_ledger_postings_account").on(table.accountKey, table.createdAt)]);
+
+export const orders = pgTable("orders", {
+  id: text("id").primaryKey(), buyerId: uuid("buyer_id").notNull().references(() => profiles.id),
+  status: text("status").notNull().default("RESERVED"), commerceMode: text("commerce_mode").notNull().default("SANDBOX"),
+  paymentMethod: text("payment_method"), subtotalVnd: bigint("subtotal_vnd", { mode: "number" }).notNull(),
+  feeVnd: bigint("fee_vnd", { mode: "number" }).notNull(), totalVnd: bigint("total_vnd", { mode: "number" }).notNull(),
+  addressSnapshotEnc: bytea("address_snapshot_enc").notNull(), addressHash: text("address_hash").notNull(),
+  feeSnapshot: jsonb("fee_snapshot").$type<Record<string, unknown>>().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(), confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }), createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+});
+
+export const subOrders = pgTable("sub_orders", {
+  id: text("id").primaryKey(), orderId: text("order_id").notNull().unique().references(() => orders.id),
+  shopId: text("shop_id").notNull().references(() => shops.id), shopSnapshot: jsonb("shop_snapshot").$type<Record<string, unknown>>().notNull(),
+  status: text("status").notNull().default("RESERVED"), createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+});
+
+export const subOrderItems = pgTable("sub_order_items", {
+  id: text("id").primaryKey(), subOrderId: text("sub_order_id").notNull().references(() => subOrders.id),
+  listingId: text("listing_id").notNull().references(() => listings.id), returnPackageId: text("return_package_id").notNull().unique().references(() => returnPackages.id),
+  itemSnapshot: jsonb("item_snapshot").$type<Record<string, unknown>>().notNull(), amountVnd: bigint("amount_vnd", { mode: "number" }).notNull(),
+  quantity: integer("quantity").notNull().default(1)
+});
+
+export const fundHolds = pgTable("fund_holds", {
+  id: text("id").primaryKey(), orderId: text("order_id").notNull().unique().references(() => orders.id),
+  shopId: text("shop_id").notNull().references(() => shops.id), amountVnd: bigint("amount_vnd", { mode: "number" }).notNull(),
+  status: text("status").notNull().default("HELD"), createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+});
+
+export const orderEvents = pgTable("order_events", {
+  id: text("id").primaryKey(), orderId: text("order_id").notNull().references(() => orders.id), eventKey: text("event_key").notNull().unique(),
+  fromStatus: text("from_status"), toStatus: text("to_status").notNull(), source: text("source").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+});
+
+export const shipments = pgTable("shipments", {
+  id: text("id").primaryKey(), orderId: text("order_id").notNull().unique().references(() => orders.id), provider: text("provider").notNull().default("FAKE"),
+  providerKey: text("provider_key").notNull().unique(), trackingCode: text("tracking_code").notNull().unique(), status: text("status").notNull(),
+  labelPayload: text("label_payload").notNull(), createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(), updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+});
+
+export const carrierEvents = pgTable("carrier_events", {
+  id: text("id").primaryKey(), shipmentId: text("shipment_id").notNull().references(() => shipments.id), providerEventId: text("provider_event_id").notNull().unique(),
+  payloadHash: text("payload_hash").notNull(), normalizedStatus: text("normalized_status").notNull(), createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+});
+
+export const processingRecords = pgTable("processing_records", {
+  id: text("id").primaryKey(), actorId: uuid("actor_id").notNull().references(() => profiles.id), purpose: text("purpose").notNull(),
+  targetType: text("target_type").notNull(), targetId: text("target_id").notNull(), noticeVersion: text("notice_version").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+});
+
+export const disputeCases = pgTable("dispute_cases", {
+  id: text("id").primaryKey(), orderId: text("order_id").notNull().unique().references(() => orders.id), buyerId: uuid("buyer_id").notNull().references(() => profiles.id),
+  shopId: text("shop_id").notNull().references(() => shops.id), status: text("status").notNull().default("OPEN"), flags: text("flags").array().notNull().default([]),
+  reason: text("reason").notNull(), buyerPayableVnd: bigint("buyer_payable_vnd", { mode: "number" }).notNull(), appealUntil: timestamp("appeal_until", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(), updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+});
+
+export const disputeCaseEvents = pgTable("dispute_case_events", {
+  id: text("id").primaryKey(), caseId: text("case_id").notNull().references(() => disputeCases.id), actorId: uuid("actor_id").notNull().references(() => profiles.id),
+  type: text("type").notNull(), body: text("body").notNull(), createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+});
+
+export const disputeEvidences = pgTable("dispute_evidences", {
+  id: text("id").primaryKey(), caseId: text("case_id").notNull().references(() => disputeCases.id), uploaderId: uuid("uploader_id").notNull().references(() => profiles.id),
+  processingRecordId: text("processing_record_id").notNull().references(() => processingRecords.id), provider: text("provider").notNull().default("FAKE_METADATA"),
+  objectKey: text("object_key").notNull(), objectVersion: text("object_version").notNull(), checksum: text("checksum").notNull(), originalOwner: text("original_owner").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+});
+
+export const evidenceDerivatives = pgTable("evidence_derivatives", {
+  id: text("id").primaryKey(), evidenceId: text("evidence_id").notNull().unique().references(() => disputeEvidences.id), objectKey: text("object_key").notNull(),
+  objectVersion: text("object_version").notNull(), checksum: text("checksum").notNull(), createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+});
+
+export const refunds = pgTable("refunds", {
+  id: text("id").primaryKey(), caseId: text("case_id").notNull().references(() => disputeCases.id), orderId: text("order_id").notNull().references(() => orders.id),
+  amountVnd: bigint("amount_vnd", { mode: "number" }).notNull(), funder: text("funder").notNull(), returnRequired: boolean("return_required").notNull(),
+  status: text("status").notNull(), createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+});
+
+export const notifications = pgTable("notifications", {
+  id: text("id").primaryKey(), userId: uuid("user_id").notNull().references(() => profiles.id), stableKey: text("stable_key").notNull().unique(),
+  kind: text("kind").notNull(), mandatory: boolean("mandatory").notNull().default(true), title: text("title").notNull(), body: text("body").notNull(),
+  readAt: timestamp("read_at", { withTimezone: true }), deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+}, (table) => [index("idx_notifications_user_created").on(table.userId, table.createdAt)]);
+
+export const legalArtifacts = pgTable("legal_artifacts", {
+  slug: text("slug").notNull(), version: text("version").notNull(), title: text("title").notNull(), body: text("body").notNull(),
+  bodyHash: text("body_hash").notNull().unique(), effectiveAt: timestamp("effective_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+}, (table) => [primaryKey({ columns: [table.slug, table.version] })]);
+
+export const legalAcceptances = pgTable("legal_acceptances", {
+  id: text("id").primaryKey(), userId: uuid("user_id").notNull().references(() => profiles.id), slug: text("slug").notNull(),
+  version: text("version").notNull(), source: text("source").notNull(), acceptedAt: timestamp("accepted_at", { withTimezone: true }).notNull().defaultNow()
+}, (table) => [unique("legal_acceptances_user_slug_version_unique").on(table.userId, table.slug, table.version)]);
+
+export const supportTickets = pgTable("support_tickets", {
+  id: text("id").primaryKey(), userId: uuid("user_id").notNull().references(() => profiles.id), category: text("category").notNull(),
+  content: text("content").notNull(), orderId: text("order_id").references(() => orders.id), caseId: text("case_id").references(() => disputeCases.id),
+  status: text("status").notNull().default("OPEN"), createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+});
+
+export const supportTicketEvents = pgTable("support_ticket_events", {
+  id: text("id").primaryKey(), ticketId: text("ticket_id").notNull().references(() => supportTickets.id), actorId: uuid("actor_id").notNull().references(() => profiles.id),
+  body: text("body").notNull(), status: text("status"), createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+});
+
+export const privacyRequests = pgTable("privacy_requests", {
+  id: text("id").primaryKey(), userId: uuid("user_id").notNull().references(() => profiles.id), type: text("type").notNull(),
+  status: text("status").notNull().default("RECEIVED"), receipt: jsonb("receipt"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(), updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+});
 
 export type OutboxPayload = Record<string, unknown>;
 

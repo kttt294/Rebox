@@ -1,8 +1,14 @@
 # REBOX — Nhật ký hòa giải tài liệu
 
-Phiên bản: `1.4`
-Ngày cập nhật: `05/09/2026`
-Phạm vi: tài liệu kiến trúc, luồng nghiệp vụ, kế hoạch triển khai và legal gate. Không thêm mã nguồn hoặc dependency.
+## 07/09/2026 — MVP synthetic
+
+- Hoàn thiện package-backed listing, commerce/ledger/hold, checkout `SANDBOX_COD`, expiry worker, fake fulfillment, claims/evidence/refund obligation, account auth, notification/legal/CSKH/privacy và finance projection.
+- Payment/carrier/evidence production tiếp tục bị khóa; không có side effect tiền hoặc dữ liệu thật.
+- OpenAPI/generated client và runbook được đồng bộ với implementation local.
+
+Phiên bản: `2.0`
+Ngày cập nhật: `07/09/2026`
+Phạm vi: tài liệu kiến trúc, MVP synthetic đã triển khai và các production/legal gate còn khóa.
 
 ## 1. Mục đích
 
@@ -85,9 +91,8 @@ Không blocker nào ở trên cho phép tự chọn vendor hoặc mở productio
 
 ## 6. Ghi chú repository
 
-- Lần hòa giải này chỉ sửa Markdown; không thêm source code hoặc dependency.
-- Skeleton monorepo hiện vẫn chưa có implementation.
-- Các thay đổi asset `REBOX-UI/` → `docs/REBOX-UI/` đã tồn tại trong working tree và không do lần hòa giải này thực hiện; docs chỉ chuẩn hóa đường dẫn tham chiếu hiện tại.
+- MVP synthetic hiện có implementation ở web/API/worker và các module backend inventory, commerce, fulfillment, claims, operations.
+- Payment, carrier và evidence provider production vẫn bị khóa theo các gate ở mục 5; dữ liệu/số dư/label hiện tại đều là synthetic.
 - Mọi thay đổi tương lai làm đảo quyết định `ACCEPTED` phải có ADR mới, cập nhật file này và sửa các spec chịu ảnh hưởng trong cùng PR.
 
 ## 7. Nguồn động đã kiểm tra

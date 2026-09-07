@@ -5,6 +5,7 @@ export type AuthenticatedRequest = {
   header(name: string): string | undefined;
   method: string;
   path: string;
+  ip?: string;
   route?: { path?: string };
   actor?: Actor;
   requestId?: string;

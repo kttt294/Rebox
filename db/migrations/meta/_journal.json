@@ -92,6 +92,27 @@
       "when": 1788746400000,
       "tag": "0012_verified_shop_reviews",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1788746401000,
+      "tag": "0013_package_listings",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1788746402000,
+      "tag": "0014_sandbox_commerce",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1788746403000,
+      "tag": "0015_fix_ledger_guard",
+      "breakpoints": true
     }
   ]
 }

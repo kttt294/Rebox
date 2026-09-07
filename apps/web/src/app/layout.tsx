@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Roboto } from "next/font/google";
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { SiteHeader } from "../features/site-header";
 import "./globals.css";
 
@@ -22,6 +23,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className={roboto.variable}>
         <SiteHeader />
         {children}
+        <footer className="border-t border-[var(--line)] bg-white px-4 py-5 text-center text-xs text-[var(--muted)]">
+          <Link className="hover:underline" href="/legal/marketplace-rules">Quy chế sàn</Link>
+          <span aria-hidden> · </span><Link className="hover:underline" href="/legal/privacy-policy">Chính sách bảo mật</Link>
+          <span aria-hidden> · </span><Link className="hover:underline" href="/legal/dispute-process">Giải quyết tranh chấp</Link>
+          <span aria-hidden> · </span><Link className="hover:underline" href="/support">Hỗ trợ</Link>
+        </footer>
       </body>
     </html>
   );

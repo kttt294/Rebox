@@ -1,6 +1,6 @@
-# REBOX codebase skeleton
+# REBOX codebase
 
-Trạng thái hiện tại: chỉ có cấu trúc monorepo, chưa có mã nguồn, dependency hay cấu hình framework.
+Trạng thái hiện tại: MVP synthetic có source code, migration, seed, OpenAPI client, web, API, worker và integration/E2E tests. Provider tiền, carrier và evidence production chưa được bật.
 
 Nguồn quyết định canonical: [`docs/07-ARCHITECTURE-DECISIONS.md`](docs/07-ARCHITECTURE-DECISIONS.md). File này ánh xạ các quyết định đó vào codebase; nếu ví dụ cũ trong docs khác nội dung dưới đây thì ADR thắng.
 
@@ -28,16 +28,16 @@ rebox/
 
 ## Module backend
 
-Sáu module là ranh giới capability sâu, không phải sáu thư mục CRUD:
+Các module là ranh giới capability sâu, không phải các thư mục CRUD:
 
 | Module | Sở hữu | Giao diện cô đọng cho caller |
 |---|---|---|
 | `identity` | Profile, shop, membership/capability, eKYC, notice/processing record và privacy request | Xác định actor/shop, kiểm tra capability và cung cấp interface privacy/processing cho module khác |
 | `inventory` | CSV manifest, scan lookup, sealed-package listing, moderation, catalog query | Nạp bản kê, tạo draft, publish, ẩn/hiện và truy vấn listing |
-| `commerce` | Cart, fee snapshot, checkout một seller, order state | Khởi tạo checkout, xác nhận payment result và chuyển trạng thái order |
-| `funds` | Wallet, ledger header/postings, hold, payment orchestration, reconciliation | Post transaction; create/release/capture hold; đối soát |
+| `commerce` | Order, fee/address/item snapshot, ledger posting và synthetic hold | Init/pay/expiry, order projection và finance buckets |
 | `fulfillment` | Shipping intent, carrier adapter, tracking, shipping settlement | Tạo shipment ngoài DB transaction và nhận carrier event idempotent |
-| `claims` | Dispute, evidence binding, resolution, appeal | Mở/xử lý tranh chấp, kiểm tra processing record qua interface identity, cấp quyền evidence và thực thi kết quả |
+| `claims` | Dispute, evidence binding, refund obligation, resolution và appeal | Mở/xử lý tranh chấp, derivative-only seller view và refund không payout |
+| `operations` | Notification, legal artifact/acceptance, CSKH và privacy request | Inbox, artifact versioned, ticket và receipt synthetic |
 
 `audit`, `database`, `encryption`, `observability`, `outbox` là platform capability dùng chung trong `packages/backend/src/platform`, không phải module nghiệp vụ ngang hàng. Auth, carrier, marketplace, notification, object storage và payment là adapter tại biên hệ thống.
 
@@ -97,8 +97,8 @@ Chỉ tạo interface cho biên thật: external provider, clock/ID cần test, 
 
 ## Invariant GĐ1 phải phản ánh trong code
 
-- Một checkout chỉ có item của một shop, tạo đúng một `sub_order`; request lẫn seller trả 422.
-- Hold dùng fee snapshot và reserve cố định 45.000đ theo phiên bản config; commission chỉ ghi nhận khi order hoàn tất.
+- Một checkout MVP chỉ có đúng một package quantity `1` và tạo đúng một `sub_order`; nhiều package hoặc nhiều seller trả 422.
+- Checkout sandbox snapshot phí giao hàng 30.000đ và giữ synthetic risk hold bằng 10% giá kiện theo config `sandbox-v1`.
 - Shop kích hoạt ở số dư settled tối thiểu 100.000đ; không có tier và materialized wallet balance không âm.
 - Ledger dùng `ledger_transactions` + `ledger_postings`: posting bất biến, header chỉ finalize một chiều rồi khóa; cân sổ được kiểm tra qua interface ghi sổ + reconciliation, không dựa vào một `CHECK` cross-row thông thường.
 - Withdrawal giữ funds ở `PENDING` khi provider `UNKNOWN/RECONCILING`; chỉ `SETTLED` hoặc terminal failure đã xác minh mới kết thúc. Refund là aggregate riêng theo execution mode; full/partial `payment_status` chỉ thành `REFUNDED/PARTIALLY_REFUNDED` sau PSP `PAID` hoặc seller-direct `VERIFIED`, không dùng fulfillment status giả.
@@ -107,23 +107,11 @@ Chỉ tạo interface cho biên thật: external provider, clock/ID cần test, 
 - Payment provider và evidence provider còn là gate; không hardcode PayOS hoặc Supabase Storage như quyết định production.
 - `SPREADSHEET` và `PLATFORM_API` là hai kênh nhập bản kê ngang hàng qua cùng contract chuẩn hóa. Bản đầu chỉ bật CSV/XLSX; nút API hiển thị “Sắp có” tới khi đủ partner/ToS gate. Mobile, AI, Public API ERP, loyalty/voucher và multi-seller checkout đều bị hoãn.
 
-## Slice triển khai đầu tiên
+## Luồng MVP hiện hành
 
 ```text
-Supabase Auth
-  → NestJS xác minh actor
-  → profile + shop + OWNER membership
-  → manual listing draft/publish
-  → public listing detail trên Next.js
+manifest synthetic → package listing → checkout/hold → SANDBOX_COD
+  → fake carrier → completed → review/dispute → refund obligation
 ```
 
-Slice này tạo schema/interface tối thiểu cần dùng và có test xuyên ranh giới. Không dựng trước toàn bộ ledger, payment, carrier hoặc AI để “hoàn thiện kiến trúc”.
-
-## Chưa tạo
-
-- Mã nguồn `.ts`, `.tsx` hoặc `.py`.
-- Dependency và lockfile.
-- Cấu hình Next.js, NestJS, Expo, Drizzle hoặc Supabase CLI.
-- Migration, seed và client OpenAPI sinh tự động.
-
-Các phần trên chỉ được thêm khi bắt đầu slice triển khai tương ứng.
+`PAYMENT_MODE=DISABLED`, `FULFILLMENT_MODE=FAKE` và `EVIDENCE_MODE=FAKE_METADATA` là fail-closed boundary. Production không được tự fallback sang adapter giả.

@@ -74,15 +74,22 @@ export class KycModule {
     let kycId: string;
     try {
       await client.query("BEGIN");
-      const result = await client.query<{ id: string }>(
-        `INSERT INTO seller_kyc (id, shop_id, user_id, provider, status)
-         VALUES ($1, $2, $3, $4, 'PROCESSING')
-         ON CONFLICT (shop_id) DO UPDATE SET updated_at = now()
-         RETURNING id`,
-        [id, shopId, actorId, this.provider.name]
-      );
-      await client.query("UPDATE shops SET kyc_status = 'PROCESSING' WHERE id = $1 AND kyc_status = 'PENDING'", [shopId]);
-      kycId = result.rows[0]!.id;
+      const existing = (await client.query<{ id: string }>("SELECT id FROM seller_kyc WHERE shop_id=$1 FOR UPDATE", [shopId])).rows[0];
+      if (existing) {
+        kycId = existing.id;
+      } else {
+        await client.query(
+          `INSERT INTO processing_records(id,actor_id,purpose,target_type,target_id,notice_version)
+           VALUES($1,$2,'KYC','SELLER_KYC',$3,'2026-09-07')`,
+          [`RBX-PR-${ulid()}`, actorId, id]
+        );
+        await client.query(
+          `INSERT INTO seller_kyc (id, shop_id, user_id, provider, status) VALUES ($1, $2, $3, $4, 'PROCESSING')`,
+          [id, shopId, actorId, this.provider.name]
+        );
+        await client.query("UPDATE shops SET kyc_status = 'PROCESSING' WHERE id = $1 AND kyc_status = 'PENDING'", [shopId]);
+        kycId = id;
+      }
       await client.query("COMMIT");
     } catch (error) {
       await client.query("ROLLBACK");
@@ -100,6 +107,10 @@ export class KycModule {
   ): Promise<KycStatusResponse> {
     const row = await this.requireOwnedKyc(actorId, input.kycId);
     this.requireMutable(row);
+    if ((side === "front" ? row.front_ref : row.back_ref) === input.objectKey
+      && (side === "front" ? row.front_valid : row.back_valid) !== null) {
+      return this.getStatus(actorId, input.kycId);
+    }
     const otherRef = side === "front" ? row.back_ref : row.front_ref;
     if (input.objectKey === otherRef) {
       throw new DomainError("VALIDATION_FAILED", 422, "CCCD front and back must use different images");
@@ -140,6 +151,9 @@ export class KycModule {
   async submitSelfie(actorId: string, input: SubmitKycDocumentInput): Promise<KycStatusResponse> {
     const row = await this.requireOwnedKyc(actorId, input.kycId);
     this.requireMutable(row);
+    if (row.selfie_ref === input.objectKey && row.face_matched !== null && row.liveness_passed !== null) {
+      return this.getStatus(actorId, input.kycId);
+    }
     if (!row.front_ref || !row.back_ref || row.front_valid !== true || row.back_valid !== true) {
       throw new DomainError("INVALID_KYC_STATE", 409, "Both valid CCCD sides are required before selfie verification");
     }

@@ -10,16 +10,23 @@ import { FinanceController } from "./http/controllers/finance.controller";
 import { IdentityController } from "./http/controllers/identity.controller";
 import { ListingsController } from "./http/controllers/listings.controller";
 import { KycController } from "./http/controllers/kyc.controller";
+import { CommerceController } from "./http/controllers/commerce.controller";
+import { FulfillmentController } from "./http/controllers/fulfillment.controller";
+import { ClaimsController } from "./http/controllers/claims.controller";
+import { OperationsController } from "./http/controllers/operations.controller";
 import { HttpExceptionFilter } from "./http/filters/http-exception.filter";
 import { SupabaseJwtGuard } from "./http/guards/supabase-jwt.guard";
 import { RequestContextInterceptor } from "./http/interceptors/request-context.interceptor";
+import { RateLimitGuard } from "./http/guards/rate-limit.guard";
 
 @Module({
-  controllers: [AccountController, AdminKycController, FinanceController, HealthController, IdentityController, KycController, ListingsController],
+  controllers: [AccountController, AdminKycController, ClaimsController, CommerceController, FinanceController, FulfillmentController, HealthController, IdentityController, KycController, ListingsController, OperationsController],
   providers: [
     ...backendProviders,
     KycReviewerGuard,
+    RateLimitGuard,
     { provide: APP_GUARD, useClass: SupabaseJwtGuard },
+    { provide: APP_GUARD, useClass: RateLimitGuard },
     { provide: APP_INTERCEPTOR, useClass: RequestContextInterceptor },
     { provide: APP_FILTER, useClass: HttpExceptionFilter }
   ]

@@ -2,6 +2,7 @@
 
 import { ApiClientError } from "@rebox/api-client";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { createBrowserApiClient } from "../platform/api/browser";
@@ -272,7 +273,7 @@ export function SellerOnboarding() {
           {step === 3 ? (
             <form onSubmit={(event) => { event.preventDefault(); continueTo(4); }}>
               <StepTitle number={4} title="Định danh và thông tin thanh toán" />
-              <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">Ảnh CCCD và selfie được xử lý trong bucket private để OCR, đối chiếu khuôn mặt và kiểm tra liveness.</p>
+              <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">Ảnh CCCD và selfie được xử lý trong bucket private để OCR, đối chiếu khuôn mặt và kiểm tra liveness. <Link className="font-bold underline" href="/legal/processing-notice">Đọc thông báo xử lý dữ liệu</Link>.</p>
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
                 <DocumentField file={cccdFrontFile} label="Mặt trước CCCD" onChange={(file) => selectDocument(file, setCccdFrontFile)} />
                 <DocumentField file={cccdBackFile} label="Mặt sau CCCD" onChange={(file) => selectDocument(file, setCccdBackFile)} />

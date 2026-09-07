@@ -1,8 +1,9 @@
 import type { Provider } from "@nestjs/common";
-import { createDatabase, OutboxModule, type DatabaseContext } from "@rebox/backend";
+import { CommerceModule, createDatabase, OutboxModule, type DatabaseContext } from "@rebox/backend";
 
 export const DATABASE = Symbol("DATABASE");
 export const OUTBOX = Symbol("OUTBOX");
+export const COMMERCE = Symbol("COMMERCE");
 
 export const workerProviders: Provider[] = [
   {
@@ -16,5 +17,14 @@ export const workerProviders: Provider[] = [
     provide: OUTBOX,
     inject: [DATABASE],
     useFactory: (database: DatabaseContext): OutboxModule => new OutboxModule(database.pool)
+  },
+  {
+    provide: COMMERCE,
+    inject: [DATABASE],
+    useFactory: (database: DatabaseContext): CommerceModule => new CommerceModule(
+      database.pool,
+      process.env.SELLER_PII_ENCRYPTION_KEY ?? "local-dev-only-seller-pii-encryption-key-change-before-production",
+      process.env.NODE_ENV !== "production" && (process.env.COMMERCE_MODE ?? "SANDBOX") === "SANDBOX"
+    )
   }
 ];

@@ -77,11 +77,13 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
   const outbox = new OutboxModule(pool);
 
   async function addPurchaseOrder(id: string, buyerId: string, shopId: string, status: string) {
+    const canonicalStatus = ({ PENDING: "RESERVED", CONFIRMED: "CONFIRMED", SHIPPING: "IN_TRANSIT", COMPLETED: "COMPLETED", CANCELLED: "CANCELLED_BY_SELLER" } as Record<string, string>)[status] ?? status;
     await pool.query(
-      `INSERT INTO purchase_orders (id, buyer_id, shop_id, status, total_vnd, item_count)
-       VALUES ($1, $2, $3, $4, 100000, 1)`,
-      [id, buyerId, shopId, status]
+      `INSERT INTO orders(id,buyer_id,status,subtotal_vnd,fee_vnd,total_vnd,address_snapshot_enc,address_hash,fee_snapshot,expires_at,completed_at)
+       VALUES($1,$2,$3,100000,0,100000,$4,'test','{}'::jsonb,now()+interval '30 minutes',CASE WHEN $3='COMPLETED' THEN now() END)`,
+      [id, buyerId, canonicalStatus, Buffer.from("synthetic")]
     );
+    await pool.query("INSERT INTO sub_orders(id,order_id,shop_id,shop_snapshot,status) VALUES($1,$2,$3,'{}'::jsonb,$4)", [`${id}-SUB`, id, shopId, canonicalStatus]);
   }
 
   beforeAll(async () => {
@@ -91,10 +93,24 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
   beforeEach(async () => {
     await pool.query("DELETE FROM shop_reviews WHERE reviewer_id IN ($1, $2)", [verifiedActor, pendingActor]);
     await pool.query("DELETE FROM purchase_orders WHERE id LIKE 'RBX-REVIEW-TEST-%'");
+    await pool.query("DELETE FROM refunds");
+    await pool.query("DELETE FROM evidence_derivatives");
+    await pool.query("DELETE FROM dispute_evidences");
+    await pool.query("DELETE FROM dispute_case_events");
+    await pool.query("DELETE FROM dispute_cases");
+    await pool.query("DELETE FROM processing_records WHERE purpose<>'KYC'");
+    await pool.query("DELETE FROM carrier_events");
+    await pool.query("DELETE FROM shipments");
+    await pool.query("DELETE FROM order_events");
+    await pool.query("DELETE FROM fund_holds");
+    await pool.query("DELETE FROM sub_order_items");
+    await pool.query("DELETE FROM sub_orders WHERE order_id LIKE 'RBX-REVIEW-TEST-%'");
+    await pool.query("DELETE FROM sub_orders");
+    await pool.query("DELETE FROM orders");
+    await pool.query("DELETE FROM listings WHERE id NOT LIKE 'RBX-01JTEST%'");
     await pool.query("DELETE FROM return_lines");
     await pool.query("DELETE FROM return_packages");
     await pool.query("DELETE FROM return_import_batches");
-    await pool.query("DELETE FROM listings WHERE id NOT LIKE 'RBX-01JTEST%'");
     await pool.query("TRUNCATE outbox_events");
     mediaStorage.objects.clear();
     kycStorage.objects.clear();
