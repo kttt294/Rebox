@@ -11,10 +11,13 @@ import type {
   PublicListingPage,
   PublicListingsQuery,
   PublicShop,
+  ShopReview,
+  ShopReviewEligibility,
   PublishListingResult,
   ReturnManifestDraft,
   ReturnManifestPreview,
   SellerInventoryPackage,
+  UpsertShopReviewInput,
   UpdateListingDraftInput
 } from "@rebox/shared";
 import { catalogImageMimeTypes, maxCatalogImageBytes, maxCatalogImages } from "@rebox/shared";
@@ -57,6 +60,16 @@ type PublicShopRow = {
   pickup_province: string | null;
   pickup_district: string | null;
   active_listing_count: string;
+  average_rating: string | null;
+  review_count: string;
+};
+
+type ShopReviewRow = {
+  id: string;
+  rating: number;
+  content: string;
+  created_at: Date;
+  updated_at: Date;
 };
 
 type PublishListingRow = {
@@ -152,6 +165,16 @@ function presentListing(row: ListingRow, storage: CatalogMediaStorage): Listing 
     ...presentPublicListing(row, storage),
     weightGram: row.weight_gram,
     status: row.status
+  };
+}
+
+function presentShopReview(row: ShopReviewRow): ShopReview {
+  return {
+    id: row.id,
+    rating: row.rating,
+    content: row.content,
+    createdAt: row.created_at.toISOString(),
+    updatedAt: row.updated_at.toISOString()
   };
 }
 
@@ -739,10 +762,12 @@ export class InventoryModule {
     const result = await this.pool.query<PublicShopRow>(
       `SELECT s.id, s.display_name, s.kyc_status, s.created_at,
               p.description, p.avatar_ref, p.pickup_province, p.pickup_district,
-              count(l.id) FILTER (WHERE l.status = 'ACTIVE')::text AS active_listing_count
+              count(DISTINCT l.id) FILTER (WHERE l.status = 'ACTIVE')::text AS active_listing_count,
+              avg(r.rating)::text AS average_rating, count(DISTINCT r.id)::text AS review_count
        FROM shops s
        LEFT JOIN shop_onboarding_profiles p ON p.shop_id = s.id
        LEFT JOIN listings l ON l.shop_id = s.id
+       LEFT JOIN shop_reviews r ON r.shop_id = s.id
        WHERE s.id = $1 AND s.status = 'ACTIVE'
        GROUP BY s.id, p.description, p.avatar_ref, p.pickup_province, p.pickup_district`,
       [shopId]
@@ -757,9 +782,69 @@ export class InventoryModule {
       avatarUrl: row.avatar_ref ? this.mediaStorage.publicUrl(row.avatar_ref) : null,
       verified: row.kyc_status === "VERIFIED",
       activeListingCount: Number(row.active_listing_count),
+      averageRating: row.average_rating === null ? null : Number(row.average_rating),
+      reviewCount: Number(row.review_count),
       location: location || null,
       createdAt: row.created_at.toISOString()
     };
+  }
+
+  async listShopReviews(shopId: string): Promise<ShopReview[]> {
+    await this.requirePublicShop(shopId);
+    // ponytail: recent 50 reviews; add cursor pagination when a shop can exceed this visibly.
+    const result = await this.pool.query<ShopReviewRow>(
+      `SELECT id, rating, content, created_at, updated_at
+       FROM shop_reviews WHERE shop_id = $1 ORDER BY updated_at DESC LIMIT 50`,
+      [shopId]
+    );
+    return result.rows.map(presentShopReview);
+  }
+
+  async getMyShopReview(actorId: string, shopId: string): Promise<ShopReview | null> {
+    await this.requirePublicShop(shopId);
+    const row = (await this.pool.query<ShopReviewRow>(
+      `SELECT id, rating, content, created_at, updated_at
+       FROM shop_reviews WHERE shop_id = $1 AND reviewer_id = $2`,
+      [shopId, actorId]
+    )).rows[0];
+    return row ? presentShopReview(row) : null;
+  }
+
+  async getShopReviewEligibility(actorId: string, shopId: string): Promise<ShopReviewEligibility> {
+    await this.requirePublicShop(shopId);
+    if ((await this.pool.query(
+      "SELECT 1 FROM shop_memberships WHERE shop_id = $1 AND user_id = $2 AND status = 'ACTIVE'",
+      [shopId, actorId]
+    )).rowCount) {
+      return { eligible: false, reason: "SHOP_MEMBER" };
+    }
+    const eligible = (await this.pool.query<{ eligible: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1 FROM purchase_orders
+         WHERE buyer_id = $1 AND shop_id = $2 AND status = 'COMPLETED'
+       ) AS eligible`,
+      [actorId, shopId]
+    )).rows[0]!.eligible;
+    return { eligible, reason: eligible ? null : "COMPLETED_ORDER_REQUIRED" };
+  }
+
+  async upsertShopReview(actorId: string, shopId: string, input: UpsertShopReviewInput): Promise<ShopReview> {
+    const eligibility = await this.getShopReviewEligibility(actorId, shopId);
+    if (eligibility.reason === "SHOP_MEMBER") {
+      throw new DomainError("FORBIDDEN", 403, "Shop members cannot review their own shop");
+    }
+    if (!eligibility.eligible) {
+      throw new DomainError("REVIEW_NOT_ELIGIBLE", 403, "Only buyers with a completed order can review this shop");
+    }
+    const row = (await this.pool.query<ShopReviewRow>(
+      `INSERT INTO shop_reviews (id, shop_id, reviewer_id, rating, content)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (shop_id, reviewer_id) DO UPDATE
+       SET rating = EXCLUDED.rating, content = EXCLUDED.content, updated_at = now()
+       RETURNING id, rating, content, created_at, updated_at`,
+      [`RBXREV-${ulid()}`, shopId, actorId, input.rating, input.content]
+    )).rows[0]!;
+    return presentShopReview(row);
   }
 
   async listPublicListings(input: PublicListingsQuery): Promise<PublicListingPage> {
@@ -823,6 +908,12 @@ export class InventoryModule {
       throw new DomainError("RESOURCE_NOT_FOUND", 404, "Listing not found");
     }
     return presentListing(row, this.mediaStorage);
+  }
+
+  private async requirePublicShop(shopId: string): Promise<void> {
+    if (!(await this.pool.query("SELECT 1 FROM shops WHERE id = $1 AND status = 'ACTIVE'", [shopId])).rowCount) {
+      throw new DomainError("RESOURCE_NOT_FOUND", 404, "Shop not found");
+    }
   }
 
   private async requireActiveCategory(client: PoolClient, categoryId: string): Promise<void> {

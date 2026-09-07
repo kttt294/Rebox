@@ -3,9 +3,12 @@ import {
   createCatalogImageUploadSchema,
   createListingSchema,
   createShopSchema,
+  errorCodes,
   listingPolicyResultSchema,
   publicListingsQuerySchema,
   returnManifestDraftSchema,
+  shopReviewEligibilitySchema,
+  upsertShopReviewSchema,
   updateListingDraftSchema
 } from "../src";
 
@@ -125,5 +128,19 @@ describe("Sprint 1 contracts", () => {
     expect(returnManifestDraftSchema.safeParse({ ...draft, buyer_phone: "0900000000" }).success).toBe(false);
     expect(returnManifestDraftSchema.safeParse({ ...draft, lines: [{ ...draft.lines[0], returnUnit: {} }] }).success)
       .toBe(false);
+  });
+
+  it("accepts only a 1-5 star shop review with meaningful text", () => {
+    expect(upsertShopReviewSchema.parse({ rating: 5, content: "  Giao tiếp rất tốt  " }))
+      .toEqual({ rating: 5, content: "Giao tiếp rất tốt" });
+    expect(upsertShopReviewSchema.safeParse({ rating: 0, content: "Tệ" }).success).toBe(false);
+    expect(upsertShopReviewSchema.safeParse({ rating: 6, content: "Không hợp lệ" }).success).toBe(false);
+  });
+
+  it("parses shop review eligibility and exposes its rejection code", () => {
+    expect(shopReviewEligibilitySchema.parse({ eligible: false, reason: "COMPLETED_ORDER_REQUIRED" }))
+      .toEqual({ eligible: false, reason: "COMPLETED_ORDER_REQUIRED" });
+    expect(shopReviewEligibilitySchema.safeParse({ eligible: true, reason: "UNKNOWN" }).success).toBe(false);
+    expect(errorCodes).toContain("REVIEW_NOT_ELIGIBLE");
   });
 });

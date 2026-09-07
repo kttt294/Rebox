@@ -18,6 +18,8 @@ import type {
   PublicListingPage,
   PublicListingsQuery,
   PublicShop,
+  ShopReview,
+  ShopReviewEligibility,
   PrivacyPreferences,
   PublishListingResult,
   ReturnManifestPreview,
@@ -25,7 +27,8 @@ import type {
   SellerFinanceSnapshot,
   SellerDocumentKind,
   PurchaseOrderSummary,
-  UpdateListingDraftInput
+  UpdateListingDraftInput,
+  UpsertShopReviewInput
 } from "@rebox/shared";
 
 export type { paths } from "./generated";
@@ -198,6 +201,16 @@ export function createApiClient(options: ApiClientOptions) {
       ),
     getPublicShop: (shopId: string) =>
       request<PublicShop>(`/v1/shops/${encodeURIComponent(shopId)}`, { cache: "no-store" }),
+    listShopReviews: (shopId: string) =>
+      request<ShopReview[]>(`/v1/shops/${encodeURIComponent(shopId)}/reviews`, { cache: "no-store" }),
+    getMyShopReview: (shopId: string) =>
+      request<ShopReview | null>(`/v1/shops/${encodeURIComponent(shopId)}/reviews/mine`, { cache: "no-store" }),
+    getShopReviewEligibility: (shopId: string) =>
+      request<ShopReviewEligibility>(`/v1/shops/${encodeURIComponent(shopId)}/reviews/eligibility`, { cache: "no-store" }),
+    upsertShopReview: (shopId: string, input: UpsertShopReviewInput) =>
+      request<ShopReview>(`/v1/shops/${encodeURIComponent(shopId)}/reviews/mine`, {
+        method: "PUT", body: JSON.stringify(input)
+      }),
     listPublicListings: (query: Partial<PublicListingsQuery> = {}) => {
       const search = new URLSearchParams();
       for (const [key, value] of Object.entries(query)) {

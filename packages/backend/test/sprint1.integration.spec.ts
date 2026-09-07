@@ -76,11 +76,21 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
   });
   const outbox = new OutboxModule(pool);
 
+  async function addPurchaseOrder(id: string, buyerId: string, shopId: string, status: string) {
+    await pool.query(
+      `INSERT INTO purchase_orders (id, buyer_id, shop_id, status, total_vnd, item_count)
+       VALUES ($1, $2, $3, $4, 100000, 1)`,
+      [id, buyerId, shopId, status]
+    );
+  }
+
   beforeAll(async () => {
     await pool.query("SELECT 1");
   });
 
   beforeEach(async () => {
+    await pool.query("DELETE FROM shop_reviews WHERE reviewer_id IN ($1, $2)", [verifiedActor, pendingActor]);
+    await pool.query("DELETE FROM purchase_orders WHERE id LIKE 'RBX-REVIEW-TEST-%'");
     await pool.query("DELETE FROM return_lines");
     await pool.query("DELETE FROM return_packages");
     await pool.query("DELETE FROM return_import_batches");
@@ -395,6 +405,50 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
     expect(shop.activeListingCount).toBe(Number(activeListings.rows[0]?.count));
     await expect(inventory.getPublicShop(pendingShop))
       .rejects.toMatchObject<Partial<DomainError>>({ code: "RESOURCE_NOT_FOUND", status: 404 });
+  });
+
+  it("creates one editable review per actor and aggregates the shop rating", async () => {
+    await addPurchaseOrder("RBX-REVIEW-TEST-COMPLETED", pendingActor, verifiedShop, "COMPLETED");
+    await expect(inventory.getShopReviewEligibility(pendingActor, verifiedShop))
+      .resolves.toEqual({ eligible: true, reason: null });
+    const created = await inventory.upsertShopReview(pendingActor, verifiedShop, {
+      rating: 4,
+      content: "Shop đóng gói cẩn thận"
+    });
+    const updated = await inventory.upsertShopReview(pendingActor, verifiedShop, {
+      rating: 5,
+      content: "Shop hỗ trợ rất tốt"
+    });
+
+    expect(updated.id).toBe(created.id);
+    expect(await inventory.getMyShopReview(pendingActor, verifiedShop)).toMatchObject({ rating: 5 });
+    expect(await inventory.listShopReviews(verifiedShop)).toEqual([expect.objectContaining({ rating: 5 })]);
+    expect(await inventory.getPublicShop(verifiedShop)).toMatchObject({ averageRating: 5, reviewCount: 1 });
+    await addPurchaseOrder("RBX-REVIEW-TEST-MEMBER", verifiedActor, verifiedShop, "COMPLETED");
+    await expect(inventory.upsertShopReview(verifiedActor, verifiedShop, { rating: 5, content: "Tự đánh giá" }))
+      .rejects.toMatchObject<Partial<DomainError>>({ code: "FORBIDDEN", status: 403 });
+  });
+
+  it("blocks a buyer without an order", async () => {
+    await expect(inventory.getShopReviewEligibility(pendingActor, verifiedShop))
+      .resolves.toEqual({ eligible: false, reason: "COMPLETED_ORDER_REQUIRED" });
+    await expect(inventory.upsertShopReview(pendingActor, verifiedShop, { rating: 5, content: "Chưa mua hàng" }))
+      .rejects.toMatchObject<Partial<DomainError>>({ code: "REVIEW_NOT_ELIGIBLE", status: 403 });
+  });
+
+  it.each(["PENDING", "CONFIRMED", "SHIPPING", "CANCELLED"])("blocks a buyer whose order is %s", async (status) => {
+    await addPurchaseOrder(`RBX-REVIEW-TEST-${status}`, pendingActor, verifiedShop, status);
+
+    await expect(inventory.upsertShopReview(pendingActor, verifiedShop, { rating: 4, content: "Đơn chưa hoàn thành" }))
+      .rejects.toMatchObject<Partial<DomainError>>({ code: "REVIEW_NOT_ELIGIBLE", status: 403 });
+  });
+
+  it("does not accept another buyer's completed order or one from another shop", async () => {
+    await addPurchaseOrder("RBX-REVIEW-TEST-OTHER-BUYER", verifiedActor, verifiedShop, "COMPLETED");
+    await addPurchaseOrder("RBX-REVIEW-TEST-OTHER-SHOP", pendingActor, pendingShop, "COMPLETED");
+
+    await expect(inventory.upsertShopReview(pendingActor, verifiedShop, { rating: 4, content: "Sai đơn hàng" }))
+      .rejects.toMatchObject<Partial<DomainError>>({ code: "REVIEW_NOT_ELIGIBLE", status: 403 });
   });
 
   it("claims an event once across concurrent workers and remains idempotent", async () => {

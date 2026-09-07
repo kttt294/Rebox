@@ -409,6 +409,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/shops/{shopId}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listShopReviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/shops/{shopId}/reviews/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getMyShopReview"];
+        put: operations["upsertShopReview"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/shops/{shopId}/reviews/eligibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getShopReviewEligibility"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/listings": {
         parameters: {
             query?: never;
@@ -694,9 +742,26 @@ export interface components {
             avatarUrl: string | null;
             verified: boolean;
             activeListingCount: number;
+            averageRating: number | null;
+            reviewCount: number;
             location: string | null;
             /** Format: date-time */
             createdAt: string;
+        };
+        UpsertShopReview: {
+            rating: number;
+            content: string;
+        };
+        ShopReview: components["schemas"]["UpsertShopReview"] & {
+            id: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        ShopReviewEligibility: {
+            eligible: boolean;
+            reason: ("COMPLETED_ORDER_REQUIRED" | "SHOP_MEMBER") | null;
         };
     };
     responses: never;
@@ -1483,6 +1548,112 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PublicShop"];
                 };
+            };
+        };
+    };
+    listShopReviews: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Public shop reviews, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShopReview"][];
+                };
+            };
+        };
+    };
+    getMyShopReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current actor's review, if any */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShopReview"] | null;
+                };
+            };
+        };
+    };
+    upsertShopReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertShopReview"];
+            };
+        };
+        responses: {
+            /** @description Review created or updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShopReview"];
+                };
+            };
+        };
+    };
+    getShopReviewEligibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shopId: components["parameters"]["ShopId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Whether the current actor may review the shop */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShopReviewEligibility"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Active shop not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

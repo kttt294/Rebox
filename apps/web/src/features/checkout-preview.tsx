@@ -3,35 +3,30 @@
 import type { PublicListing } from "@rebox/shared";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { readCart } from "./cart-storage";
 import { formatPrice } from "./commerce-data";
 import { ProductVisual } from "./commerce-ui";
 import { createBrowserApiClient } from "../platform/api/browser";
 
-type CheckoutItem = { listing: PublicListing; quantity: number };
-
 const api = createBrowserApiClient();
 
 export function CheckoutPreview({ listingIds }: { listingIds: string[] }) {
-  const [items, setItems] = useState<CheckoutItem[]>([]);
+  const [items, setItems] = useState<PublicListing[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const cart = readCart();
     void Promise.all(listingIds.map(async (listingId) => {
       try {
-        const quantity = cart.find((line) => line.listingId === listingId)?.quantity ?? 1;
-        return { listing: await api.getPublicListing(listingId), quantity };
+        return await api.getPublicListing(listingId);
       } catch {
         return null;
       }
     })).then((resolved) => {
-      setItems(resolved.filter((item): item is CheckoutItem => item !== null));
+      setItems(resolved.filter((item): item is PublicListing => item !== null));
       setLoading(false);
     });
   }, [listingIds]);
 
-  const subtotal = items.reduce((sum, item) => sum + item.listing.price * item.quantity, 0);
+  const subtotal = items.reduce((sum, listing) => sum + listing.price, 0);
 
   return (
     <main className="min-h-[calc(100vh-132px)] bg-[var(--paper)] px-4 pb-10 pt-5 sm:px-6 xl:px-0">
@@ -47,15 +42,15 @@ export function CheckoutPreview({ listingIds }: { listingIds: string[] }) {
         ) : (
           <>
             <section className="overflow-hidden rounded-lg border border-[var(--line)] bg-white shadow-[0_3px_10px_rgba(16,40,69,0.05)]">
-              {items.map(({ listing, quantity }) => (
+              {items.map((listing) => (
                 <article className="grid gap-4 border-b border-[var(--line)] p-6 last:border-b-0 sm:grid-cols-[86px_1fr_auto] sm:items-center" key={listing.id}>
                   <ProductVisual className="size-[86px] bg-[var(--accent-header)] text-sm" label={listing.categoryId.toUpperCase()} />
                   <div>
                     <Link className="font-medium hover:text-[var(--accent)]" href={`/listings/${listing.id}`}>{listing.title}</Link>
                     <Link className="mt-1 block text-xs text-[var(--accent)]" href={`/shops/${listing.shopId}`}>{listing.shopDisplayName}</Link>
-                    <p className="mt-1 text-xs text-[var(--muted)]">{listing.conditionGrade.replaceAll("_", " ")} · Số lượng: {quantity}</p>
+                    <p className="mt-1 text-xs text-[var(--muted)]">{listing.conditionGrade.replaceAll("_", " ")} · Số lượng: 1</p>
                   </div>
-                  <strong className="text-[var(--accent)]">{formatPrice(listing.price * quantity)}</strong>
+                  <strong className="text-[var(--accent)]">{formatPrice(listing.price)}</strong>
                 </article>
               ))}
             </section>

@@ -71,6 +71,27 @@
       "when": 1788675376919,
       "tag": "0009_account_center",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788675377920,
+      "tag": "0010_seller_finance",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788742800000,
+      "tag": "0011_shop_reviews",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1788746400000,
+      "tag": "0012_verified_shop_reviews",
+      "breakpoints": true
     }
   ]
 }

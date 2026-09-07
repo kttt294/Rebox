@@ -113,10 +113,31 @@ export const publicShopSchema = z.object({
   avatarUrl: z.string().nullable(),
   verified: z.boolean(),
   activeListingCount: z.number().int().nonnegative(),
+  averageRating: z.number().min(1).max(5).nullable(),
+  reviewCount: z.number().int().nonnegative(),
   location: z.string().nullable(),
   createdAt: z.string().datetime()
 });
 export type PublicShop = z.infer<typeof publicShopSchema>;
+
+export const upsertShopReviewSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+  content: z.string().trim().min(3).max(1_000)
+}).strict();
+export type UpsertShopReviewInput = z.infer<typeof upsertShopReviewSchema>;
+
+export const shopReviewSchema = upsertShopReviewSchema.extend({
+  id: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime()
+});
+export type ShopReview = z.infer<typeof shopReviewSchema>;
+
+export const shopReviewEligibilitySchema = z.object({
+  eligible: z.boolean(),
+  reason: z.enum(["COMPLETED_ORDER_REQUIRED", "SHOP_MEMBER"]).nullable()
+});
+export type ShopReviewEligibility = z.infer<typeof shopReviewEligibilitySchema>;
 
 export const manifestImportSourceSchema = z.enum(["SPREADSHEET", "PLATFORM_API"]);
 export type ManifestImportSource = z.infer<typeof manifestImportSourceSchema>;

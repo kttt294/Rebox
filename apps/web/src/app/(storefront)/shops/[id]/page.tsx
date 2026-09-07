@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ProductCard } from "../../../../features/product-card";
+import { ShopReviews } from "../../../../features/shop-reviews";
 import { createPublicApiClient } from "../../../../platform/api/server";
 
 type ShopSearchParams = Promise<{ category?: string; sort?: "newest" | "price_asc" | "price_desc" }>;
@@ -63,12 +64,13 @@ export default async function ShopDetailPage({
             <dl className="grid grid-cols-2 gap-x-[18px] gap-y-4 py-2 sm:grid-cols-3">
               <Metric label="Sản phẩm" value={shop ? String(shop.activeListingCount) : "—"} />
               <Metric label="Người theo dõi" value="—" />
-              <Metric label="Đánh giá" value="—" />
+              <Metric label="Đánh giá" value={shop?.averageRating ? `${shop.averageRating.toFixed(1)}/5 (${shop.reviewCount})` : "Chưa có"} />
               <Metric label="Tỉ lệ phản hồi" value="—" success />
               <Metric label="Tham gia" value={membershipAge(shop?.createdAt)} />
               <Metric label="Địa chỉ" value={shop?.location ?? "Chưa cập nhật"} />
             </dl>
           </div>
+          <ShopReviews shopId={id} />
         </div>
       </section>
 

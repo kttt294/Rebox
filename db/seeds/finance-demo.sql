@@ -39,8 +39,8 @@ ON CONFLICT (id) DO UPDATE SET
   condition_notes = EXCLUDED.condition_notes, price = EXCLUDED.price,
   weight_gram = EXCLUDED.weight_gram, status = EXCLUDED.status, published_at = EXCLUDED.published_at;
 
-INSERT INTO purchase_orders (id, buyer_id, status, total_vnd, item_count, placed_at, updated_at)
-SELECT order_data.id, users.id, order_data.status, order_data.total_vnd, 1, order_data.placed_at, now()
+INSERT INTO purchase_orders (id, buyer_id, shop_id, status, total_vnd, item_count, placed_at, updated_at)
+SELECT order_data.id, users.id, 'RBX-DEMO-SHOP-2026', order_data.status, order_data.total_vnd, 1, order_data.placed_at, now()
 FROM auth.users AS users
 CROSS JOIN (VALUES
   ('RBX-DEMO-001', 'COMPLETED', 950000::bigint, now() - interval '4 days'),
@@ -49,7 +49,7 @@ CROSS JOIN (VALUES
 ) AS order_data(id, status, total_vnd, placed_at)
 WHERE users.email = 'buyer-test@rebox.test'
 ON CONFLICT (id) DO UPDATE SET
-  buyer_id = EXCLUDED.buyer_id, status = EXCLUDED.status, total_vnd = EXCLUDED.total_vnd,
+  buyer_id = EXCLUDED.buyer_id, shop_id = EXCLUDED.shop_id, status = EXCLUDED.status, total_vnd = EXCLUDED.total_vnd,
   item_count = EXCLUDED.item_count, placed_at = EXCLUDED.placed_at, updated_at = now();
 
 INSERT INTO seller_finance_snapshots (

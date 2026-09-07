@@ -69,6 +69,7 @@ export const purchaseOrders = pgTable(
   {
     id: text("id").primaryKey(),
     buyerId: uuid("buyer_id").notNull().references(() => profiles.id),
+    shopId: text("shop_id").references(() => shops.id),
     status: text("status").notNull().default("PENDING"),
     totalVnd: bigint("total_vnd", { mode: "number" }).notNull(),
     itemCount: integer("item_count").notNull(),
@@ -79,7 +80,8 @@ export const purchaseOrders = pgTable(
     check("purchase_orders_status_check", sql`${table.status} IN ('PENDING', 'CONFIRMED', 'SHIPPING', 'COMPLETED', 'CANCELLED')`),
     check("purchase_orders_total_check", sql`${table.totalVnd} >= 0`),
     check("purchase_orders_item_count_check", sql`${table.itemCount} > 0`),
-    index("idx_purchase_orders_buyer_placed").on(table.buyerId, table.placedAt)
+    index("idx_purchase_orders_buyer_placed").on(table.buyerId, table.placedAt),
+    index("idx_purchase_orders_buyer_shop_status").on(table.buyerId, table.shopId, table.status)
   ]
 );
 
@@ -102,6 +104,25 @@ export const shops = pgTable(
       "shops_status_check",
       sql`${table.status} IN ('ONBOARDING', 'ACTIVE', 'PAUSED', 'LOCKED_INSUFFICIENT_FUND', 'SUSPENDED')`
     )
+  ]
+);
+
+export const shopReviews = pgTable(
+  "shop_reviews",
+  {
+    id: text("id").primaryKey(),
+    shopId: text("shop_id").notNull().references(() => shops.id, { onDelete: "cascade" }),
+    reviewerId: uuid("reviewer_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    rating: integer("rating").notNull(),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    unique("shop_reviews_shop_reviewer_unique").on(table.shopId, table.reviewerId),
+    check("shop_reviews_rating_check", sql`${table.rating} BETWEEN 1 AND 5`),
+    check("shop_reviews_content_check", sql`char_length(${table.content}) BETWEEN 3 AND 1000 AND ${table.content} = btrim(${table.content})`),
+    index("idx_shop_reviews_shop_updated").on(table.shopId, table.updatedAt)
   ]
 );
 

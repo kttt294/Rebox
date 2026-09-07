@@ -1,260 +1,469 @@
-# REBOX — Kế hoạch session tiếp theo: hoàn tất KYC thủ công
+# REBOX — Kế hoạch hoàn thiện giỏ hàng và checkout COD
 
-> Cập nhật ngày 05/09/2026. Luồng import CSV/XLSX đã có trong codebase, vì vậy session tiếp theo không làm lại phần đó. Chỉ triển khai vertical slice **seller xem trạng thái KYC → admin duyệt thủ công → seller được phép hoặc bị chặn publish**.
+> Cập nhật ngày 07/09/2026 sau khi kiểm tra luồng buyer thực tế. Kế hoạch này thay thế kế hoạch shop review trước đó, vì phần verified shop review đã được triển khai. Mục tiêu mới là sửa invariant giỏ hàng, làm E2E ổn định và triển khai checkout COD đúng mô hình một listing = một kiện hoàn.
 
-## 1. Trạng thái hiện tại
+## 1. Kết quả kiểm tra hiện tại
 
-Đã có:
+Đang hoạt động:
 
-- Seller onboarding: upload CCCD mặt trước/sau, selfie, nhập MST và tài khoản ngân hàng.
-- Backend gọi VNPT qua `KycProvider` cho OCR, document validation, face match và liveness.
-- Backend tự xử lý MST/ngân hàng qua `BusinessVerificationProvider`.
-- API hiện hành:
-  - `POST /v1/kyc/start`
-  - `POST /v1/kyc/document/front`
-  - `POST /v1/kyc/document/back`
-  - `POST /v1/kyc/selfie`
-  - `POST /v1/kyc/tax`
-  - `POST /v1/kyc/bank`
-  - `GET /v1/kyc/{kycId}/status`
-- Trạng thái KYC: `PENDING | PROCESSING | VERIFIED | REJECTED | MANUAL_REVIEW`.
-- Publish listing đã bị chặn bằng `SHOP_NOT_VERIFIED` nếu shop chưa `VERIFIED`.
-- Khi URL xác minh MST/ngân hàng chưa cấu hình, provider trả `UNAVAILABLE` và hồ sơ chuyển sang `MANUAL_REVIEW`.
-- Seller Center mới chỉ hiển thị nhãn trạng thái tổng quát; chưa có trang chi tiết, lý do hoặc hành động tiếp theo.
+- Trang chi tiết đọc được listing `ACTIVE` từ public API.
+- `Thêm vào giỏ hàng` lưu listing vào `localStorage`.
+- Trang giỏ tải lại listing, cho chọn sản phẩm và tính tổng tạm tính.
+- `Mua hàng` từ giỏ và `Mua ngay` từ chi tiết đều mở `/checkout?items=...`.
+- Trang checkout hiển thị đúng listing và tạm tính.
+- `corepack pnpm --filter @rebox/web typecheck` đang pass.
 
-Khoảng trống cần xử lý:
+Chưa hoàn thiện hoặc đang sai:
 
-- Chưa có quyền `platform_staff_roles` trong schema/runtime.
-- Chưa có API và web admin cho hàng đợi KYC.
-- Chưa lưu quyết định, người duyệt, thời điểm và lý do duyệt.
-- Seller chưa xem được lý do từ chối hoặc hành động tiếp theo.
-- MST/tài khoản ngân hàng chưa được xác minh thật khi provider trả `UNAVAILABLE`.
+- `addCartItem` tăng `quantity` khi thêm lại cùng listing; trang giỏ còn có nút tăng/giảm số lượng. Điều này sai invariant một listing bán đúng một kiện, quantity luôn bằng `1`.
+- Giỏ có thể chọn nhiều listing rồi truyền nhiều ID sang checkout, trong khi MVP chỉ cho checkout đúng một package.
+- Checkout đang tin quantity từ `localStorage`; dữ liệu client không được dùng làm authority nghiệp vụ.
+- Checkout chỉ là preview frontend. Chưa có địa chỉ, phí vận chuyển, tạo order, reservation, fund hold, chọn COD hoặc xác nhận đặt hàng.
+- Bảng `listings` hiện chưa có liên kết trực tiếp tới `return_packages`; chưa thể khóa đúng kiện dưới transaction khi checkout.
+- Codebase chưa có ledger kép và `fund_holds`; chưa đủ điều kiện triển khai checkout thật theo flow canonical.
+- `purchase_orders` hiện là bảng nhẹ phục vụ account/review demo, không thay thế aggregate `orders + sub_orders + sub_order_items` trong technical spec.
+- Test `adds a database listing to cart and opens checkout preview` phụ thuộc fixture cố định `RBX-01JTESTCATALOG-TECH-001`. Fixture có trong `db/seeds/sprint1.sql` nhưng không tồn tại trong database đang chạy, nên test chờ nút 30 giây rồi timeout thay vì báo lỗi setup rõ ràng.
 
-## 2. Mục tiêu session
+## 2. Mục tiêu và định nghĩa hoàn thành
+
+Luồng cần đạt:
 
 ```text
-Seller hoàn thành onboarding
-→ hồ sơ rơi vào MANUAL_REVIEW
-→ admin AAL2 mở hàng đợi
-→ xem dữ liệu đã normalize và kết quả kiểm tra
-→ APPROVE hoặc REJECT kèm lý do
-→ cập nhật seller_kyc + shops trong một transaction
-→ seller thấy kết quả
-→ chỉ shop VERIFIED được publish
+Chi tiết listing ACTIVE/package AVAILABLE
+→ thêm vào giỏ, thêm lại vẫn chỉ có một dòng quantity 1
+→ chọn đúng một listing để checkout
+→ chọn địa chỉ của buyer
+→ backend khóa listing + ReturnPackage và tính phí từ dữ liệu server
+→ tạo order RESERVED + đúng một sub-order + snapshot item/fee + fund hold
+→ buyer chọn COD
+→ backend kiểm tra eligibility/risk và chuyển đơn sang CONFIRMED/COD_PENDING
+→ ReturnPackage chuyển RESERVED → SOLD
+→ UI hiện trang đặt hàng thành công và giỏ bỏ listing vừa mua
 ```
 
-Đây là luồng duyệt onboarding tối thiểu. **Không tích hợp PayOS, payout hoặc Account Lookup trong session này.**
+Hoàn thành kỹ thuật khi:
 
-## 3. Quy tắc nghiệp vụ phải giữ
+- Hai tab cùng mua một listing chỉ có một request thành công.
+- Mọi tầng đều ép `quantity = 1`; sửa `localStorage` hoặc request thủ công không bypass được backend.
+- Checkout nhiều package trả `422 ONE_PACKAGE_PER_CHECKOUT`.
+- Buyer không sở hữu địa chỉ nhận `404` hoặc `403`, không lộ dữ liệu địa chỉ.
+- Giá, shop, package, phí và tổng tiền đều được backend đọc/tính lại và snapshot.
+- Retry cùng `Idempotency-Key` không tạo order/hold thứ hai.
+- COD thành công tạo đúng một order, một sub-order, một item và một active hold.
+- Test unit/integration/E2E mới pass ổn định trên database được chuẩn bị theo một lệnh rõ ràng.
 
-- `VERIFIED` trong slice này nghĩa là seller được duyệt định danh/onboarding để đăng bán.
-- Admin approve khi bank/MST provider `UNAVAILABLE` **không được** đổi `seller_bank_accounts.verified` hoặc `seller_tax_info.verified` thành `true`.
-- Tài khoản ngân hàng chưa xác minh không được coi là đủ điều kiện payout. Payout chưa triển khai và tiếp tục để ngoài phạm vi cho tới khi A10/pháp lý/đối tác được chốt.
-- `REJECTED` là quyết định cuối của lần KYC hiện tại. Seller được xem lý do; việc tạo attempt KYC mới để nộp lại toàn bộ để ở phần sau, không reset/ghi đè hồ sơ cũ trong session này.
-- `PROCESSING` chỉ dành cho hồ sơ còn thiếu bước hoặc provider đang xử lý; không dùng thay cho `MANUAL_REVIEW`.
-- Không expose raw response của VNPT cho frontend hoặc admin.
-- Không trả CCCD, selfie, số tài khoản hay MST ở API danh sách.
-- Dữ liệu nhạy cảm chỉ được giải mã ở API chi tiết sau khi đã kiểm tra staff role và AAL2.
-- Không dùng self-declared `accountHolder` để kết luận tài khoản ngân hàng đã xác minh.
-- Mọi quyết định duyệt phải có lý do, actor và timestamp; không có đường tắt bằng update DB từ frontend.
+## 3. Ranh giới an toàn
 
-## 4. Bước 1 — Quyền admin tối thiểu
+- Không chỉ bật nút `Đặt hàng` ở frontend khi backend chưa có transaction reservation và hold.
+- Không mở checkout thật trước khi lát ledger/fund hold tối thiểu đã pass test cân sổ và concurrency.
+- Không dùng `purchase_orders` làm aggregate checkout mới. Có thể giữ nó tạm thời như read model/demo cho account và review, sau đó chuyển projection sang `orders/sub_orders`.
+- Không tin `price`, `quantity`, `shopId`, phí, địa chỉ dạng text hoặc trạng thái do frontend gửi.
+- Không cho checkout listing không gắn `ReturnPackage`; fixture E2E phải là package-backed listing.
+- COD trong local/test dùng fake carrier và fake risk inputs. Không tạo vận đơn thật hoặc xử lý tiền thật trước khi hợp đồng ĐVVC, settlement mode và beneficiary được phê duyệt.
+- Production COD vẫn bị chặn cho đến khi chốt luồng ĐVVC chi hộ, đối soát gross/net/deduction và các gate pháp lý liên quan.
 
-- Thêm `platform_staff_roles` theo quyết định canonical hiện có:
-  - `user_id`
-  - `role`: `SUPPORT | MODERATOR | DISPUTE_ARBITRATOR | SUPER_ADMIN`
-  - `status`: `ACTIVE | INACTIVE`
-  - `created_at`
-  - primary key `(user_id, role)`
-- Trong slice này, chỉ `MODERATOR` và `SUPER_ADMIN` được duyệt KYC.
-- Thêm guard/decorator nhỏ nhất để kiểm tra quyền từ database; không tin role do frontend gửi lên.
-- Endpoint xem/duyệt dữ liệu KYC yêu cầu JWT hợp lệ và AAL2. Local/test seed một staff account; không xây màn quản trị nhân sự.
-- Trả `404` cho hồ sơ không tồn tại; trả `403` cho user đã đăng nhập nhưng không có quyền. Không để seller suy đoán dữ liệu KYC của người khác.
+## 4. Thứ tự triển khai đề xuất
 
-**Kiểm tra:** seller thường không gọi được admin API; staff inactive không gọi được; moderator/super admin AAL2 gọi được; token không AAL2 bị chặn.
+Làm theo 5 session nhỏ. Không gộp toàn bộ checkout vào một diff.
 
-## 5. Bước 2 — Lưu quyết định manual review
+### Session A — Sửa invariant giỏ hàng và làm E2E deterministic
 
-Thêm migration tối thiểu:
+#### A1. Chuẩn hóa dữ liệu giỏ
+
+File chính:
+
+- `apps/web/src/features/cart-storage.ts`
+- `apps/web/src/app/cart/page.tsx`
+- `apps/web/src/features/checkout-preview.tsx`
+
+Thay đổi tối thiểu:
+
+1. Giữ shape `{ listingId, quantity }` để không phải migration storage phức tạp, nhưng mọi hàm đọc/ghi đều normalize `quantity` về `1`.
+2. `addCartItem(listingId)` trở thành idempotent: nếu listing đã có thì không tăng số lượng và không thêm dòng trùng.
+3. `readCart()` loại dòng hỏng, deduplicate theo `listingId` và trả quantity `1`.
+4. `writeCart()` cũng deduplicate/normalize để mọi caller đi qua cùng invariant.
+5. Xóa nút `+`/`−` và hàm `changeQuantity`; chỉ hiển thị `Số lượng: 1`.
+6. Checkout preview luôn hiển thị quantity `1`, không lấy quantity từ `localStorage`.
+
+Không cần tạo cart backend trong session này.
+
+#### A2. Chỉ cho chọn một listing để checkout
+
+- Giỏ vẫn được lưu nhiều listing để buyer xem lại.
+- UI chỉ cho chọn một listing tại một thời điểm; ưu tiên radio hoặc selection state đơn thay vì mảng checkbox.
+- Bỏ `Chọn tất cả` vì trái với checkout một package của MVP.
+- CTA `Mua hàng` chỉ truyền đúng một `listingId`.
+- `Mua ngay` tiếp tục truyền đúng listing hiện tại.
+
+#### A3. Sửa E2E fixture
+
+Nguyên nhân cần xử lý: test đang phụ thuộc trạng thái database bên ngoài nhưng không có preflight/setup đảm bảo fixture đã được seed.
+
+Giải pháp khuyến nghị:
+
+1. Tách helper E2E tạo và publish một listing synthetic qua API từ flow đã có ở cuối `storefront.spec.ts`.
+2. Cart test tự tạo listing của chính nó rồi dùng ID trả về, thay vì hardcode `RBX-01JTESTCATALOG-TECH-001`.
+3. Khi checkout package-backed được triển khai, helper phải tạo/import `ReturnPackage` trước rồi tạo listing gắn package; không dùng listing thủ công không có package.
+4. Nếu chưa tách helper ngay, thêm preflight đọc fixture và fail sớm với thông báo yêu cầu chạy `corepack pnpm db:seed`; đây chỉ là bước tạm, không phải đích cuối.
+5. Không đổi test sang một ID demo khác chỉ để hết fail vì vẫn giữ cùng coupling với seed ngoài test.
+
+Test bắt buộc cho Session A:
+
+- Thêm cùng listing hai lần → giỏ có một dòng, quantity `1`.
+- `localStorage` chứa quantity `5` hoặc dòng trùng → khi đọc được normalize về một dòng quantity `1`.
+- Không còn nút tăng/giảm số lượng.
+- Giỏ có hai listing → chỉ một listing được chọn để checkout.
+- `Mua hàng` từ giỏ và `Mua ngay` đều tới checkout với đúng một ID.
+- Cart E2E không phụ thuộc fixture tồn tại từ một lần seed trước.
+
+### Session B — Nối listing với package và dựng nền commerce
+
+#### B1. Migration inventory linkage
+
+Migration dự kiến kế tiếp là `0013_checkout_cod.sql`, nhưng phải kiểm tra `db/migrations/meta/_journal.json` trước khi đặt số.
+
+Thêm:
 
 ```text
-seller_kyc_reviews
-- id
-- kyc_id
-- reviewer_id
-- decision        APPROVE | REJECT
-- reason
-- idempotency_key
-- request_hash
-- created_at
+listings.return_package_id TEXT NULL REFERENCES return_packages(id)
+UNIQUE (return_package_id) WHERE return_package_id IS NOT NULL
+return_packages.reserved_until TIMESTAMPTZ NULL
 ```
 
-- Bảng review là append-only để không mất lịch sử; không sửa đè quyết định.
-- Unique theo `kyc_id` cho lần KYC hiện tại và `(reviewer_id, idempotency_key)` để xử lý retry.
-- `reason` bắt buộc, trim, giới hạn độ dài hợp lý.
-- Chỉ cho quyết định khi `seller_kyc.status = MANUAL_REVIEW`.
-- Trong cùng một transaction:
-  1. lock hồ sơ KYC;
-  2. xác nhận vẫn là `MANUAL_REVIEW`;
-  3. insert review event;
-  4. đổi `seller_kyc.status` và `shops.kyc_status` sang `VERIFIED` hoặc `REJECTED`;
-  5. set/clear `verified_at` và `kyc_verified_at` nhất quán.
-- Retry cùng idempotency key và cùng payload trả cùng kết quả; cùng key khác payload trả `409`.
-- Hai admin duyệt đồng thời chỉ có một quyết định thắng; request còn lại trả conflict, không tạo hai kết quả trái nhau.
-- Approve onboarding không sửa cờ `verified` của bank/MST nếu provider chưa xác minh thật.
+Quy tắc:
 
-**Kiểm tra:** transaction rollback không để review/status nửa chừng; concurrent review không tạo hai quyết định; bank/MST `UNAVAILABLE` vẫn giữ `verified = false` sau khi onboarding được approve.
+- Listing package-backed khi publish phải có đúng một `return_package_id` thuộc cùng shop.
+- Một package có tối đa một listing hiệu lực.
+- Checkout từ chối listing không có package bằng error rõ ràng, không tự tạo package ngầm.
+- Cập nhật seed bằng package synthetic và liên kết các listing dùng cho checkout/E2E.
+- Không backfill package giả cho dữ liệu không xác định được nguồn.
 
-## 6. Bước 3 — API admin và response nội bộ
+#### B2. Aggregate commerce canonical
 
-Thêm đúng ba endpoint:
+Thêm module `commerce` tối thiểu trong backend và các bảng canonical cần cho vertical slice:
 
-```text
-GET  /v1/admin/kyc?status=MANUAL_REVIEW&cursor=...
-GET  /v1/admin/kyc/{kycId}
-POST /v1/admin/kyc/{kycId}/decision
-     Idempotency-Key: <uuid>
-     { "decision": "APPROVE" | "REJECT", "reason": "..." }
+- `orders`
+- `sub_orders`, unique `order_id` cho quan hệ một-một MVP
+- `sub_order_items`, unique `return_package_id`
+- `fund_holds`
+- ledger tối thiểu theo thiết kế Sprint 3: `ledger_transactions` và `ledger_postings`
+
+Không thêm shipment/dispute/refund trong migration đầu nếu COD confirmation chưa dùng tới chúng.
+
+Snapshot bắt buộc:
+
+- Item: listing ID, package ID, title, ảnh, tình trạng, giá.
+- Địa chỉ: dữ liệu mã hóa + hash; không chỉ lưu `addressId` vì địa chỉ có thể đổi sau khi đặt.
+- Fee: input, output, breakdown, config version/effective time.
+- Shop/payment method/status theo state machine canonical.
+
+#### B3. Ledger và hold trước checkout
+
+Không tự viết số dư trực tiếp. Tạo một interface ghi sổ duy nhất:
+
+- `HOLD_CREATE`
+- `HOLD_RELEASE`
+- sau này mới thêm capture/settlement nếu chưa cần cho COD confirmation.
+
+Test bắt buộc:
+
+- Mỗi transaction tổng debit = tổng credit.
+- Retry cùng idempotency key chỉ tạo một transaction/hold.
+- Số dư khả dụng không âm.
+- Hai checkout cạnh tranh không double hold.
+- Release hold hết hạn chỉ chạy một lần.
+
+### Session C — Checkout init và trang xác nhận thật
+
+#### C1. Contract/API
+
+Thêm shared schema, OpenAPI, generated client và API client cho:
+
+```http
+POST /v1/checkout/init
+Idempotency-Key: <client UUID>
+
+{
+  "items": [{ "listingId": "...", "quantity": 1 }],
+  "addressId": "..."
+}
 ```
 
-Danh sách chỉ trả dữ liệu vận hành tối thiểu:
+Response tối thiểu:
 
 ```ts
-type AdminKycQueueItem = {
-  kycId: string;
-  shopId: string;
-  shopDisplayName: string;
-  status: "MANUAL_REVIEW";
-  provider: string;
-  submittedAt: string;
+type CheckoutInitResponse = {
+  orderId: string;
+  subOrderId: string;
+  status: "RESERVED";
+  item: CheckoutItemSnapshot;
+  feeBreakdown: FeeBreakdown;
+  buyerPayable: number;
+  expiresAt: string;
 };
 ```
 
-Chi tiết trả schema nội bộ đã normalize:
+Error tối thiểu:
 
-- Identity OCR: số CCCD masked, họ tên, ngày sinh, giới tính, địa chỉ, ngày cấp.
-- Verification: document valid, face matched/score, liveness passed/score.
-- MST: trạng thái provider và tên đăng ký nếu có.
-- Bank: bank code, số tài khoản masked, trạng thái provider, tên trả về nếu có, name match score.
-- Không có raw VNPT payload, token, object key hoặc public image URL.
+- `ONE_PACKAGE_PER_CHECKOUT`
+- `MULTI_SELLER_CHECKOUT_NOT_SUPPORTED`
+- `ITEM_BEING_PURCHASED`
+- `ITEM_SOLD`
+- `SHOP_UNAVAILABLE`
+- `ADDRESS_NOT_FOUND`
+- `INSUFFICIENT_SHOP_FUNDS`
+- `IDEMPOTENCY_CONFLICT`
 
-Trong session này chưa làm viewer ảnh CCCD/selfie. Nếu vận hành thực tế chứng minh admin bắt buộc phải xem ảnh, làm endpoint signed URL ngắn hạn ở session riêng với AAL2, reason và audit access.
+#### C2. Transaction checkout init
 
-**Kiểm tra:** OpenAPI/generated client đồng bộ; queue không chứa PII; detail chỉ mở sau authorization; decision validate strict body và idempotency key.
-
-## 7. Bước 4 — UI seller và admin
-
-### Seller
-
-- Bổ sung `kycId` nullable vào shop summary trả bởi `GET /v1/me`, để Seller Center có thể gọi `GET /v1/kyc/{kycId}/status` sau khi reload; không lưu ID này vào localStorage.
-- Mở rộng `KycStatusResponse` bằng `review: { reason, reviewedAt } | null`; không trả `reviewerId` cho seller.
-- Từ Seller Center, trạng thái KYC dẫn tới một khối/trang chi tiết dùng endpoint status hiện có.
-- Hiển thị rõ:
-  - `PROCESSING`: hồ sơ đang xử lý hoặc còn thiếu bước;
-  - `MANUAL_REVIEW`: hồ sơ đang chờ nhân viên duyệt;
-  - `VERIFIED`: được phép đăng bán;
-  - `REJECTED`: hiển thị lý do từ chối và hướng dẫn liên hệ hỗ trợ.
-- Không hiển thị điểm số kỹ thuật cho seller nếu nó không giúp họ thực hiện hành động tiếp theo.
-- Giữ chặn publish hiện có; chỉ bổ sung test để tránh regression.
-
-### Admin
-
-- Thêm route web tối thiểu `/admin/kyc` trong app Next.js hiện có; không tạo app admin riêng.
-- Mặc định chỉ liệt kê `MANUAL_REVIEW`, sắp xếp cũ nhất trước.
-- Admin mở chi tiết, xem dữ liệu normalize, chọn `Approve` hoặc `Reject` và bắt buộc nhập lý do.
-- Disable submit khi đang gửi; sau thành công loại hồ sơ khỏi queue và hiển thị kết quả.
-- Không có bulk approve, auto-approve, AI suggestion, dashboard thống kê hoặc cấu hình rule.
-
-**Kiểm tra:** E2E seller thấy đúng trạng thái/lý do; E2E admin duyệt một hồ sơ; double-click không tạo hai quyết định; user không có quyền không thấy dữ liệu admin.
-
-## 8. Ngoài phạm vi session này
-
-- PayOS, thanh toán, payout, ví, QR nhận tiền hoặc liên kết trực tiếp với ngân hàng.
-- Account Lookup thật và xác minh tên chủ tài khoản.
-- Xác minh MST thật nếu chưa chọn data provider.
-- Gắn `verified = true` cho bank/MST dựa trên dữ liệu seller tự nhập.
-- VNPT IDCheck/chip CCCD/RAR-C06.
-- Tạo attempt KYC mới sau một quyết định `REJECTED`.
-- Viewer ảnh CCCD/selfie hoặc public URL cho ảnh KYC.
-- Live API/OAuth Shopee/TikTok.
-- Scan mã vận đơn, tạo listing mới từ package hoặc refactor luồng import đã có.
-- AI review, bulk action, notification service hoặc dashboard admin.
-
-## 9. Điều kiện hoàn thành
-
-- `platform_staff_roles` tồn tại và admin API kiểm tra role + AAL2 ở backend.
-- Queue chỉ trả metadata không nhạy cảm; detail trả dữ liệu normalize, không raw provider response.
-- Approve/reject atomic, idempotent và có immutable review event gồm actor, reason, timestamp.
-- `seller_kyc.status` và `shops.kyc_status` luôn đồng bộ.
-- Approve onboarding không giả mạo trạng thái bank/MST đã xác minh.
-- Seller thấy `PROCESSING`, `MANUAL_REVIEW`, `VERIFIED`, `REJECTED` và lý do phù hợp.
-- Chỉ shop `VERIFIED` publish được; test regression cho `SHOP_NOT_VERIFIED` vẫn pass.
-- Migration chạy trên database test sạch.
-- Unit/integration/E2E liên quan, lint, typecheck, build, OpenAPI generated client và `git diff --check` đều pass.
-
-## 10. Việc tiếp theo sau khi hoàn thành session này
-
-Làm vertical slice:
+Trong một transaction và đúng lock order canonical:
 
 ```text
-Seller quét mã vận đơn
-→ backend normalize + HMAC tracking
-→ lookup ReturnPackage đã commit trong phạm vi shop/platform
-→ tạo hoặc mở listing draft gắn với đúng package
-→ seller hoàn thiện thông tin và publish
+wallet → shop → listing → ReturnPackage → order → sub_order → fund_hold
 ```
 
-Scan chỉ lookup dữ liệu local đã import, không tự gọi Shopee/TikTok và không lưu raw tracking ở client.
+Backend phải:
 
-## 11. Prompt dùng để bắt đầu session mới
+1. Lấy actor từ JWT và xác nhận địa chỉ thuộc actor.
+2. Chỉ nhận đúng một item, quantity đúng `1`.
+3. Re-read listing, shop, package, giá và trạng thái dưới lock.
+4. Yêu cầu shop `ACTIVE`, KYC `VERIFIED`, không debt/block.
+5. Yêu cầu listing `ACTIVE`, package `AVAILABLE`.
+6. Tính phí server-side và snapshot cấu hình.
+7. Tạo hold TTL 30 phút.
+8. Tạo order + đúng một sub-order + một item snapshot.
+9. Chuyển listing/package sang `RESERVED`, ghi `reserved_until` và outbox expiry.
+10. Commit rồi trả breakdown; mọi lỗi rollback toàn bộ.
+
+#### C3. UI checkout
+
+Thay `CheckoutPreview` bằng checkout có state rõ ràng:
+
+- Bắt buộc đăng nhập; giữ return URL để quay lại sau login.
+- Tải danh sách địa chỉ qua API hiện có.
+- Chọn/tạo địa chỉ; chưa có địa chỉ thì CTA dẫn tới account address.
+- Chỉ hiển thị giá ước tính trước init; sau init hiển thị snapshot/backend total.
+- Hiển thị countdown `expiresAt` và trạng thái hết hạn.
+- Không tự tính phí nghiệp vụ trong React component.
+- Khi init lỗi sold/reserved, thông báo rõ và đưa buyer về giỏ.
+
+### Session D — Chọn COD và xác nhận đặt hàng
+
+#### D1. API chọn COD
+
+Thêm:
+
+```http
+POST /v1/checkout/{orderId}/pay
+Idempotency-Key: <client UUID>
+
+{ "method": "COD" }
+```
+
+Chỉ owner của order được gọi. Backend khóa lại toàn bộ aggregate và yêu cầu:
+
+- order/sub-order đang `RESERVED`;
+- hold còn hiệu lực;
+- payment method chưa chốt hoặc đã là `COD` do retry cùng request;
+- listing/package vẫn gắn đúng order;
+- carrier/fake carrier hỗ trợ COD cho địa chỉ snapshot.
+
+Risk policy phải nằm ở backend và có versioned config. Các ngưỡng đang ghi trong `docs/02-BACKEND-FLOWS.md` chỉ được code khi Business/Legal xác nhận là cấu hình hiện hành; không hardcode trong UI.
+
+Khi đủ điều kiện, cùng transaction:
 
 ```text
-Làm việc trong repo /Users/minhsang/Rebox.
+orders.payment_method = COD
+sub_orders.status = CONFIRMED
+sub_orders.payment_status = COD_PENDING
+listings.status = SOLD
+return_packages.inventory_status = SOLD
+fund hold vẫn ACTIVE
+outbox ghi sự kiện ORDER_COD_CONFIRMED
+```
 
-Mục tiêu: triển khai đúng vertical slice KYC manual review trong
-docs/10-NEXT-SESSION-PLAN.md. Không làm payment, payout, Account Lookup,
-scan mã vận đơn hoặc tính năng ngoài phạm vi.
+Response trả order summary và không chứa PII thô không cần thiết.
+
+#### D2. UI xác nhận COD
+
+- Hiển thị phương thức `Thanh toán khi nhận hàng (COD)`.
+- Buyer phải chủ động chọn COD và bấm `Đặt hàng`.
+- Disable nút trong lúc request; retry dùng cùng idempotency key.
+- Không optimistic-success trước response backend.
+- Thành công chuyển tới `/account/orders/{subOrderId}` hoặc trang success tối thiểu.
+- Xóa đúng listing vừa mua khỏi cart sau khi backend xác nhận; không xóa trước.
+- Nếu COD bị từ chối, giữ reservation cho phép chọn phương thức khác khi có, hoặc cho buyer hủy/đợi expiry; không tự đánh dấu SOLD.
+
+#### D3. Projection lịch sử đơn
+
+- Chuyển `GET /v1/account/orders` đọc từ aggregate canonical hoặc một projection được cập nhật cùng transaction/outbox.
+- Giữ review eligibility hoạt động với order `COMPLETED` của đúng shop.
+- Nếu giữ `purchase_orders` làm read model tạm thời, phải ghi rõ owner/sync mechanism và có test; không dual-write rời rạc từ controller.
+
+### Session E — Timeout, concurrency và E2E hoàn chỉnh
+
+#### E1. Worker reservation expiry
+
+- Worker claim outbox/job idempotently.
+- Khi quá 30 phút và order vẫn `RESERVED`: chuyển `EXPIRED`, trả listing/package về khả dụng và `HOLD_RELEASE`.
+- Nếu order đã `CONFIRMED`, worker không được release.
+- Retry job không tạo posting thứ hai.
+
+#### E2. E2E buyer journey
+
+Tách các test độc lập, mỗi test tự chuẩn bị dữ liệu synthetic:
+
+1. Xem chi tiết → thêm giỏ → thêm lại không tăng quantity.
+2. Giỏ → chọn một listing → checkout → chọn địa chỉ → COD → success.
+3. Chi tiết → Mua ngay → checkout → COD → success.
+4. Hai browser context cùng mua một listing → một success, một `ITEM_BEING_PURCHASED/ITEM_SOLD`.
+5. Sửa `localStorage` quantity `5` → UI normalize, backend vẫn chỉ tạo một item quantity `1`.
+6. Gửi request hai item → `422 ONE_PACKAGE_PER_CHECKOUT`.
+7. Dùng address của buyer khác → bị từ chối.
+8. Retry init/pay cùng key → cùng kết quả, không thêm order/hold.
+9. Reservation hết hạn → listing mua lại được.
+
+Không dùng test timeout để biểu diễn thiếu fixture. Setup lỗi phải fail sớm trong vài giây với thông báo cụ thể.
+
+## 5. File dự kiến thay đổi
+
+### Session A
+
+- `apps/web/src/features/cart-storage.ts`
+- `apps/web/src/app/cart/page.tsx`
+- `apps/web/src/features/checkout-preview.tsx`
+- `apps/web/e2e/storefront.spec.ts`
+- Có thể thêm đúng một helper trong `apps/web/e2e/` nếu được dùng bởi ít nhất hai test.
+
+### Session B–E
+
+- `packages/backend/src/platform/database/schema.ts`
+- `db/migrations/<next>_checkout_cod.sql`
+- `db/migrations/meta/_journal.json`
+- `db/seeds/sprint1.sql`
+- `db/seeds/finance-demo.sql` khi demo UI cần package-backed listing
+- `packages/backend/src/modules/commerce/`
+- `packages/backend/src/index.ts`
+- `apps/api/src/http/controllers/checkout.controller.ts`
+- `apps/api/src/app.module.ts` hoặc provider registration hiện hành
+- `apps/worker/src/outbox.consumer.ts`
+- `packages/shared/src/commerce.ts`
+- `packages/shared/src/errors.ts`
+- `packages/shared/src/index.ts`
+- `packages/api-client/openapi/rebox.yaml`
+- `packages/api-client/src/generated.ts`
+- `packages/api-client/src/index.ts`
+- `apps/web/src/app/checkout/page.tsx`
+- `apps/web/src/features/checkout-preview.tsx` — có thể đổi tên khi không còn là preview
+- `apps/web/src/app/account/` cho order success/detail nếu cần
+- Test nhỏ tương ứng trong `packages/shared/test`, `packages/backend/test` và `apps/web/e2e`.
+
+Không tạo file trong danh sách chỉ vì kế hoạch nêu tên; trước mỗi session phải reuse module/helper/pattern đang có nếu phù hợp.
+
+## 6. Ma trận test backend tối thiểu
+
+| Tình huống | Kết quả |
+|---|---|
+| quantity `0`, `2`, số thập phân hoặc thiếu | `422`, không tạo dữ liệu |
+| hai item dù cùng shop | `422 ONE_PACKAGE_PER_CHECKOUT` |
+| listing không gắn package | checkout bị từ chối |
+| listing không `ACTIVE` | `409 ITEM_SOLD` hoặc state error phù hợp |
+| package không `AVAILABLE` | `409 ITEM_BEING_PURCHASED/ITEM_SOLD` |
+| shop inactive/KYC chưa verified/debt/block | `409 SHOP_UNAVAILABLE` |
+| address không thuộc actor | từ chối, không lộ địa chỉ |
+| giá client giả | bị bỏ qua; dùng giá database |
+| hai request đồng thời cho cùng package | đúng một order thắng |
+| retry cùng key + cùng payload | trả cùng kết quả |
+| cùng key + payload khác | `409 IDEMPOTENCY_CONFLICT` |
+| COD trên order hết hạn | từ chối, không SOLD |
+| COD hợp lệ | `CONFIRMED + COD_PENDING + SOLD`, hold còn active |
+| expiry chạy sau COD confirmed | không release hold/package |
+
+## 7. Lệnh kiểm tra sau từng session
+
+Trước khi chạy E2E, bảo đảm Supabase local/API/web đang chạy và chỉ dùng dữ liệu synthetic.
+
+```bash
+git status --short
+corepack pnpm lint
+corepack pnpm typecheck
+corepack pnpm test
+corepack pnpm build
+corepack pnpm test:e2e
+git diff --check
+```
+
+Trong lúc phát triển, ưu tiên vòng lặp nhỏ:
+
+```bash
+corepack pnpm --filter @rebox/web typecheck
+corepack pnpm test:e2e --grep "cart|checkout|COD"
+corepack pnpm --filter @rebox/backend test
+```
+
+Nếu migration thay đổi:
+
+```bash
+corepack pnpm db:migrate
+corepack pnpm db:seed
+```
+
+Không tự chạy `db:reset` trên database có dữ liệu cần giữ. Chỉ reset local synthetic khi đã xác nhận đúng target.
+
+## 8. Ngoài phạm vi của vertical slice COD đầu tiên
+
+- VietQR, bank webhook và seller confirm payment.
+- ĐVVC production, tạo/in nhãn thật và webhook tracking thật.
+- Đối soát COD production, `COD_REMITTED`, gross/net/deduction và settlement ledger đầy đủ.
+- Refund, dispute, return shipment và payout.
+- Multi-package hoặc multi-seller checkout.
+- Voucher, loyalty, nhiều đơn vị tiền tệ và lưu thẻ.
+- Tự động bật production payment/shipping trước các gate hợp đồng và pháp lý.
+
+Các phần trên tiếp tục theo Sprint 4–6 trong `docs/04-IMPLEMENTATION-PLAN.md`; không nhét vào diff checkout COD đầu tiên.
+
+## 9. Prompt bắt đầu Session A
+
+```text
+Làm việc trong repo /Users/minhsang/Rebox và thực hiện Session A trong
+docs/10-NEXT-SESSION-PLAN.md.
+
+Mục tiêu duy nhất của session này:
+1. Mọi listing trong cart luôn có quantity = 1; thêm lại không tăng số lượng.
+2. Bỏ nút +/- và chỉ cho chọn đúng một listing để checkout.
+3. Checkout preview không tin quantity từ localStorage.
+4. Sửa cart E2E để không phụ thuộc âm thầm vào fixture
+   RBX-01JTESTCATALOG-TECH-001 có sẵn trong database.
+
+Chưa xây checkout backend, order, ledger, COD hoặc shipping trong Session A.
 
 Trước khi sửa:
-1. Chạy git status và giữ nguyên mọi thay đổi hiện có.
-2. Đọc CONTEXT.md; docs/01-TECHNICAL-SPEC.md phần platform_staff_roles;
-   docs/07-ARCHITECTURE-DECISIONS.md phần authorization/A10;
-   docs/10-NEXT-SESSION-PLAN.md.
-3. Đọc KycModule, KycController, shared KYC contracts, database schema,
-   SupabaseJwtGuard, OpenAPI/generated client và seller UI hiện có.
-4. Xác nhận publish đã chặn shop chưa VERIFIED; không viết lại logic đã có.
-5. Nêu kế hoạch ngắn kèm cách kiểm tra từng bước.
+- chạy git status và giữ nguyên mọi thay đổi hiện có;
+- đọc cart-storage.ts, cart/page.tsx, checkout-preview.tsx,
+  storefront.spec.ts và flow publish listing hiện có;
+- nêu vòng lặp test red/green ngắn.
 
-Thực hiện diff nhỏ nhất:
-1. Thêm platform_staff_roles + backend authorization cho MODERATOR/SUPER_ADMIN
-   và AAL2; không tin role từ frontend.
-2. Thêm seller_kyc_reviews append-only và transaction approve/reject idempotent.
-3. Thêm queue/detail/decision API dưới /v1/admin/kyc.
-4. Queue không chứa PII; detail chỉ trả schema normalize, không raw VNPT/object key.
-5. Thêm UI /admin/kyc và phần trạng thái/lý do cho seller.
-6. Cho shop summary trả kycId nullable và KycStatusResponse trả review reason/time.
-7. Đồng bộ schema shared, OpenAPI và generated client.
+Test bắt buộc:
+- thêm cùng listing hai lần vẫn một dòng quantity 1;
+- localStorage quantity 5/dòng trùng được normalize;
+- không còn nút tăng giảm;
+- giỏ hai listing chỉ checkout một listing;
+- mua từ giỏ và Mua ngay vẫn mở đúng listing;
+- test E2E fail nhanh, rõ nếu setup hỏng và pass khi tự chuẩn bị fixture;
+- lint, typecheck, test liên quan và git diff --check pass.
+```
 
-Quy tắc bắt buộc:
-- Chỉ MANUAL_REVIEW được approve/reject.
-- Decision luôn có reason, reviewer và timestamp.
-- seller_kyc + shops đổi trạng thái trong cùng transaction.
-- Hai reviewer đồng thời không thể tạo hai kết quả trái nhau.
-- Approve onboarding không đổi bank/MST verified=true khi provider UNAVAILABLE.
-- Không expose CCCD/selfie, raw provider response hoặc số tài khoản đầy đủ.
-- REJECTED chỉ hiển thị lý do; chưa xây attempt nộp lại trong session này.
+## 10. Prompt bắt đầu Session B sau khi Session A pass
 
-Test tối thiểu:
-- seller/non-staff/inactive staff/AAL1 bị chặn khỏi admin API;
-- moderator hoặc super admin AAL2 truy cập được;
-- approve và reject tạo immutable review event;
-- retry cùng idempotency key không tạo trùng, payload khác trả 409;
-- concurrent review chỉ một request thắng;
-- rollback không để trạng thái nửa chừng;
-- bank/MST UNAVAILABLE vẫn verified=false sau approve;
-- seller thấy trạng thái/lý do đúng;
-- shop chưa VERIFIED vẫn không publish được.
+```text
+Làm việc trong repo /Users/minhsang/Rebox và thực hiện Session B trong
+docs/10-NEXT-SESSION-PLAN.md.
 
-Hoàn thành khi migration test sạch, test liên quan, lint, typecheck, build,
-OpenAPI generated client và git diff --check đều pass.
+Mục tiêu: tạo nền backend an toàn cho checkout package-backed, gồm liên kết
+listing → ReturnPackage, aggregate orders/sub_orders/sub_order_items và lát
+ledger/fund hold tối thiểu. Chưa mở nút xác nhận COD production.
+
+Tuân thủ lock order và transaction trong docs/02-BACKEND-FLOWS.md; không dùng
+purchase_orders làm aggregate checkout; không cho listing thiếu ReturnPackage
+đi qua checkout. Viết migration + integration tests trước khi nối UI.
 ```

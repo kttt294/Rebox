@@ -546,6 +546,61 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PublicShop"
+  /v1/shops/{shopId}/reviews:
+    get:
+      operationId: listShopReviews
+      parameters:
+        - $ref: "#/components/parameters/ShopId"
+      responses:
+        "200":
+          description: Public shop reviews, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ShopReview" }
+  /v1/shops/{shopId}/reviews/mine:
+    get:
+      operationId: getMyShopReview
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ShopId"
+      responses:
+        "200":
+          description: Current actor's review, if any
+          content:
+            application/json:
+              schema: { anyOf: [{ $ref: "#/components/schemas/ShopReview" }, { type: "null" }] }
+    put:
+      operationId: upsertShopReview
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ShopId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpsertShopReview" }
+      responses:
+        "200":
+          description: Review created or updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShopReview" }
+  /v1/shops/{shopId}/reviews/eligibility:
+    get:
+      operationId: getShopReviewEligibility
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ShopId"
+      responses:
+        "200":
+          description: Whether the current actor may review the shop
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShopReviewEligibility" }
+        "401": { description: Authentication required }
+        "404": { description: Active shop not found }
   /v1/listings:
     get:
       operationId: listPublicListings
@@ -980,7 +1035,7 @@ components:
     PublicShop:
       type: object
       additionalProperties: false
-      required: [id, displayName, description, avatarUrl, verified, activeListingCount, location, createdAt]
+      required: [id, displayName, description, avatarUrl, verified, activeListingCount, averageRating, reviewCount, location, createdAt]
       properties:
         id: { type: string }
         displayName: { type: string }
@@ -988,5 +1043,33 @@ components:
         avatarUrl: { anyOf: [{ type: string, format: uri }, { type: "null" }] }
         verified: { type: boolean }
         activeListingCount: { type: integer, minimum: 0 }
+        averageRating: { anyOf: [{ type: number, minimum: 1, maximum: 5 }, { type: "null" }] }
+        reviewCount: { type: integer, minimum: 0 }
         location: { anyOf: [{ type: string }, { type: "null" }] }
         createdAt: { type: string, format: date-time }
+    UpsertShopReview:
+      type: object
+      additionalProperties: false
+      required: [rating, content]
+      properties:
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        content: { type: string, minLength: 3, maxLength: 1000 }
+    ShopReview:
+      allOf:
+        - $ref: "#/components/schemas/UpsertShopReview"
+        - type: object
+          required: [id, createdAt, updatedAt]
+          properties:
+            id: { type: string }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    ShopReviewEligibility:
+      type: object
+      additionalProperties: false
+      required: [eligible, reason]
+      properties:
+        eligible: { type: boolean }
+        reason:
+          anyOf:
+            - { type: string, enum: [COMPLETED_ORDER_REQUIRED, SHOP_MEMBER] }
+            - { type: "null" }

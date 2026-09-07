@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Patch, Post, Query, UploadedFile, UseInterceptors } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Patch, Post, Put, Query, UploadedFile, UseInterceptors } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { DomainError, type InventoryModule } from "@rebox/backend";
 import {
@@ -13,11 +13,14 @@ import {
   type PublicListing,
   type PublicListingPage,
   type PublicShop,
+  type ShopReview,
+  type ShopReviewEligibility,
   type PublishListingResult,
   type ReturnManifestPreview,
   type SellerInventoryPackage,
   maxReturnManifestFileBytes,
   publicListingsQuerySchema,
+  upsertShopReviewSchema,
   updateListingDraftSchema
 } from "@rebox/shared";
 import { INVENTORY } from "../../backend.providers";
@@ -146,6 +149,38 @@ export class ListingsController {
   @Get("shops/:shopId")
   getPublicShop(@Param("shopId") shopId: string): Promise<PublicShop> {
     return this.inventory.getPublicShop(shopId);
+  }
+
+  @Public()
+  @Get("shops/:shopId/reviews")
+  listShopReviews(@Param("shopId") shopId: string): Promise<ShopReview[]> {
+    return this.inventory.listShopReviews(shopId);
+  }
+
+  @Get("shops/:shopId/reviews/mine")
+  getMyShopReview(@CurrentActor() actor: Actor, @Param("shopId") shopId: string): Promise<ShopReview | null> {
+    return this.inventory.getMyShopReview(actor.id, shopId);
+  }
+
+  @Get("shops/:shopId/reviews/eligibility")
+  getShopReviewEligibility(
+    @CurrentActor() actor: Actor,
+    @Param("shopId") shopId: string
+  ): Promise<ShopReviewEligibility> {
+    return this.inventory.getShopReviewEligibility(actor.id, shopId);
+  }
+
+  @Put("shops/:shopId/reviews/mine")
+  upsertShopReview(
+    @CurrentActor() actor: Actor,
+    @Param("shopId") shopId: string,
+    @Body() body: unknown
+  ): Promise<ShopReview> {
+    const parsed = upsertShopReviewSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new DomainError("VALIDATION_FAILED", 422, parsed.error.issues[0]?.message ?? "Invalid shop review");
+    }
+    return this.inventory.upsertShopReview(actor.id, shopId, parsed.data);
   }
 
   @Public()
