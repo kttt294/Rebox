@@ -1,7 +1,6 @@
 "use client";
 
 import type { SellerFinanceSnapshot } from "@rebox/shared";
-import Image from "next/image";
 import { useEffect, useState } from "react";
 import { FinanceWorkspace, SellerShell } from "../../../features/seller-shell";
 import { createBrowserApiClient } from "../../../platform/api/browser";
@@ -83,15 +82,17 @@ function RevenueByProduct({ finance }: { finance: SellerFinanceSnapshot }) {
 function FinancialComposition({ finance }: { finance: SellerFinanceSnapshot }) {
   const total = finance.availableBalanceVnd + finance.heldBalanceVnd;
   const availablePercent = total ? Math.round(finance.availableBalanceVnd / total * 100) : 0;
-  const heldPercent = 100 - availablePercent;
+  const heldPercent = total ? 100 - availablePercent : 0;
   return (
     <article className="relative h-full w-[556px] shrink-0 rounded-xl ring-1 ring-inset ring-[var(--line)]">
       <h2 className="absolute left-[19px] top-[17px] text-lg font-bold">Cơ cấu tài chính</h2>
       <p className="absolute left-[19px] top-[43px] text-xs text-[var(--muted)]">Số dư khả dụng và khoản tạm khóa</p>
-      <div className="absolute left-[61px] top-[81px] size-[150px]">
-        <Image alt="" aria-hidden className="absolute inset-0" height={150} src="/rebox/finance-asset-3.svg" width={150} />
-        <Image alt="" aria-hidden className="absolute left-[75px] top-0" height={80} src="/rebox/finance-asset-2.svg" width={75} />
-      </div>
+      <div
+        aria-label={`Cơ cấu: khả dụng ${availablePercent}%, tạm khóa ${heldPercent}%`}
+        className="absolute left-[61px] top-[81px] size-[150px] rounded-full"
+        role="img"
+        style={{ background: `conic-gradient(var(--accent) 0 ${availablePercent}%, var(--accent-soft) ${availablePercent}% 100%)` }}
+      />
       <strong className="absolute left-[146px] top-[113px] w-12 text-center text-lg">{availablePercent}%</strong>
       <strong className="absolute left-[78px] top-[177px] w-12 text-center text-lg">{heldPercent}%</strong>
       <span className="absolute left-[257px] top-[95px] size-3 rounded-sm bg-[var(--accent)]" />
