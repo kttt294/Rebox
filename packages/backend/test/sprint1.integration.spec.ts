@@ -384,6 +384,19 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
     expect(page.items.every((listing) => listing.shopId === verifiedShop)).toBe(true);
   });
 
+  it("returns a public shop profile backed by the active shop", async () => {
+    const shop = await inventory.getPublicShop(verifiedShop);
+    const activeListings = await pool.query<{ count: string }>(
+      "SELECT count(*)::text AS count FROM listings WHERE shop_id = $1 AND status = 'ACTIVE'",
+      [verifiedShop]
+    );
+
+    expect(shop).toMatchObject({ id: verifiedShop, verified: true });
+    expect(shop.activeListingCount).toBe(Number(activeListings.rows[0]?.count));
+    await expect(inventory.getPublicShop(pendingShop))
+      .rejects.toMatchObject<Partial<DomainError>>({ code: "RESOURCE_NOT_FOUND", status: 404 });
+  });
+
   it("claims an event once across concurrent workers and remains idempotent", async () => {
     const draft = await inventory.createDraft(verifiedActor, verifiedShop, listingInput("Outbox item"));
     await attachValidImage(draft.id);

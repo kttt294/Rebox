@@ -534,6 +534,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PublicListing"
+  /v1/shops/{shopId}:
+    get:
+      operationId: getPublicShop
+      parameters:
+        - $ref: "#/components/parameters/ShopId"
+      responses:
+        "200":
+          description: Public shop profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicShop"
   /v1/listings:
     get:
       operationId: listPublicListings
@@ -965,3 +977,16 @@ components:
           type: array
           items: { $ref: "#/components/schemas/PublicListing" }
         nextCursor: { anyOf: [{ type: string }, { type: "null" }] }
+    PublicShop:
+      type: object
+      additionalProperties: false
+      required: [id, displayName, description, avatarUrl, verified, activeListingCount, location, createdAt]
+      properties:
+        id: { type: string }
+        displayName: { type: string }
+        description: { anyOf: [{ type: string }, { type: "null" }] }
+        avatarUrl: { anyOf: [{ type: string, format: uri }, { type: "null" }] }
+        verified: { type: boolean }
+        activeListingCount: { type: integer, minimum: 0 }
+        location: { anyOf: [{ type: string }, { type: "null" }] }
+        createdAt: { type: string, format: date-time }

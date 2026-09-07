@@ -44,14 +44,15 @@ function RevenueTrend({ finance }: { finance: SellerFinanceSnapshot }) {
         <h2 className="absolute left-[19px] top-[17px] text-lg font-bold">Xu hướng doanh thu 6 tháng gần nhất</h2>
         <p className="absolute left-[19px] top-[43px] text-xs text-[var(--muted)]">Doanh thu thực nhận theo tháng</p>
         {[81, 123.67, 166.33, 209].map((top) => <span className="absolute left-[71px] h-px w-[1012px] bg-[var(--line)]" key={top} style={{ top }} />)}
-        {trend.map((item) => (
-          <div key={item.label}>
-            {trend.indexOf(item) < trend.length - 1 ? <span className="absolute h-[2px] origin-left bg-[var(--accent)]" style={{ left: item.left, top: item.pointTop + 3, transform: `rotate(${Math.atan2(trend[trend.indexOf(item) + 1].pointTop - item.pointTop, trend[trend.indexOf(item) + 1].left - item.left) * 180 / Math.PI}deg)`, width: Math.hypot(trend[trend.indexOf(item) + 1].left - item.left, trend[trend.indexOf(item) + 1].pointTop - item.pointTop) }} /> : null}
+        {trend.map((item, index) => {
+          const next = trend[index + 1];
+          return <div key={item.label}>
+            {next ? <span className="absolute h-[2px] origin-left bg-[var(--accent)]" style={{ left: item.left, top: item.pointTop + 3, transform: `rotate(${Math.atan2(next.pointTop - item.pointTop, next.left - item.left) * 180 / Math.PI}deg)`, width: Math.hypot(next.left - item.left, next.pointTop - item.pointTop) }} /> : null}
             <span className="absolute w-20 -translate-x-1/2 text-center text-[11px] font-medium" style={{ left: item.left, top: item.pointTop - 20 }}>{compactMoney(item.amountVnd)}</span>
             <span className="absolute size-2 -translate-x-1/2 rounded-full bg-[var(--accent)]" style={{ left: item.left, top: item.pointTop }} />
             <span className="absolute top-[221px] w-11 -translate-x-1/2 text-center text-xs text-[var(--muted)]" style={{ left: item.left }}>{item.label}</span>
-          </div>
-        ))}
+          </div>;
+        })}
       </div>
     </article>
   );

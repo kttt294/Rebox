@@ -12,6 +12,7 @@ import {
   type Listing,
   type PublicListing,
   type PublicListingPage,
+  type PublicShop,
   type PublishListingResult,
   type ReturnManifestPreview,
   type SellerInventoryPackage,
@@ -139,6 +140,12 @@ export class ListingsController {
     @Param("listingId") listingId: string
   ): Promise<PublishListingResult> {
     return this.inventory.publish(actor.id, shopId, listingId);
+  }
+
+  @Public()
+  @Get("shops/:shopId")
+  getPublicShop(@Param("shopId") shopId: string): Promise<PublicShop> {
+    return this.inventory.getPublicShop(shopId);
   }
 
   @Public()

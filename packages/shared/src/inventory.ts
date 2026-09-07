@@ -106,6 +106,18 @@ export const publicListingPageSchema = z.object({
 });
 export type PublicListingPage = z.infer<typeof publicListingPageSchema>;
 
+export const publicShopSchema = z.object({
+  id: z.string(),
+  displayName: z.string(),
+  description: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+  verified: z.boolean(),
+  activeListingCount: z.number().int().nonnegative(),
+  location: z.string().nullable(),
+  createdAt: z.string().datetime()
+});
+export type PublicShop = z.infer<typeof publicShopSchema>;
+
 export const manifestImportSourceSchema = z.enum(["SPREADSHEET", "PLATFORM_API"]);
 export type ManifestImportSource = z.infer<typeof manifestImportSourceSchema>;
 

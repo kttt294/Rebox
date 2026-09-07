@@ -17,6 +17,7 @@ import type {
   PublicListing,
   PublicListingPage,
   PublicListingsQuery,
+  PublicShop,
   PrivacyPreferences,
   PublishListingResult,
   ReturnManifestPreview,
@@ -195,6 +196,8 @@ export function createApiClient(options: ApiClientOptions) {
         `/v1/shops/${encodeURIComponent(shopId)}/listings/${encodeURIComponent(listingId)}/publish`,
         { method: "POST" }
       ),
+    getPublicShop: (shopId: string) =>
+      request<PublicShop>(`/v1/shops/${encodeURIComponent(shopId)}`, { cache: "no-store" }),
     listPublicListings: (query: Partial<PublicListingsQuery> = {}) => {
       const search = new URLSearchParams();
       for (const [key, value] of Object.entries(query)) {

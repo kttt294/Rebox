@@ -10,6 +10,7 @@ import type {
   PublicListing,
   PublicListingPage,
   PublicListingsQuery,
+  PublicShop,
   PublishListingResult,
   ReturnManifestDraft,
   ReturnManifestPreview,
@@ -45,6 +46,18 @@ type ListingRow = {
 };
 
 type CatalogCursor = { sort: PublicListingsQuery["sort"]; value: string; id: string };
+
+type PublicShopRow = {
+  id: string;
+  display_name: string;
+  kyc_status: string;
+  created_at: Date;
+  description: string | null;
+  avatar_ref: string | null;
+  pickup_province: string | null;
+  pickup_district: string | null;
+  active_listing_count: string;
+};
 
 type PublishListingRow = {
   status: Listing["status"];
@@ -720,6 +733,33 @@ export class InventoryModule {
       throw new DomainError("RESOURCE_NOT_FOUND", 404, "Listing not found");
     }
     return presentPublicListing(row, this.mediaStorage);
+  }
+
+  async getPublicShop(shopId: string): Promise<PublicShop> {
+    const result = await this.pool.query<PublicShopRow>(
+      `SELECT s.id, s.display_name, s.kyc_status, s.created_at,
+              p.description, p.avatar_ref, p.pickup_province, p.pickup_district,
+              count(l.id) FILTER (WHERE l.status = 'ACTIVE')::text AS active_listing_count
+       FROM shops s
+       LEFT JOIN shop_onboarding_profiles p ON p.shop_id = s.id
+       LEFT JOIN listings l ON l.shop_id = s.id
+       WHERE s.id = $1 AND s.status = 'ACTIVE'
+       GROUP BY s.id, p.description, p.avatar_ref, p.pickup_province, p.pickup_district`,
+      [shopId]
+    );
+    const row = result.rows[0];
+    if (!row) throw new DomainError("RESOURCE_NOT_FOUND", 404, "Shop not found");
+    const location = [row.pickup_district, row.pickup_province].filter(Boolean).join(", ");
+    return {
+      id: row.id,
+      displayName: row.display_name,
+      description: row.description,
+      avatarUrl: row.avatar_ref ? this.mediaStorage.publicUrl(row.avatar_ref) : null,
+      verified: row.kyc_status === "VERIFIED",
+      activeListingCount: Number(row.active_listing_count),
+      location: location || null,
+      createdAt: row.created_at.toISOString()
+    };
   }
 
   async listPublicListings(input: PublicListingsQuery): Promise<PublicListingPage> {
