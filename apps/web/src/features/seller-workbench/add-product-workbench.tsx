@@ -1,7 +1,7 @@
 "use client";
 
-import { ApiClientError } from "@rebox/api-client";
-import type { ActorContext, Category, Listing, ReturnManifestPreview } from "@rebox/shared";
+import { ApiClientError } from "@reboxe/api-client";
+import type { ActorContext, Category, Listing, ReturnManifestPreview } from "@reboxe/shared";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";

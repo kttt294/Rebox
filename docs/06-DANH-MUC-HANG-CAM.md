@@ -1,10 +1,10 @@
-# REBOX — Danh mục hàng hóa cấm và hạn chế
+# REBOXE — Danh mục hàng hóa cấm và hạn chế
 
 > **Miễn trừ:** đây là bản rà soát do người thiết kế hệ thống lập ra để đưa vào sản phẩm dưới dạng bộ lọc kiểm duyệt. **Không phải ý kiến tư vấn pháp luật.** Thành viên phụ trách Pháp lý phải rà soát và ký duyệt trước khi đưa vào vận hành, và kiểm tra lại hiệu lực văn bản tại thời điểm triển khai.
 >
 > Đây là **tài liệu sống**. Rà soát định kỳ hằng quý và mỗi khi có văn bản pháp luật mới. Kiến trúc kiểm duyệt tuân theo [`07-ARCHITECTURE-DECISIONS.md`](07-ARCHITECTURE-DECISIONS.md); nội dung danh mục chỉ có hiệu lực production sau khi Legal ký duyệt phiên bản.
 
-Mốc kiểm tra tài liệu là 25/08/2026. Luật Thương mại điện tử 122/2025/QH15 đã có hiệu lực từ 01/07/2026; Legal phải remap các nghĩa vụ từng dựa trên Nghị định 52/2013/85/2021 sang khung hiện hành. Về sản phẩm, REBOX vẫn giữ policy an toàn: có **cơ chế kiểm tra, giám sát**, chặn danh mục không được phép và gỡ khi có quyết định hợp lệ.
+Mốc kiểm tra tài liệu là 25/08/2026. Luật Thương mại điện tử 122/2025/QH15 đã có hiệu lực từ 01/07/2026; Legal phải remap các nghĩa vụ từng dựa trên Nghị định 52/2013/85/2021 sang khung hiện hành. Về sản phẩm, REBOXE vẫn giữ policy an toàn: có **cơ chế kiểm tra, giám sát**, chặn danh mục không được phép và gỡ khi có quyết định hợp lệ.
 
 ---
 
@@ -12,7 +12,7 @@ Mốc kiểm tra tài liệu là 25/08/2026. Luật Thương mại điện tử 
 
 | Mức | Ý nghĩa | Hành vi hệ thống |
 |---|---|---|
-| `BANNED` | Cấm tuyệt đối trên REBOX | **Chặn cứng** khi đăng bán. Không có đường ngoại lệ. Gắn cờ tài khoản nếu cố tình lặp lại |
+| `BANNED` | Cấm tuyệt đối trên REBOXE | **Chặn cứng** khi đăng bán. Không có đường ngoại lệ. Gắn cờ tài khoản nếu cố tình lặp lại |
 | `MANUAL_REVIEW` | Cần điều kiện kinh doanh hoặc giấy tờ | Vào hàng đợi **admin duyệt tay**, yêu cầu nộp ảnh tem/nhãn/giấy tờ trước khi hiển thị |
 | `DISCLOSURE` | Được bán nhưng phải mô tả rõ | Listing thủ công dùng `condition_notes/condition_grade`; package listing dùng `UNOPENED_UNINSPECTED`, `SealStatus` và disclosure riêng theo category |
 
@@ -41,7 +41,7 @@ Căn cứ: Luật Đầu tư 2020 (ngành nghề cấm đầu tư kinh doanh), B
 
 | Nhóm | Căn cứ và lý do |
 |---|---|
-| **Thuốc chữa bệnh** | Luật Dược — kinh doanh dược phải có Giấy chứng nhận đủ điều kiện; thuốc kê đơn không được bán lẻ trực tuyến. **REBOX cấm toàn bộ nhóm thuốc**, kể cả thuốc không kê đơn, vì mô hình hàng hoàn không kiểm soát được nguồn gốc và bảo quản |
+| **Thuốc chữa bệnh** | Luật Dược — kinh doanh dược phải có Giấy chứng nhận đủ điều kiện; thuốc kê đơn không được bán lẻ trực tuyến. **REBOXE cấm toàn bộ nhóm thuốc**, kể cả thuốc không kê đơn, vì mô hình hàng hoàn không kiểm soát được nguồn gốc và bảo quản |
 | **Thuốc lá điện tử, thuốc lá nung nóng** | Quốc hội đã có nghị quyết cấm sản xuất, kinh doanh, nhập khẩu, vận chuyển, sử dụng từ 2025. Cấm tuyệt đối |
 | Thuốc lá điếu, xì gà | Kinh doanh có điều kiện, có giấy phép riêng; cấm quảng cáo. Không phù hợp mô hình |
 | **Hàng giả, hàng xâm phạm quyền sở hữu trí tuệ** | Luật Sở hữu trí tuệ, Nghị định 98/2020. Xem §5 về quy trình xử lý |
@@ -54,7 +54,7 @@ Căn cứ: Luật Đầu tư 2020 (ngành nghề cấm đầu tư kinh doanh), B
 | Động vật sống | Không phù hợp mô hình logistics và điều kiện vận chuyển |
 | Chất phóng xạ, chất thải nguy hại | |
 
-### 2.3. Nhóm REBOX chủ động cấm vì đặc thù mô hình
+### 2.3. Nhóm REBOXE chủ động cấm vì đặc thù mô hình
 
 Không phải vì pháp luật cấm, mà vì mô hình hàng hoàn không kiểm soát được rủi ro:
 
@@ -94,7 +94,7 @@ Nhóm này **được phép bán** nhưng gắn với điều kiện kinh doanh,
 
 ## 4. `DISCLOSURE` — Được bán, bắt buộc mô tả trung thực
 
-Đây là nhóm cốt lõi của REBOX. Nghĩa vụ pháp lý nền tảng: **cung cấp thông tin chính xác, đầy đủ về hàng hóa** theo Luật Bảo vệ quyền lợi người tiêu dùng 2023 (xem `05-PHAP-LY` §5.3).
+Đây là nhóm cốt lõi của REBOXE. Nghĩa vụ pháp lý nền tảng: **cung cấp thông tin chính xác, đầy đủ về hàng hóa** theo Luật Bảo vệ quyền lợi người tiêu dùng 2023 (xem `05-PHAP-LY` §5.3).
 
 | Nhóm | Bắt buộc khai báo |
 |---|---|
@@ -122,12 +122,12 @@ Bắt buộc chọn một, không cho nhập tự do:
 
 ## 5. Quy trình xử lý xâm phạm sở hữu trí tuệ
 
-Đây là quy trình bắt buộc theo policy REBOX và nghĩa vụ SHTT; Legal phải remap căn cứ nền tảng TMĐT sang Luật 122/2025 và văn bản thi hành hiện hành trước production, không tiếp tục viện dẫn Nghị định 85/2021 như baseline hiện hành.
+Đây là quy trình bắt buộc theo policy REBOXE và nghĩa vụ SHTT; Legal phải remap căn cứ nền tảng TMĐT sang Luật 122/2025 và văn bản thi hành hiện hành trước production, không tiếp tục viện dẫn Nghị định 85/2021 như baseline hiện hành.
 
 ```
-1. Kênh tiếp nhận công khai:  ip-report@rebox.vn  + biểu mẫu trên web
+1. Kênh tiếp nhận công khai:  ip-report@reboxe.vn  + biểu mẫu trên web
 2. Chủ thể quyền nộp: giấy chứng nhận đăng ký nhãn hiệu + danh sách listing vi phạm
-3. REBOX gỡ listing trong 24 giờ kể từ khi nhận thông báo hợp lệ
+3. REBOXE gỡ listing trong 24 giờ kể từ khi nhận thông báo hợp lệ
 4. Thông báo cho seller, cho quyền phản hồi trong 5 ngày làm việc
 5. Seller phản hồi có căn cứ  → khôi phục, thông báo lại chủ thể quyền
    Seller không phản hồi      → gỡ vĩnh viễn
@@ -138,11 +138,11 @@ Mọi bước ghi `audit_logs`. Policy đề xuất là giữ hồ sơ cần thi
 
 ---
 
-## 6. Hai rủi ro đặc thù của REBOX
+## 6. Hai rủi ro đặc thù của REBOXE
 
 ### 6.1. Hàng hoàn không đồng nghĩa với hàng hợp pháp
 
-Hàng đã từng bán trên Shopee/TikTok **không phải là bằng chứng hàng hợp pháp**. Sàn khác cũng lọt hàng giả. REBOX không được dùng lập luận *"hàng này từ Shopee về nên chắc hợp lệ"* để miễn kiểm duyệt — nếu bán hàng giả thì REBOX chịu trách nhiệm của chính mình.
+Hàng đã từng bán trên Shopee/TikTok **không phải là bằng chứng hàng hợp pháp**. Sàn khác cũng lọt hàng giả. REBOXE không được dùng lập luận *"hàng này từ Shopee về nên chắc hợp lệ"* để miễn kiểm duyệt — nếu bán hàng giả thì REBOXE chịu trách nhiệm của chính mình.
 
 ### 6.2. 🔴 Người bán xuyên biên giới và hàng đã qua sử dụng nhập khẩu
 

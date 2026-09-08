@@ -45,14 +45,14 @@ input:focus, input:focus-visible, select:focus, select:focus-visible, textarea:f
   outline: none;
 }
 
-.rebox-container {
+.reboxe-container {
   margin-inline: auto;
   width: 100%;
   max-width: 1264px;
 }
 
 @media (min-width: 1440px) {
-  .rebox-container {
+  .reboxe-container {
     margin-left: calc((100vw - 1264px) / 2);
     margin-right: 0;
     width: 1264px;

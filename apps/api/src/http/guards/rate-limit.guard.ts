@@ -1,5 +1,5 @@
 import { Injectable, type CanActivate, type ExecutionContext } from "@nestjs/common";
-import { DomainError } from "@rebox/backend";
+import { DomainError } from "@reboxe/backend";
 import type { AuthenticatedRequest } from "../types/authenticated-request";
 
 const counters = new Map<string, number>();

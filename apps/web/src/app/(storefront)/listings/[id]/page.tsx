@@ -1,10 +1,10 @@
-import { ApiClientError } from "@rebox/api-client";
-import type { PublicListing } from "@rebox/shared";
+import { ApiClientError } from "@reboxe/api-client";
+import type { PublicListing } from "@reboxe/shared";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CartActions } from "../../../../features/cart-actions";
 import { formatPrice } from "../../../../features/commerce-data";
-import { ProductVisual, ReboxBadge } from "../../../../features/commerce-ui";
+import { ProductVisual, ReboxeBadge } from "../../../../features/commerce-ui";
 import { ProductCard } from "../../../../features/product-card";
 import { createPublicApiClient } from "../../../../platform/api/server";
 
@@ -46,9 +46,9 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
 
   return (
     <main className="bg-[var(--paper)] px-4 pb-9 pt-5 sm:px-6 xl:px-0">
-      <div className="rebox-container">
+      <div className="reboxe-container">
         <nav aria-label="Breadcrumb" className="flex h-7 items-center gap-2 overflow-hidden text-[13px]">
-          <Link className="font-medium text-[var(--accent-strong)]" href="/">REBOX</Link>
+          <Link className="font-medium text-[var(--accent-strong)]" href="/">REBOXE</Link>
           <span className="text-[var(--muted)]">/</span>
           <Link className="font-medium text-[var(--accent-strong)]" href={`/search?category=${encodeURIComponent(listing.categoryId)}`}>{categoryName}</Link>
           <span className="text-[var(--muted)]">/</span>
@@ -67,7 +67,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
           )}
 
           <div className="flex flex-col gap-4">
-            <ReboxBadge className="h-[25px] w-fit px-2 font-bold">{conditionName}</ReboxBadge>
+            <ReboxeBadge className="h-[25px] w-fit px-2 font-bold">{conditionName}</ReboxeBadge>
             <h1 className="text-2xl font-medium leading-[34px]">{listing.title}</h1>
             <div className="rounded-lg bg-[var(--accent-soft)] px-4 py-3.5">
               <strong className="text-[30px] leading-[42px] text-[var(--accent-strong)]">{formatPrice(listing.price)}</strong>

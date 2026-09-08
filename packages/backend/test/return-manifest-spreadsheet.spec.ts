@@ -9,8 +9,8 @@ const fixtureDirectory = resolve(process.cwd(), "docs/fixtures/return-import");
 describe("return manifest spreadsheet", () => {
   it("normalizes the CSV and XLSX fixtures to the same package drafts", async () => {
     const [csv, xlsx] = await Promise.all([
-      readFile(resolve(fixtureDirectory, "rebox-return-import-sample.csv")),
-      readFile(resolve(fixtureDirectory, "rebox-return-import-sample.xlsx"))
+      readFile(resolve(fixtureDirectory, "reboxe-return-import-sample.csv")),
+      readFile(resolve(fixtureDirectory, "reboxe-return-import-sample.xlsx"))
     ]);
 
     const csvPreview = await parseReturnManifestSpreadsheet("manifest.csv", csv);
@@ -23,7 +23,7 @@ describe("return manifest spreadsheet", () => {
   });
 
   it("groups by platform and tracking instead of SKU", async () => {
-    const fixture = (await readFile(resolve(fixtureDirectory, "rebox-return-import-sample.csv"), "utf8"))
+    const fixture = (await readFile(resolve(fixtureDirectory, "reboxe-return-import-sample.csv"), "utf8"))
       .replace("DEN-BAN-TRANG", "AO-DEN-M");
 
     const preview = await parseReturnManifestSpreadsheet("manifest.csv", Buffer.from(fixture));
@@ -33,7 +33,7 @@ describe("return manifest spreadsheet", () => {
   });
 
   it("marks every row in a package when repeated package fields conflict", async () => {
-    const fixture = (await readFile(resolve(fixtureDirectory, "rebox-return-import-sample.csv"), "utf8"))
+    const fixture = (await readFile(resolve(fixtureDirectory, "reboxe-return-import-sample.csv"), "utf8"))
       .replace(",930,35,25,15,https://example.test/mu-den.jpg", ",931,35,25,15,https://example.test/mu-den.jpg");
 
     const preview = await parseReturnManifestSpreadsheet("manifest.csv", Buffer.from(fixture));
@@ -44,7 +44,7 @@ describe("return manifest spreadsheet", () => {
   });
 
   it("rejects PII columns before producing a preview", async () => {
-    const fixture = await readFile(resolve(fixtureDirectory, "rebox-return-import-sample.csv"), "utf8");
+    const fixture = await readFile(resolve(fixtureDirectory, "reboxe-return-import-sample.csv"), "utf8");
     const withPii = fixture.replace("source_platform,", "buyer_phone,source_platform,")
       .replace("SHOPEE,", "0900000000,SHOPEE,");
 

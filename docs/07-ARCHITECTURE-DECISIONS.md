@@ -1,4 +1,4 @@
-# REBOX — Quyết định kiến trúc trước khi viết code
+# REBOXE — Quyết định kiến trúc trước khi viết code
 
 Phiên bản: 1.2
 Ngày cập nhật: 2026-09-04
@@ -22,7 +22,7 @@ Không tạo abstraction hoặc dependency chỉ để phục vụ một quyết
 - Đội kỹ thuật GĐ1 có hai người; ưu tiên một đường đi chạy được từ web tới database.
 - GĐ1 là **web-first**. Mobile và AI Triage chỉ giữ placeholder.
 - Tiền, đơn hàng và tranh chấp cần một nguồn sự thật giao dịch duy nhất.
-- Tiền bán hàng đi thẳng tới seller; REBOX không xây escrow cho tiền hàng.
+- Tiền bán hàng đi thẳng tới seller; REBOXE không xây escrow cho tiền hàng.
 - Ví ký quỹ và luồng hoàn tiền vẫn là vấn đề pháp lý có thể chặn ra mắt.
 - Một `ReturnPackage` nguyên kiện là một đơn vị tồn kho và có tối đa một listing hiệu lực; checkout phải khóa đúng package đó bằng transaction database.
 - Video là chứng cứ ưu tiên, không phải điều kiện để tiếp nhận khiếu nại.
@@ -67,7 +67,7 @@ packages/ui-tokens
                token giao diện; không chứa component web/native
 ```
 
-Đây là **một modular monolith về mã nghiệp vụ nhưng có ba runtime**. `api` và `worker` không phải hai microservice sở hữu hai bản nghiệp vụ khác nhau; chúng chỉ compose cùng `@rebox/backend` theo hai entry point.
+Đây là **một modular monolith về mã nghiệp vụ nhưng có ba runtime**. `api` và `worker` không phải hai microservice sở hữu hai bản nghiệp vụ khác nhau; chúng chỉ compose cùng `@reboxe/backend` theo hai entry point.
 
 Không hứa tái sử dụng component giữa Next.js và React Native. Phần thực sự dùng lại là schema, API client, hàm thuần và UI token.
 
@@ -115,7 +115,7 @@ Drizzle là ORM và chủ sở hữu migration application schema. Raw SQL migra
 
 - Web dùng Supabase Auth qua adapter `apps/web/src/platform/auth`.
 - NestJS xác minh access token theo issuer/audience/JWKS rồi ánh xạ claim `sub` sang profile nội bộ.
-- REBOX không lưu `password_hash`, không tự phát hành refresh token và không tự xây OTP.
+- REBOXE không lưu `password_hash`, không tự phát hành refresh token và không tự xây OTP.
 - Web không tự persist token vào Zustand/localStorage. Mobile sau này dùng secure storage của hệ điều hành.
 - Secret key hoặc legacy `service_role` chỉ tồn tại trong API/worker; không được bundle vào frontend. Supabase xác nhận khóa này bypass RLS nên phải coi là secret tuyệt đối.
 
@@ -258,8 +258,8 @@ Event auto-match phải là normalized `CREDIT` đã `FINAL/SETTLED`, đúng cur
 
 Production phải chọn và ghi thành policy version cho **từng scenario/fault party**, không được âm thầm trộn hai execution mode:
 
-- `PSP_CUSTODIAL`: PSP/rail được phép giữ/chi tiền; REBOX chỉ tạo refund payable/payout khi văn bản A10 xác nhận custody, funding source, refund rail và quyền sử dụng ký quỹ.
-- `SELLER_DIRECT`: seller trực tiếp hoàn buyer, nộp proof theo deadline; REBOX không ghi rằng mình đã trả buyer và chỉ reserve/capture deposit trong phạm vi Legal/hợp đồng cho phép.
+- `PSP_CUSTODIAL`: PSP/rail được phép giữ/chi tiền; REBOXE chỉ tạo refund payable/payout khi văn bản A10 xác nhận custody, funding source, refund rail và quyền sử dụng ký quỹ.
+- `SELLER_DIRECT`: seller trực tiếp hoàn buyer, nộp proof theo deadline; REBOXE không ghi rằng mình đã trả buyer và chỉ reserve/capture deposit trong phạm vi Legal/hợp đồng cho phép.
 
 Yêu cầu sản phẩm cho hai scenario `SELLER_CONFIRMATION_TIMEOUT` và `PICKUP_FAILURE` do seller là hoàn tự động từ ký quỹ seller, tức cần rail tương đương `PSP_CUSTODIAL`. Đây là quyết định nghiệp vụ mục tiêu, **không phải quyền bật production**: nếu A10/Legal chưa xác nhận PSP có quyền giữ và chi khoản ký quỹ cho buyer, hệ thống chỉ được chạy fake/sandbox hoặc chuyển sang review, tuyệt đối không tự chuyển tiền thật.
 
@@ -372,7 +372,7 @@ Tham chiếu kỹ thuật chính thức:
 
 ## 19. A16 — Grain kho hàng hoàn và storefront
 
-Một tracking xác định đúng một `ReturnPackage` trong phạm vi shop và platform. REBOX bán nguyên package đó, không mở kiện, không kiểm đếm và không sinh `ReturnUnit`. Một package có nhiều `ReturnLine`; các line chỉ là bản kê do CSV/API khai báo, không phải xác nhận vật lý.
+Một tracking xác định đúng một `ReturnPackage` trong phạm vi shop và platform. REBOXE bán nguyên package đó, không mở kiện, không kiểm đếm và không sinh `ReturnUnit`. Một package có nhiều `ReturnLine`; các line chỉ là bản kê do CSV/API khai báo, không phải xác nhận vật lý.
 
 Cardinality: `ReturnPackage 1→N ReturnLine`; `ReturnPackage 1→0..1 Listing` ở MVP. Sau scan, package có đúng một listing hiện hành. Listing có `availableQuantity = 1` khi package `AVAILABLE`, và bằng `0` khi `RESERVED`, `SOLD` hoặc `VOID`. Reserve/sale khóa package cụ thể. Package nhiều SKU hoặc một line có `source_quantity > 1` vẫn là một listing bán cả kiện.
 

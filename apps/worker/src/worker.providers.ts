@@ -1,5 +1,5 @@
 import type { Provider } from "@nestjs/common";
-import { CommerceModule, createDatabase, OutboxModule, type DatabaseContext } from "@rebox/backend";
+import { CommerceModule, createDatabase, OutboxModule, type DatabaseContext } from "@reboxe/backend";
 
 export const DATABASE = Symbol("DATABASE");
 export const OUTBOX = Symbol("OUTBOX");

@@ -1,5 +1,5 @@
 import { Controller, Get, Inject } from "@nestjs/common";
-import type { DatabaseContext } from "@rebox/backend";
+import type { DatabaseContext } from "@reboxe/backend";
 import { DATABASE } from "../../backend.providers";
 import { Public } from "../decorators/public";
 

@@ -11,7 +11,7 @@ for (const [status, message] of [
   ["PROCESSING", "Hồ sơ đang xử lý hoặc còn thiếu bước xác minh"],
   ["MANUAL_REVIEW", "Hồ sơ đang chờ nhân viên duyệt"],
   ["VERIFIED", "Bạn được phép đăng bán"],
-  ["REJECTED", "Vui lòng liên hệ hỗ trợ REBOX"]
+  ["REJECTED", "Vui lòng liên hệ hỗ trợ REBOXE"]
 ]) {
   test(`seller sees ${status} after reload without persisted KYC ID`, async ({ page }) => {
     await page.route("**/v1/me", (route) => route.fulfill({ json: {
@@ -53,7 +53,7 @@ for (const decision of ["APPROVE", "REJECT"] as const) {
     await page.goto("/admin/kyc");
     await page.getByRole("button", { name: queueItem.shopDisplayName }).click();
     await expect(page.getByText("********0001", { exact: true })).toBeVisible();
-    await page.screenshot({ path: `/tmp/rebox-admin-kyc-${decision}.png`, fullPage: true });
+    await page.screenshot({ path: `/tmp/reboxe-admin-kyc-${decision}.png`, fullPage: true });
     await page.getByLabel("Quyết định", { exact: true }).selectOption(decision);
     await page.getByRole("button", { name: "Gửi quyết định" }).click();
     expect(decisions).toBe(0);
@@ -102,7 +102,7 @@ test("unauthorized users cannot see admin records", async ({ page }) => {
 for (const enrolled of [false, true]) {
   test(`staff completes MFA with ${enrolled ? "an existing" : "a new"} TOTP factor`, async ({ page }) => {
     let verified = false;
-    const user = { id: "20000000-0000-4000-8000-000000000003", aud: "authenticated", role: "authenticated", email: "moderator@rebox.test",
+    const user = { id: "20000000-0000-4000-8000-000000000003", aud: "authenticated", role: "authenticated", email: "moderator@reboxe.test",
       app_metadata: {}, user_metadata: {}, identities: [], created_at: "2026-09-05T00:00:00Z",
       factors: enrolled ? [{ id: "factor-test", factor_type: "totp", status: "verified", created_at: "2026-09-05T00:00:00Z", updated_at: "2026-09-05T00:00:00Z" }] : [] };
     function session() {

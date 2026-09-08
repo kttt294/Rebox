@@ -1,4 +1,4 @@
-# REBOX - Luồng Backend chi tiết
+# REBOXE - Luồng Backend chi tiết
 
 Đọc kèm `01-TECHNICAL-SPEC.md` và quyết định canonical trong `07-ARCHITECTURE-DECISIONS.md`. Mỗi luồng gồm: sequence, ranh giới transaction, idempotency, và **error path**.
 
@@ -119,7 +119,7 @@ flowchart LR
 
 `SPREADSHEET` và `PLATFORM_API` là hai lựa chọn ngang hàng; không có thứ tự ưu tiên hoặc fallback tự động. Cả hai trả `ReturnManifestDraft[]` và dùng chung preview/validate/commit. Bản đầu chỉ implement CSV/XLSX; nút API chưa gọi backend cho tới khi đủ gate. Spreadsheet canonical có grain `ReturnLine`, nên nhiều dòng cùng tracking được nhóm thành một package. Các field cấp package lặp trên mọi dòng phải giống nhau. Dedupe package bằng `(shop_id, source_platform, source_tracking_hash)` và line bằng `(return_package_id, source_item_ref)`.
 
-`source_quantity` chỉ mô tả bản kê nguồn. REBOX không mở kiện, không có `received_quantity`, không sinh `ReturnUnit` và không tạo nhiều listing từ các line. Đăng thủ công là flow catalog riêng, không phải fallback tự động của scan-to-list.
+`source_quantity` chỉ mô tả bản kê nguồn. REBOXE không mở kiện, không có `received_quantity`, không sinh `ReturnUnit` và không tạo nhiều listing từ các line. Đăng thủ công là flow catalog riêng, không phải fallback tự động của scan-to-list.
 
 ### 2.2. Scan-to-list (luồng nhanh)
 
@@ -397,7 +397,7 @@ Reversal/correction của provider không được xử như một credit paymen
 | Tình huống                            | Xử lý                                                                                                                                                                                                                      |
 | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Buyer chuyển thiếu tiền               | Không confirm. Vào `payment_unmatched`; ops phối hợp seller hoàn/đối soát rồi buyer tạo checkout mới. MVP không hướng dẫn “chuyển bù” vì matching không cộng gộp nhiều event                                                               |
-| Buyer chuyển thừa                     | **Không confirm.** Toàn giao dịch vào `payment_unmatched`; ops xử lý vì REBOX không được tự suy diễn ý định buyer                                                                                                          |
+| Buyer chuyển thừa                     | **Không confirm.** Toàn giao dịch vào `payment_unmatched`; ops xử lý vì REBOXE không được tự suy diễn ý định buyer                                                                                                          |
 | Buyer chuyển sau hạn 12 giờ           | Order đã hủy và listing có thể được bán lại. Ghi `payment_unmatched`, không hồi sinh order; đối soát và hoàn theo workflow có kiểm soát                                                                                  |
 | Seller không xác nhận trong 12 giờ    | Có `PAYMENT_OBSERVED` thì hủy + full refund từ ký quỹ seller; không có bằng chứng chuyển tiền thì chỉ hủy; buyer tự khai nhưng chưa khớp thì review                                                                       |
 | Buyer quên nhập nội dung chuyển khoản | Vào `payment_unmatched`. Đối chiếu tay theo số tiền + thời gian + số tài khoản gửi                                                                                                                                         |
@@ -460,7 +460,7 @@ POST /webhooks/carrier/{carrierCode}
 2. [IDEM: carrier + providerEventId]; provider không có ID thì dùng HMAC của
    normalized tracking + status + eventTime, không log/persist raw tracking trong key
 3. Normalize tracking rồi lookup shipment bằng `(carrier_code, tracking_no_hash)`
-4. Map trạng thái ĐVVC → trạng thái REBOX (bảng ánh xạ riêng mỗi ĐVVC)
+4. Map trạng thái ĐVVC → trạng thái REBOXE (bảng ánh xạ riêng mỗi ĐVVC)
 5. Chỉ chấp nhận nếu tiến về phía trước trong state machine
    (webhook đến không đúng thứ tự là chuyện bình thường)
 6. Nếu provider hủy trước bàn giao với reason đã normalize = SELLER_NO_HANDOVER/PICKUP_FAILED:
@@ -781,7 +781,7 @@ Khi GĐ3 bật AI qua feature flag, panel sub-score/giải thích chỉ là thô
      Tổng refund ở mọi state effective của sub-order không vượt buyer_payable dưới lock.
   3. Snapshot `fault_party`, `refund_funder`, policy/config/tax version và
      `execution_mode` do gate A10 cho đúng scenario; combo chưa duyệt → reject BLOCKED.
-     Không suy "không phải seller" thành seller phải trả hoặc REBOX tự gánh.
+     Không suy "không phải seller" thành seller phải trả hoặc REBOXE tự gánh.
   4. Tạo refund idempotent theo (source_type, source_id):
        requireReturn → WAITING_RETURN và tạo reverse_shipment intent
        không return nhưng carrier cost chưa FINAL → WAITING_COST
@@ -827,7 +827,7 @@ COMMIT
 
 ```text
 PSP_CUSTODIAL
-  - Chỉ REBOX/PSP tạo BUYER_REFUND_PAYABLE và payout khi văn bản A10 xác nhận custody,
+  - Chỉ REBOXE/PSP tạo BUYER_REFUND_PAYABLE và payout khi văn bản A10 xác nhận custody,
     nguồn tài trợ, refund rail và quyền dùng deposit cho đúng scenario.
   - VietQR: dùng original rail/reference đã xác minh, không suy từ raw sender string.
   - COD: buyer step-up auth + ownership/name verification, snapshot recipient ref/hash.
@@ -835,11 +835,11 @@ PSP_CUSTODIAL
     `refund:{refund_id}`; mọi execute/query/webhook là attempt append-only của operation.
 
 SELLER_DIRECT
-  - Seller là bên hoàn buyer theo deadline; REBOX không tự tạo BUYER_REFUND_PAYABLE
+  - Seller là bên hoàn buyer theo deadline; REBOXE không tự tạo BUYER_REFUND_PAYABLE
     hoặc payout từ ký quỹ.
   - refund: SELLER_ACTION_REQUIRED → PROOF_REVIEW → VERIFIED | OVERDUE.
-  - REBOX chỉ reserve/capture deposit theo nghĩa vụ seller với REBOX nếu Legal/hợp đồng
-    cho phép; không diễn giải khoản đó là REBOX đã trả buyer.
+  - REBOXE chỉ reserve/capture deposit theo nghĩa vụ seller với REBOXE nếu Legal/hợp đồng
+    cho phép; không diễn giải khoản đó là REBOXE đã trả buyer.
 ```
 
 **Worker payout cho `PSP_CUSTODIAL`:**
@@ -875,7 +875,7 @@ POST /disputes/{id}/appeal  {reason}
   `additionalEvidence[]` hoặc object key tùy ý vào appeal request
 - Bắt buộc chuyển cho admin cấp cao hơn (khác người đã xử lý lần 1)
 - Không đi qua AI triage lần 2
-- Quyết định lần 2 là quyết định cuối cùng trong hệ thống REBOX
+- Quyết định lần 2 là quyết định cuối cùng trong hệ thống REBOXE
   (không loại trừ quyền khởi kiện của người tiêu dùng - phải ghi rõ trong thông báo)
 ```
 
@@ -916,17 +916,17 @@ Chỉ mở lại khi có ít nhất 5 shop thật yêu cầu. Không tạo OAuth
 ### 6.2. Đồng bộ tồn kho 2 chiều
 
 ```
-REBOX → ERP  (khi bán được hàng)
+REBOXE → ERP  (khi bán được hàng)
   webhook inventory.package_sold → ERP đánh dấu đúng kiện đã bán
 
-ERP → REBOX  (khi hàng được bán ở kênh khác)
+ERP → REBOXE  (khi hàng được bán ở kênh khác)
   POST /v1/inventory/sync {externalPackageRef, status: SOLD}
-  → REBOX map đúng ReturnPackage, không ghi counter vào Listing
+  → REBOXE map đúng ReturnPackage, không ghi counter vào Listing
   → package AVAILABLE chuyển SOLD; availableQuantity thành 0
   → package RESERVED: KHÔNG ghi đè, trả 409 + cảnh báo ERP
 ```
 
-**Xử lý xung đột:** REBOX là nguồn sự thật cho package đang `RESERVED` hoặc `SOLD`; ERP không được ghi đè. API ERP vẫn là GĐ4.
+**Xử lý xung đột:** REBOXE là nguồn sự thật cho package đang `RESERVED` hoặc `SOLD`; ERP không được ghi đè. API ERP vẫn là GĐ4.
 
 ### 6.3. Giao webhook
 
@@ -947,16 +947,16 @@ Sau 8 lần: status = FAILED, tắt endpoint sau 20 lần FAILED liên tiếp
 | Thao tác            | Khóa idempotency                                  | Nguồn khóa     |
 | ------------------- | ------------------------------------------------- | -------------- |
 | Nạp ký quỹ          | `topup:{psp_txn_id}`                              | PSP            |
-| Rút ký quỹ          | `withdraw:{withdrawal_id}`                        | REBOX          |
+| Rút ký quỹ          | `withdraw:{withdrawal_id}`                        | REBOXE          |
 | Checkout init       | `checkout:{client_uuid}`                          | Client gửi lên |
 | Quan sát chuyển khoản | `bankwh:{provider}:{account}:{bank_txn_id}`       | Bank hub       |
 | Seller xác nhận nhận tiền | `confirm-payment:{sub_order_id}:{client_uuid}` | Seller client  |
-| Hủy do quá 12 giờ   | `seller-confirm-timeout:{sub_order_id}`             | REBOX worker   |
+| Hủy do quá 12 giờ   | `seller-confirm-timeout:{sub_order_id}`             | REBOXE worker   |
 | Hủy do lấy hàng lỗi | `pickup-failure:{sub_order_id}:{provider_event_id}`  | ĐVVC           |
 | Webhook ĐVVC        | `carrier:{code}:{provider_event_id}`; fallback HMAC event tuple | ĐVVC |
-| Settle sub-order    | `settle:{sub_order_id}`                           | REBOX          |
-| Xử lý tranh chấp    | `resolve:{dispute_id}`                            | REBOX          |
-| Chi hoàn tiền       | `refund:{refund_id}`                              | REBOX          |
+| Settle sub-order    | `settle:{sub_order_id}`                           | REBOXE          |
+| Xử lý tranh chấp    | `resolve:{dispute_id}`                            | REBOXE          |
+| Chi hoàn tiền       | `refund:{refund_id}`                              | REBOXE          |
 
 **Quy tắc:** mọi handler nhận sự kiện từ bên ngoài phải lưu khóa **trước** khi xử lý, trong cùng transaction với thay đổi nghiệp vụ. Lưu sau khi xử lý là race condition kinh điển. Namespace provider key tối thiểu gồm provider/account/event ID để hai merchant account không va chạm.
 

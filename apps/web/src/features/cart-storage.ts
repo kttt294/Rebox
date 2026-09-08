@@ -1,6 +1,6 @@
 export type CartLine = { listingId: string; quantity: number };
 
-const cartStorageKey = "rebox.cart.v1";
+const cartStorageKey = "reboxe.cart.v1";
 
 function normalizeCart(value: unknown): CartLine[] {
   if (!Array.isArray(value)) return [];
@@ -26,7 +26,7 @@ export function readCart(): CartLine[] {
 
 export function writeCart(lines: CartLine[]): void {
   localStorage.setItem(cartStorageKey, JSON.stringify(normalizeCart(lines)));
-  window.dispatchEvent(new Event("rebox-cart-changed"));
+  window.dispatchEvent(new Event("reboxe-cart-changed"));
 }
 
 export function addCartItem(listingId: string): void {

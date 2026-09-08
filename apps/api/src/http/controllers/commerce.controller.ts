@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Headers, Inject, Param, Post } from "@nestjs/common";
-import { DomainError, type CommerceModule } from "@rebox/backend";
-import { checkoutInitSchema, sandboxPaySchema } from "@rebox/shared";
+import { DomainError, type CommerceModule } from "@reboxe/backend";
+import { checkoutInitSchema, sandboxPaySchema } from "@reboxe/shared";
 import { COMMERCE } from "../../backend.providers";
 import { CurrentActor } from "../decorators/current-actor";
 import type { Actor } from "../types/authenticated-request";

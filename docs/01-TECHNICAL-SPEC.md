@@ -1,4 +1,4 @@
-# REBOX - Technical Specification
+# REBOXE - Technical Specification
 
 Phiên bản 1.3 · Trạng thái: Baseline kỹ thuật MVP; A16 `ACCEPTED` · Quyết định canonical: `07-ARCHITECTURE-DECISIONS.md`
 
@@ -19,7 +19,7 @@ Mobile App, AI Triage tự động, live API Shopee/TikTok khi chưa đủ partn
 | #   | Ràng buộc                                               | Hệ quả kỹ thuật                                                  |
 | --- | ------------------------------------------------------- | ---------------------------------------------------------------- |
 | C1  | Một listing nguồn hàng hoàn bán đúng một `ReturnPackage` chưa mở | `availableQuantity` chỉ là 1/0 theo trạng thái package; checkout khóa package cụ thể |
-| C2  | Tiền bán hàng **không** đi qua REBOX                    | Không xây escrow tiền hàng; chỉ xây ledger ký quỹ                |
+| C2  | Tiền bán hàng **không** đi qua REBOXE                    | Không xây escrow tiền hàng; chỉ xây ledger ký quỹ                |
 | C3  | Phí sàn chỉ thu được từ ví ký quỹ                       | Ledger phải tuyệt đối chính xác, có kiểm toán                    |
 | C4  | Video khiếu nại là chứng cứ pháp lý                     | Lưu WORM, hash SHA-256, chain of custody, không sửa được         |
 | C5  | Supabase dùng region Singapore trong dev/staging         | Production cần legal gate về chuyển dữ liệu; không tuyên bố lưu tại VN |
@@ -37,7 +37,7 @@ flowchart TB
   WEB["Next.js web<br/>buyer · seller · admin"]
   API["NestJS API<br/>composition root"]
   WORKER["NestJS worker<br/>composition root"]
-  BACKEND["@rebox/backend<br/>6 module nghiệp vụ"]
+  BACKEND["@reboxe/backend<br/>6 module nghiệp vụ"]
 
   subgraph SUPA["Supabase · Singapore"]
     AUTH["Auth"]
@@ -67,7 +67,7 @@ flowchart TB
 
 ### 2.2. Nguyên tắc kiến trúc
 
-1. **Modular monolith, không microservices.** Một codebase nghiệp vụ trong `@rebox/backend`, được compose thành API và worker. Ranh giới module qua interface + domain event nội bộ.
+1. **Modular monolith, không microservices.** Một codebase nghiệp vụ trong `@reboxe/backend`, được compose thành API và worker. Ranh giới module qua interface + domain event nội bộ.
 2. **AI Triage là GĐ3.** Khi được kích hoạt mới tách Python runtime vì khác profile tài nguyên; MVP xử lý tranh chấp thủ công.
 3. **Không gọi HTTP bên ngoài trong DB transaction.** Lookup tương tác được phép gọi ngoài transaction với timeout/fallback; side effect không cần trả ngay đi qua PostgreSQL outbox.
 4. **Mọi thao tác tiền là idempotent** và ghi vào sổ cái kép. Không có ngoại lệ.
@@ -95,7 +95,7 @@ Tổ chức code kỷ luật ⇒ dùng lại **50–60%**. Không kỷ luật �
 
 Phương án **Expo + React Native Web** cho một codebase chạy cả web lẫn native, tái sử dụng ~85%. Đã cân nhắc và **loại**.
 
-Lý do: nó xuất ra SPA, Google index kém — trong khi kênh thu hút người mua của REBOX phụ thuộc vào việc tìm thấy trang sản phẩm qua tìm kiếm. Next.js SSR giải quyết việc đó.
+Lý do: nó xuất ra SPA, Google index kém — trong khi kênh thu hút người mua của REBOXE phụ thuộc vào việc tìm thấy trang sản phẩm qua tìm kiếm. Next.js SSR giải quyết việc đó.
 
 **Đánh đổi có ý thức:** mất ~35% khả năng tái sử dụng để giữ SEO. Với mô hình marketplace, đáng.
 
@@ -125,10 +125,10 @@ Web dùng Tailwind; mobile có thể dùng NativeWind ở GĐ3. Hai nền tảng
 ### 2.5. Cấu trúc monorepo — quyết định thật nằm ở đây
 
 ```
-rebox/
+reboxe/
 ├─ apps/
 │  ├─ api/          # NestJS
-│  ├─ worker/       # PostgreSQL outbox, dùng chung @rebox/backend với api
+│  ├─ worker/       # PostgreSQL outbox, dùng chung @reboxe/backend với api
 │  ├─ web/          # Next.js — buyer + seller + admin
 │  ├─ mobile/       # Expo — THÊM Ở GĐ3, để trống bây giờ
 │  └─ ai-triage/    # Python FastAPI — GĐ3
@@ -357,7 +357,7 @@ CREATE TABLE return_lines (
   variant_name          TEXT,
   brand                 TEXT,
   source_category       TEXT,
-  rebox_category_id     TEXT NOT NULL,
+  reboxe_category_id     TEXT NOT NULL,
   source_quantity       INT NOT NULL CHECK (source_quantity >= 1),
   original_price        BIGINT,          -- đơn giá nguồn, không phải tổng dòng
   return_reason         TEXT,
@@ -419,7 +419,7 @@ ReturnPackage 1 ── 0..1 Listing ở MVP
 
 Không gom tồn theo SKU hoặc product. Package có nhiều SKU vẫn là một listing bán cả kiện. `availableQuantity` không phải cột seller chỉnh: API trả `1` khi package `AVAILABLE`, ngược lại trả `0`. Khi reserve/mua, backend khóa và chuyển trạng thái package cụ thể.
 
-Ví dụ canonical: package `TRACK-001` có `LINE-01 / AO-DEN-M / source_quantity=3` và `LINE-02 / MU-DEN / source_quantity=1`. REBOX không mở kiện để xác nhận bốn món. Kết quả là 1 package, 2 dòng khai báo và đúng 1 listing/card có `availableQuantity=1`; buyer mua toàn bộ kiện.
+Ví dụ canonical: package `TRACK-001` có `LINE-01 / AO-DEN-M / source_quantity=3` và `LINE-02 / MU-DEN / source_quantity=1`. REBOXE không mở kiện để xác nhận bốn món. Kết quả là 1 package, 2 dòng khai báo và đúng 1 listing/card có `availableQuantity=1`; buyer mua toàn bộ kiện.
 
 **Dedupe và retry:**
 
@@ -444,9 +444,9 @@ Import lại cùng file dùng hai khóa trên để upsert idempotent, không t�
 
 #### 4.2.2. `price_source` — vì sao cần tách nguồn gốc giá
 
-Trần 90% chỉ có ý nghĩa khi `original_price` được tính từ bản kê API sàn hoặc CSV/XLSX seller tự xuất: tổng `source_quantity × original_price` của các line trong package. Con số này vẫn chỉ xác nhận dữ liệu nguồn, không xác nhận bên trong kiện có đủ hàng. Với listing tạo hoàn toàn thủ công, seller tự gõ cả `original_price` lẫn `price` — REBOX không có cách nào kiểm chứng con số gốc đó, nên ép trần 90% lên nó chỉ là ảo giác kiểm soát.
+Trần 90% chỉ có ý nghĩa khi `original_price` được tính từ bản kê API sàn hoặc CSV/XLSX seller tự xuất: tổng `source_quantity × original_price` của các line trong package. Con số này vẫn chỉ xác nhận dữ liệu nguồn, không xác nhận bên trong kiện có đủ hàng. Với listing tạo hoàn toàn thủ công, seller tự gõ cả `original_price` lẫn `price` — REBOXE không có cách nào kiểm chứng con số gốc đó, nên ép trần 90% lên nó chỉ là ảo giác kiểm soát.
 
-Nghiêm trọng hơn: hiển thị `original_price` gạch ngang kèm % giảm cho một con số REBOX không kiểm chứng là đưa ra **giá tham chiếu không có căn cứ** — hành vi cung cấp thông tin gây nhầm lẫn cho người tiêu dùng, và trách nhiệm thuộc về REBOX với tư cách bên xuất bản, không thuộc về seller.
+Nghiêm trọng hơn: hiển thị `original_price` gạch ngang kèm % giảm cho một con số REBOXE không kiểm chứng là đưa ra **giá tham chiếu không có căn cứ** — hành vi cung cấp thông tin gây nhầm lẫn cho người tiêu dùng, và trách nhiệm thuộc về REBOXE với tư cách bên xuất bản, không thuộc về seller.
 
 **Quy tắc bắt buộc, thực thi ở tầng API (không chỉ ở UI):**
 
@@ -458,9 +458,9 @@ Nghiêm trọng hơn: hiển thị `original_price` gạch ngang kèm % giảm c
 
 Endpoint public (`GET /listings/{id}`, danh sách tìm kiếm) **không serialize** `original_price` khi `price_source = SELLER_DECLARED`, kể cả khi cột đó có giá trị trong DB. Đây là quy tắc ở tầng response serializer, không phải quy ước ở frontend — tránh trường hợp một client khác (web, mobile, hoặc đối tác Public API) vô tình hiển thị con số chưa kiểm chứng.
 
-**Về tính cạnh tranh của giá (khác với tính xác thực của giá gốc, xem thêm `05-PHAP-LY` §5.3.1):** với `SELLER_DECLARED`, REBOX chỉ đảm bảo *không hiển thị mức giảm giả*, KHÔNG đảm bảo *giá bán có thực sự cạnh tranh so với thị trường*. Đây là giới hạn có chủ đích, không phải thiếu sót: không có nguồn dữ liệu độc lập nào để REBOX xác định "giá thị trường" của một món hàng tồn kho hay hàng hoàn tùy ý — bài toán này không nền tảng rao vặt nào giải được ở mức từng listing.
+**Về tính cạnh tranh của giá (khác với tính xác thực của giá gốc, xem thêm `05-PHAP-LY` §5.3.1):** với `SELLER_DECLARED`, REBOXE chỉ đảm bảo *không hiển thị mức giảm giả*, KHÔNG đảm bảo *giá bán có thực sự cạnh tranh so với thị trường*. Đây là giới hạn có chủ đích, không phải thiếu sót: không có nguồn dữ liệu độc lập nào để REBOXE xác định "giá thị trường" của một món hàng tồn kho hay hàng hoàn tùy ý — bài toán này không nền tảng rao vặt nào giải được ở mức từng listing.
 
-Quyết định thiết kế: để cơ chế lựa chọn của người mua tự điều tiết, đúng như mọi sàn rao vặt ngang hàng (Chợ Tốt, Facebook Marketplace) vận hành với listing không xác tín. Sản phẩm định giá không hợp lý sẽ khó bán, tạo áp lực buộc seller tự điều chỉnh giá cạnh tranh hơn. REBOX không chủ động can thiệp giá ở nhóm này, và **không đưa ra bất kỳ cam kết nào về mức độ cạnh tranh của giá** cho listing `SELLER_DECLARED` trong Quy chế sàn lẫn nội dung truyền thông — hệ quả trực tiếp: mọi tuyên bố "giá thấp hơn thị trường" ở bất kỳ đâu (UI, tài liệu, marketing) phải giới hạn phạm vi rõ ràng cho nhóm `VERIFIED_*`, không được diễn đạt như áp dụng cho toàn sàn.
+Quyết định thiết kế: để cơ chế lựa chọn của người mua tự điều tiết, đúng như mọi sàn rao vặt ngang hàng (Chợ Tốt, Facebook Marketplace) vận hành với listing không xác tín. Sản phẩm định giá không hợp lý sẽ khó bán, tạo áp lực buộc seller tự điều chỉnh giá cạnh tranh hơn. REBOXE không chủ động can thiệp giá ở nhóm này, và **không đưa ra bất kỳ cam kết nào về mức độ cạnh tranh của giá** cho listing `SELLER_DECLARED` trong Quy chế sàn lẫn nội dung truyền thông — hệ quả trực tiếp: mọi tuyên bố "giá thấp hơn thị trường" ở bất kỳ đâu (UI, tài liệu, marketing) phải giới hạn phạm vi rõ ràng cho nhóm `VERIFIED_*`, không được diễn đạt như áp dụng cho toàn sàn.
 
 ```sql
 -- ========== ĐƠN HÀNG ==========
@@ -1078,16 +1078,16 @@ Khóa cấu hình bắt buộc:
 | `SHOP_UNMATCHED_RESERVE`      | Liability projection           | Phần tạm chặn rút do payment unmatched; chỉ dùng nếu A10/Legal cho phép |
 | `SHOP_DEBT`                   | Receivable projection          | Nghĩa vụ vượt hold; materialized balance vẫn không âm |
 | `PLATFORM_COMMISSION_REVENUE` | Doanh thu                      | Hoa hồng đã ghi nhận           |
-| `PLATFORM_SHIPPING_EXPENSE`   | Chi phí                        | Phần ship REBOX gánh           |
-| `PLATFORM_SHIPPING_RECOVERY`  | Khoản bù chi phí               | Phí ship buyer đã chuyển cho seller và REBOX thu lại |
+| `PLATFORM_SHIPPING_EXPENSE`   | Chi phí                        | Phần ship REBOXE gánh           |
+| `PLATFORM_SHIPPING_RECOVERY`  | Khoản bù chi phí               | Phí ship buyer đã chuyển cho seller và REBOXE thu lại |
 | `PLATFORM_PROMO_EXPENSE`      | Chi phí                        | Bù ship/promotion khi feature tương ứng được duyệt |
 | `BUYER_REFUND_PAYABLE`        | Nợ phải trả                    | Đã duyệt hoàn nhưng chưa chi   |
 | `CARRIER_CLAIM_RECEIVABLE`    | Khoản phải thu                 | Nghĩa vụ đang đòi ĐVVC bồi hoàn |
-| `PLATFORM_REFUND_EXPENSE`     | Chi phí                        | REBOX chịu nghĩa vụ do lỗi platform/policy đã duyệt |
-| `SETTLEMENT_ASSET:*`          | Tài sản/clearing tạm thời      | Account theo provider/account/currency; chỉ map thành ngân hàng REBOX nếu A10 duyệt mô hình đó |
+| `PLATFORM_REFUND_EXPENSE`     | Chi phí                        | REBOXE chịu nghĩa vụ do lỗi platform/policy đã duyệt |
+| `SETTLEMENT_ASSET:*`          | Tài sản/clearing tạm thời      | Account theo provider/account/currency; chỉ map thành ngân hàng REBOXE nếu A10 duyệt mô hình đó |
 | `CARRIER_PAYABLE`             | Nợ phải trả                    | Phải trả ĐVVC                  |
 
-Đây là **operational subledger**, không phải sổ kế toán pháp định. Tên loại tài khoản và mapping sang PSP/ngân hàng/custody thực tế phải được A10 cùng kế toán/Legal duyệt; không mặc định tài sản settlement thuộc một tài khoản ngân hàng REBOX.
+Đây là **operational subledger**, không phải sổ kế toán pháp định. Tên loại tài khoản và mapping sang PSP/ngân hàng/custody thực tế phải được A10 cùng kế toán/Legal duyệt; không mặc định tài sản settlement thuộc một tài khoản ngân hàng REBOXE.
 
 **Bất biến hệ thống:** với mọi `ledger_transaction`, `SUM(ledger_postings.amount) = 0`. Ordinary `CHECK` không kiểm tra được nhiều row; implementation dùng posting function/finalize step hoặc deferred constraint trigger và chỉ đánh dấu `POSTED` khi cân bằng. Job đối soát là lưới an toàn, không thay thế invariant lúc ghi.
 
@@ -1115,7 +1115,7 @@ HOLD_RELEASE  (release phần hold còn lại sau capture)
   +195.000    SHOP_DEPOSIT_LOCKED
   -195.000    SHOP_DEPOSIT_AVAILABLE
 
-REFUND_APPROVED_PSP_CUSTODIAL  (chỉ khi A10 chốt REBOX/PSP có rail hợp lệ)
+REFUND_APPROVED_PSP_CUSTODIAL  (chỉ khi A10 chốt REBOXE/PSP có rail hợp lệ)
   +150.000    SHOP_DEPOSIT_LOCKED        (dùng tiền đóng băng)
   -150.000    BUYER_REFUND_PAYABLE
   ; phần hold còn lại release về available
@@ -1154,7 +1154,7 @@ WITHDRAWAL_FAILED  (PSP thất bại, trả lại số khả dụng)
   -500.000    SHOP_DEPOSIT_AVAILABLE
 ```
 
-`REFUND_APPROVED_PSP_CUSTODIAL` ở trên là ví dụ **có điều kiện**, không phải dòng tiền đã chốt. Với `SELLER_DIRECT`, seller tự hoàn buyer và REBOX theo dõi deadline/proof; REBOX không tự ghi `BUYER_REFUND_PAYABLE` hoặc payout từ ký quỹ. Nếu lỗi ĐVVC/platform, nguồn tài trợ phải snapshot rõ: carrier fault dùng `CARRIER_CLAIM_RECEIVABLE` (REBOX chỉ front nếu policy cho phép), platform fault dùng `PLATFORM_REFUND_EXPENSE`; không mặc định debit seller. Mapping pháp định và dấu Nợ/Có cuối cùng phải được kế toán chốt cùng A10.
+`REFUND_APPROVED_PSP_CUSTODIAL` ở trên là ví dụ **có điều kiện**, không phải dòng tiền đã chốt. Với `SELLER_DIRECT`, seller tự hoàn buyer và REBOXE theo dõi deadline/proof; REBOXE không tự ghi `BUYER_REFUND_PAYABLE` hoặc payout từ ký quỹ. Nếu lỗi ĐVVC/platform, nguồn tài trợ phải snapshot rõ: carrier fault dùng `CARRIER_CLAIM_RECEIVABLE` (REBOXE chỉ front nếu policy cho phép), platform fault dùng `PLATFORM_REFUND_EXPENSE`; không mặc định debit seller. Mapping pháp định và dấu Nợ/Có cuối cùng phải được kế toán chốt cùng A10.
 
 `commission_amount` hiện là số gross theo policy sản phẩm, chưa phải doanh thu net đã chốt thuế. Trước tiền thật, Tax/Accounting phải quyết định gross/net, VAT/hóa đơn và nghĩa vụ khấu trừ; snapshot `tax_rule_version` trong `fee_snapshot`, rồi split posting sang revenue/tax payable nếu áp dụng. Ví dụ `COMMISSION_CHARGE` ở đây chỉ là operational model provisional, không thay sổ kế toán/hóa đơn điện tử.
 
@@ -1319,7 +1319,7 @@ UI đích có hai nút ngang hàng: **Import trực tiếp từ Shopee/TikTok** 
 
 #### 7.1.1. Mô hình truy cập: IMPORT DO SELLER CHỦ ĐỘNG, không đồng bộ nền
 
-> **Quyết định kiến trúc.** Không có tiến trình nền sao chép toàn bộ đơn hoàn. Seller phải chủ động mở màn hình import, chọn sàn và chọn một tập đơn hoàn hoặc khoảng thời gian có giới hạn trước khi REBOX đọc dữ liệu.
+> **Quyết định kiến trúc.** Không có tiến trình nền sao chép toàn bộ đơn hoàn. Seller phải chủ động mở màn hình import, chọn sàn và chọn một tập đơn hoàn hoặc khoảng thời gian có giới hạn trước khi REBOXE đọc dữ liệu.
 
 ```
 Nút Shopee/TikTok → chọn phạm vi hữu hạn → lấy danh sách tối thiểu
@@ -1332,7 +1332,7 @@ Nút CSV/XLSX → tải file → parse + allowlist → cùng preview
 
 Danh sách khám phá tạm thời từ API chỉ giữ các định danh tối thiểu cần chọn đơn và không được ghi như một bản sao đơn hàng. Chỉ các manifest seller xác nhận commit mới được lưu. Scan shipper label là bước sau import và chỉ tra dữ liệu local đã commit; scan không tự gọi API và không tự đổi sang nguồn khác.
 
-**Giới hạn phải nói đúng:** OAuth của Shopee/TikTok cấp quyền ở **tầng shop theo scope**, không giới hạn kỹ thuật theo từng đơn. Phạm vi import hữu hạn là **REBOX tự giới hạn mình**, phải được thực thi bằng code, allowlist, audit và giao diện minh bạch; không được quảng cáo rằng seller kiểm soát tuyệt đối dữ liệu API có thể đọc.
+**Giới hạn phải nói đúng:** OAuth của Shopee/TikTok cấp quyền ở **tầng shop theo scope**, không giới hạn kỹ thuật theo từng đơn. Phạm vi import hữu hạn là **REBOXE tự giới hạn mình**, phải được thực thi bằng code, allowlist, audit và giao diện minh bạch; không được quảng cáo rằng seller kiểm soát tuyệt đối dữ liệu API có thể đọc.
 
 #### 7.1.2. Hai kênh, một pipeline
 
@@ -1373,7 +1373,7 @@ Abstraction bắt buộc: `CarrierAdapter` với các phương thức `quote()`,
 | `DELIVERED`        | Ghi `delivered_at`, tính `claim_deadline_at`, đặt job settle tại thời điểm đó                                                                                                             |
 | Đối soát           | Job hằng ngày cập nhật đúng `shipments(direction).actual_cost/cost_status/source_ref` và settlement fields; outbound/return finalize độc lập, cảnh báo lệch ước tính >20% |
 
-**Vấn đề COD cần chốt với ĐVVC:** hợp đồng phải quy định ĐVVC **chi hộ trực tiếp về tài khoản seller**, không qua tài khoản REBOX. Nếu tiền COD về tài khoản REBOX rồi mới chuyển cho seller thì REBOX đang thực hiện hoạt động thu hộ/chi hộ - xem `05-PHAP-LY` §2. Mỗi shipment phải snapshot `settlement_mode` và đối soát `gross_collected`, `carrier_fee`, `other_deductions`, `net_remitted`, `beneficiary_ref_hash`. Chỉ ghi shipping recovery + carrier payable theo ví dụ §5 khi hợp đồng xác nhận mô hình **gross về seller, ĐVVC xuất hóa đơn/thu riêng**; nếu ĐVVC remit net sau khấu trừ thì adapter/mapping ledger A10 phải dùng ma trận khác để không double-charge seller.
+**Vấn đề COD cần chốt với ĐVVC:** hợp đồng phải quy định ĐVVC **chi hộ trực tiếp về tài khoản seller**, không qua tài khoản REBOXE. Nếu tiền COD về tài khoản REBOXE rồi mới chuyển cho seller thì REBOXE đang thực hiện hoạt động thu hộ/chi hộ - xem `05-PHAP-LY` §2. Mỗi shipment phải snapshot `settlement_mode` và đối soát `gross_collected`, `carrier_fee`, `other_deductions`, `net_remitted`, `beneficiary_ref_hash`. Chỉ ghi shipping recovery + carrier payable theo ví dụ §5 khi hợp đồng xác nhận mô hình **gross về seller, ĐVVC xuất hóa đơn/thu riêng**; nếu ĐVVC remit net sau khấu trừ thì adapter/mapping ledger A10 phải dùng ma trận khác để không double-charge seller.
 
 ### 7.3. Thanh toán — `BLOCKED` tới khi PSP/Legal duyệt
 
@@ -1382,7 +1382,7 @@ Abstraction bắt buộc: `CarrierAdapter` với các phương thức `quote()`,
 | VietQR động         | Sinh QR theo chuẩn NAPAS VietQR trỏ về **tài khoản của seller**, `addInfo` chứa mã đối soát `RBX<subOrderId>` | Cần seller liên kết & xác thực tài khoản                                  |
 | Quan sát chuyển khoản | Webhook biến động số dư từ bank hub/PSP đối chiếu `amount` + `addInfo`, ghi `PAYMENT_OBSERVED` nhưng **không** tự mở fulfillment | **Không tin client**; chỉ tin event đã verify chữ ký |
 | Xác nhận nhận tiền  | Seller bấm xác nhận trên đơn; API ghi actor/time/audit và chuyển đơn sang `CONFIRMED`                         | Chỉ sau bước này mới được tạo vận đơn/bàn giao ĐVVC |
-| Nạp ký quỹ          | Qua PSP có giấy phép về tài khoản REBOX                                                                       | Đây là tiền REBOX giữ hộ ⇒ tài khoản phải tách biệt (xem `05-PHAP-LY` §2) |
+| Nạp ký quỹ          | Qua PSP có giấy phép về tài khoản REBOXE                                                                       | Đây là tiền REBOXE giữ hộ ⇒ tài khoản phải tách biệt (xem `05-PHAP-LY` §2) |
 | Chi hoàn tiền buyer | Payout API của PSP; timeout 12 giờ hoặc pickup failure dùng full `buyer_payable` khi có bằng chứng đã chuyển | Capture từ hold/ký quỹ seller; production vẫn chờ A10/Legal               |
 | Rút ký quỹ          | Payout API, có hạn mức + xác thực 2 lớp + delay 24h với lệnh lớn                                              | Chống chiếm đoạt tài khoản                                                |
 
@@ -1391,12 +1391,12 @@ Abstraction bắt buộc: `CarrierAdapter` với các phương thức `quote()`,
 ### 7.4. Public API cho KiotViet / Sapo (GĐ4 — deferred)
 
 ```
-Base: https://api.rebox.vn/v1
+Base: https://api.reboxe.vn/v1
 Auth: OAuth2 client_credentials, scope: returns:read listings:write inventory:sync
 Rate: 600 req/phút/client, trả 429 kèm Retry-After
 
 GET    /returns?since=&cursor=&limit=        # danh sách hàng hoàn
-POST   /returns                              # ERP đẩy hàng hoàn sang REBOX
+POST   /returns                              # ERP đẩy hàng hoàn sang REBOXE
 GET    /listings/{id}
 POST   /listings                             # tạo listing từ ERP
 PATCH  /listings/{id}                        # đổi giá, gỡ bán
@@ -1413,7 +1413,7 @@ POST   /inventory/sync                       # đồng bộ 2 chiều tồn kho
 | `order.completed`  | chốt doanh thu                                              |
 | `dispute.resolved` | kết quả xử lý                                               |
 
-Ký: `X-Rebox-Signature: t=<ts>,v1=<HMAC_SHA256(secret, ts + "." + body)>`. Từ chối request có `ts` lệch >5 phút. Retry: 8 lần, backoff 10s → 24h. Có endpoint replay thủ công cho đối tác.
+Ký: `X-Reboxe-Signature: t=<ts>,v1=<HMAC_SHA256(secret, ts + "." + body)>`. Từ chối request có `ts` lệch >5 phút. Retry: 8 lần, backoff 10s → 24h. Có endpoint replay thủ công cho đối tác.
 
 ---
 
@@ -1454,7 +1454,7 @@ Với mỗi keyframe:
   a. FACE      phát hiện + làm mờ TẤT CẢ khuôn mặt
                (không phân biệt được đâu là buyer, đâu là người thân → che hết)
   b. LABEL     phát hiện vùng NHÃN VẬN ĐƠN → che toàn bộ vùng
-               ⚠ RỦI RO ĐẶC THÙ CAO NHẤT CỦA REBOX:
+               ⚠ RỦI RO ĐẶC THÙ CAO NHẤT CỦA REBOXE:
                  seller tái sử dụng thùng còn nhãn đơn Shopee cũ
                  → lộ tên/SĐT/địa chỉ của người mua khác, hoàn toàn vô can
                ⚠ Phải che CẢ MÃ VẠCH VÀ QR, không chỉ dãy số.
@@ -1533,7 +1533,7 @@ Mục tiêu kiểm thử v1: 10.000 đơn/tháng, 50.000 listing active, 200 CCU
 
 | Hạng mục         | Yêu cầu                                                                                                        |
 | ---------------- | -------------------------------------------------------------------------------------------------------------- |
-| Authentication   | Supabase Auth sở hữu credential, OTP và session; REBOX không lưu password/refresh token                        |
+| Authentication   | Supabase Auth sở hữu credential, OTP và session; REBOXE không lưu password/refresh token                        |
 | Token API        | NestJS verify Supabase access token theo issuer/audience/JWKS; không tin role do client tự gửi                 |
 | Dữ liệu nhạy cảm | CCCD, số tài khoản, địa chỉ, mã vận đơn: **AES-256-GCM tầng ứng dụng**, key trong KMS, xoay key hằng năm       |
 | Quyền            | Membership/capability + kiểm tra ownership trong NestJS/repository; RLS và grant là defense-in-depth           |

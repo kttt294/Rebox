@@ -56,7 +56,7 @@ export default function LoginPage() {
           <OrDivider />
           <SocialLogin />
           <AuthTerms action="đăng nhập" />
-          <p className="text-center text-[13px] text-[var(--muted)]">Bạn mới biết đến REBOX? <Link className="ml-1 text-[var(--accent)] hover:underline" href="/register">Đăng ký</Link></p>
+          <p className="text-center text-[13px] text-[var(--muted)]">Bạn mới biết đến REBOXE? <Link className="ml-1 text-[var(--accent)] hover:underline" href="/register">Đăng ký</Link></p>
         </form>
       </AuthBody>
     </div>

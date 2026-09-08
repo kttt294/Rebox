@@ -1,8 +1,8 @@
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
-import type { OutboxModule } from "@rebox/backend";
+import type { OutboxModule } from "@reboxe/backend";
 import { OUTBOX } from "./worker.providers";
 import { COMMERCE } from "./worker.providers";
-import type { CommerceModule } from "@rebox/backend";
+import type { CommerceModule } from "@reboxe/backend";
 
 @Injectable()
 export class OutboxConsumer implements OnModuleInit, OnModuleDestroy {

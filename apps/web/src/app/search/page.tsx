@@ -14,7 +14,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Searc
 
   return (
     <main className="min-h-[760px] bg-[var(--paper)] px-4 py-6 sm:px-6 xl:px-0">
-      <div className="rebox-container">
+      <div className="reboxe-container">
         <form action="/search" className="mb-6 grid gap-3 rounded-lg border border-[var(--line)] bg-white p-4 sm:grid-cols-[1fr_220px_180px_auto]">
           <input aria-label="Từ khóa" className="rounded-md border border-[var(--line)] px-3 py-2" defaultValue={query.q} name="q" placeholder="Tìm sản phẩm" type="search" />
           <input aria-label="Danh mục" className="rounded-md border border-[var(--line)] px-3 py-2" defaultValue={query.category} name="category" placeholder="Mã danh mục" />

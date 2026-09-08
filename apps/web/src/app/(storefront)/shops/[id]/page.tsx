@@ -42,7 +42,7 @@ export default async function ShopDetailPage({
   return (
     <main>
       <section className="bg-white px-4 pt-[22px] sm:px-6 xl:px-0">
-        <div className="rebox-container">
+        <div className="reboxe-container">
           <div className="grid gap-5 pb-5 lg:grid-cols-[430px_1fr] lg:gap-[30px]">
             <div className="flex min-h-[148px] gap-4 rounded-xl bg-[var(--accent-header)] p-5 text-white">
               {shop?.avatarUrl ? (
@@ -52,7 +52,7 @@ export default async function ShopDetailPage({
               )}
               <div className="min-w-0">
                 <h1 className="truncate text-xl font-bold">{shopName ?? "Cửa hàng"}</h1>
-                {shop?.verified ? <p className="mt-1 text-[11px] font-medium">REBOX CERTIFIED</p> : null}
+                {shop?.verified ? <p className="mt-1 text-[11px] font-medium">REBOXE CERTIFIED</p> : null}
                 <p className="mt-1 text-xs text-white/80">{shop ? "Đang hoạt động" : "Không thể tải thông tin cửa hàng"}</p>
                 {shop?.description ? <p className="mt-1 line-clamp-1 text-xs text-white/80">{shop.description}</p> : null}
                 <div className="mt-2 flex gap-2">
@@ -75,7 +75,7 @@ export default async function ShopDetailPage({
       </section>
 
       <section className="min-h-[620px] bg-[var(--paper)] px-4 pb-10 pt-5 sm:px-6 xl:px-0">
-        <div className="rebox-container">
+        <div className="reboxe-container">
           <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--line)] bg-white p-4 text-xs">
             <span className="mr-2 text-[var(--muted)]">Danh mục</span>
             <Link className={`rounded-md px-3 py-2 ${!query.category ? "bg-[var(--accent)] text-white" : "border border-[var(--line)]"}`} href={`/shops/${id}`}>Tất cả</Link>

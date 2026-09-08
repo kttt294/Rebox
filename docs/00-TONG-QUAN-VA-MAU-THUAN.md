@@ -1,6 +1,6 @@
-# REBOX - Tổng quan thiết kế hệ thống & Rà soát tài liệu gốc
+# REBOXE - Tổng quan thiết kế hệ thống & Rà soát tài liệu gốc
 
-> Nguồn lịch sử: `REBOX.docx` (bản mô tả dự án) + prototype trong `docs/REBOX-UI/`.
+> Nguồn lịch sử: `REBOXE.docx` (bản mô tả dự án) + prototype trong `docs/REBOXE-UI/`.
 >
 > Trạng thái: các mâu thuẫn kỹ thuật trong file này đã được hòa giải tại `07-ARCHITECTURE-DECISIONS.md`. File `07` là nguồn canonical nếu nội dung lịch sử dưới đây khác quyết định hiện hành.
 
@@ -22,7 +22,7 @@ Bộ tài liệu chính được đánh số từ `00` đến `08`:
 
 ## 1. Tóm tắt mô hình (đã chuẩn hóa từ tài liệu gốc)
 
-REBOX là **nền tảng TMĐT B2B2C bán lại nguyên kiện hàng hoàn chưa mở kiểm tra**.
+REBOXE là **nền tảng TMĐT B2B2C bán lại nguyên kiện hàng hoàn chưa mở kiểm tra**.
 
 **Ba tác nhân:**
 
@@ -30,7 +30,7 @@ REBOX là **nền tảng TMĐT B2B2C bán lại nguyên kiện hàng hoàn chưa
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | **Seller** (chủ shop / tổng kho TMĐT) | Có kiện hoàn từ Shopee/TikTok Shop. Chủ động nhập bản kê bằng kết nối sàn hoặc CSV/XLSX, sau đó quét mã vận đơn để tạo listing bán nguyên kiện mà không mở/đếm/nhập từng món. Nộp ký quỹ, chịu khấu trừ phí sàn 20%. |
 | **Buyer** (người tiêu dùng)           | Săn hàng thanh lý giá rẻ. Thanh toán VietQR hoặc COD. Quay video khui hộp làm chứng cứ khiếu nại.                               |
-| **Admin REBOX**                       | GĐ1 phân xử tranh chấp thủ công, vận hành rủi ro và kiểm duyệt nội dung; AI Triage chỉ là target GĐ3.                           |
+| **Admin REBOXE**                       | GĐ1 phân xử tranh chấp thủ công, vận hành rủi ro và kiểm duyệt nội dung; AI Triage chỉ là target GĐ3.                           |
 
 **Ba trụ cột công nghệ tạo khác biệt:**
 
@@ -38,7 +38,7 @@ REBOX là **nền tảng TMĐT B2B2C bán lại nguyên kiện hàng hoàn chưa
 2. **Deposit Wallet + Fund Hold** - ký quỹ, đóng băng theo giá trị đơn, chỉ ghi nhận phí khi đơn hoàn tất, tự động ẩn listing khi số dư không đủ. Đây không phải escrow tiền hàng.
 3. **Claims có chain of custody** - GĐ1 tiếp nhận evidence và phân xử thủ công; AI Triage/auto-approve chỉ được cân nhắc ở GĐ3 sau eval và legal gate.
 
-**Dòng tiền đặc thù (khác biệt lớn nhất so với Shopee):** tiền bán hàng đi **thẳng** từ người mua về tài khoản ngân hàng của shop (VietQR động), hoặc từ ĐVVC về shop (COD 24–48h). Tiền **không** nằm lại tài khoản REBOX. Với chuyển khoản, seller phải bấm xác nhận đã nhận tiền thì đơn mới được chuyển sang bước bàn giao cho ĐVVC. Nếu quá 12 giờ từ lúc đặt đơn mà seller chưa xác nhận, hệ thống hủy đơn; chỉ khi giao dịch chuyển khoản đã được đối chiếu là thực sự phát sinh thì hệ thống mới tạo hoàn tiền cho buyer và khấu trừ đúng số tiền buyer đã trả từ ký quỹ seller. Quy tắc hoàn tương tự áp dụng khi seller đã xác nhận tiền nhưng không bàn giao hàng và ĐVVC hủy vì lấy hàng thất bại. REBOX thu phí bằng cách **trừ vào ví ký quỹ** của seller.
+**Dòng tiền đặc thù (khác biệt lớn nhất so với Shopee):** tiền bán hàng đi **thẳng** từ người mua về tài khoản ngân hàng của shop (VietQR động), hoặc từ ĐVVC về shop (COD 24–48h). Tiền **không** nằm lại tài khoản REBOXE. Với chuyển khoản, seller phải bấm xác nhận đã nhận tiền thì đơn mới được chuyển sang bước bàn giao cho ĐVVC. Nếu quá 12 giờ từ lúc đặt đơn mà seller chưa xác nhận, hệ thống hủy đơn; chỉ khi giao dịch chuyển khoản đã được đối chiếu là thực sự phát sinh thì hệ thống mới tạo hoàn tiền cho buyer và khấu trừ đúng số tiền buyer đã trả từ ký quỹ seller. Quy tắc hoàn tương tự áp dụng khi seller đã xác nhận tiền nhưng không bàn giao hàng và ĐVVC hủy vì lấy hàng thất bại. REBOXE thu phí bằng cách **trừ vào ví ký quỹ** của seller.
 
 **Guard bắt buộc:** nút “Đã chuyển khoản” của buyer chỉ là khai báo, không đủ để tự động chi tiền. Việc “buyer đã chuyển khoản” phải được chứng minh bởi giao dịch provider/bank-hub khớp chính xác hoặc xác nhận nhận tiền của seller. Cơ chế dùng ký quỹ để payout cho buyer vẫn bị chặn ở production cho tới khi A10/Legal xác nhận mô hình và PSP hợp lệ.
 
@@ -53,7 +53,7 @@ REBOX là **nền tảng TMĐT B2B2C bán lại nguyên kiện hàng hoàn chưa
 | #   | Chỉ số                          | Nơi A                                                                               | Nơi B                                                                                             | Kết luận canonical                                                                                                                                                                                                                                                            |
 | --- | ------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | M1  | **Ký quỹ tối thiểu**            | "MÔ TẢ NHANH": **2.000.000đ**                                                       | Mục 3.2b: **100.000đ**                                                                            | **100.000đ để kích hoạt shop; không tier, không công thức AOV động ở MVP.** Giá trị nằm trong config có hiệu lực theo thời gian.                                                                                                                                              |
-| M2  | **Phân dòng tiền online**       | Mục 3.3a: "**100%** giá trị đơn chuyển thẳng vào TK shop"                           | UI mock buyer: "**96%** về Shop / **4%** phí tạm thu"                                             | Chốt**100% về shop**, phí thu qua ví ký quỹ. Sửa UI mock. Nếu chọn 96/4 thì REBOX **đang giữ tiền người khác** → kích hoạt nghĩa vụ giấy phép trung gian thanh toán (xem `05-PHAP-LY` §2).                                                                                   |
+| M2  | **Phân dòng tiền online**       | Mục 3.3a: "**100%** giá trị đơn chuyển thẳng vào TK shop"                           | UI mock buyer: "**96%** về Shop / **4%** phí tạm thu"                                             | Chốt**100% về shop**, phí thu qua ví ký quỹ. Sửa UI mock. Nếu chọn 96/4 thì REBOXE **đang giữ tiền người khác** → kích hoạt nghĩa vụ giấy phép trung gian thanh toán (xem `05-PHAP-LY` §2).                                                                                   |
 | M3  | **Ngưỡng hư hỏng để hoàn tiền** | Mục 3.2c: "**>40%**"                                                                | UI mock buyer: "khác trên **30%**"                                                               | Chốt mặc định **30%**, lưu trong `system_configs`; snapshot giá trị áp dụng vào vụ việc.                                                                                                                                                                                      |
 | M4  | **Đơn/ngày tại điểm hòa vốn**   | Mục 6.2: "500 đơn/tháng ⇒**19–17 đơn/ngày**"                                        | 500 / 30 =**16,7**                                                                                | Sửa thành ~17 đơn/ngày.                                                                                                                                                                                                                                                      |
 | M5  | **Chi phí cố định GĐ2**         | Bảng tóm tắt: FC2 = **90.000.000**/6 tháng                                          | Mục 6.1: 5.000.000/tháng ⇒ **30.000.000**/6 tháng                                                 | Hai con số cũ đều **retired** sau khi chuyển sang Supabase. Lập lại bảng giá từ quotation tại thời điểm mua; không dùng chúng làm ngân sách phê duyệt.                                                                                                                        |
@@ -68,7 +68,7 @@ REBOX là **nền tảng TMĐT B2B2C bán lại nguyên kiện hàng hoàn chưa
 
 Khi khiếu nại lỗi shop được duyệt, shop phải chịu: hoàn 100% giá trị hàng + hoàn phí ship 15.000đ buyer đã trả + phí ship lượt đi thực tế + phí ship hoàn về. Tổng có thể vượt xa `120% × item_total`.
 
-Ví dụ đơn 50.000đ ⇒ hold 60.000đ, nhưng chi phí thực = 50.000 (hàng) + 15.000 (ship buyer) + 22.000 (ship đi) + 22.000 (ship về) = **109.000đ**. Thiếu 49.000đ, REBOX gánh.
+Ví dụ đơn 50.000đ ⇒ hold 60.000đ, nhưng chi phí thực = 50.000 (hàng) + 15.000 (ship buyer) + 22.000 (ship đi) + 22.000 (ship về) = **109.000đ**. Thiếu 49.000đ, REBOXE gánh.
 
 **Công thức đã chốt cho MVP:**
 
@@ -105,7 +105,7 @@ Vì tiền bán hàng đi thẳng về ngân hàng shop, **phí sàn 20% chỉ c
 
 #### L4 - "ID sản phẩm = mã vận đơn" là lỗ hổng bảo mật
 
-Tài liệu: _"ID sản phẩm trên REBOX được định danh trùng với mã vận đơn của đơn hoàn"_.
+Tài liệu: _"ID sản phẩm trên REBOXE được định danh trùng với mã vận đơn của đơn hoàn"_.
 
 Mã vận đơn Shopee/GHTK có thể bị dùng để tra cứu và làm lộ **tên, số điện thoại, địa chỉ** của người mua gốc trên sàn khác. Đây là rủi ro xử lý/lộ dữ liệu cá nhân bên thứ ba theo baseline hiện hành: Luật 91/2025/QH15 và Nghị định 356/2025/NĐ-CP; mapping điều khoản cụ thể do Legal chịu trách nhiệm.
 
@@ -130,7 +130,7 @@ Dùng Open API của Shopee/TikTok để rút dữ liệu đơn hàng sang một
 **Bắt buộc có Plan B ngay từ MVP:**
 
 1. **Web barcode/OCR có đường lùi** - dùng capability trình duyệt khi có, rồi nhập tay; ML Kit/VisionCamera chỉ thuộc mobile GĐ3.
-2. **Import CSV/XLSX** - seller tự export "Đơn hoàn" từ Seller Center → upload lên REBOX → map theo mã vận đơn. Đây là một trong hai kênh nhập ngang hàng và là kênh được bật đầu tiên khi API chưa đủ gate.
+2. **Import CSV/XLSX** - seller tự export "Đơn hoàn" từ Seller Center → upload lên REBOXE → map theo mã vận đơn. Đây là một trong hai kênh nhập ngang hàng và là kênh được bật đầu tiên khi API chưa đủ gate.
 3. **Đăng thủ công** - chụp ảnh và tự nhập tên/danh mục/mô tả/giá ở GĐ1; VLM gợi ý chỉ thuộc GĐ3.
 
 API sàn là kênh tiện hơn nhưng chỉ bật sau partner/ToS gate; CSV/XLSX vẫn tồn tại như lựa chọn độc lập. Hai kênh cùng sinh `ReturnManifestDraft[]`, nên phần preview/commit và flow bán nguyên kiện không đổi theo nguồn.
@@ -147,7 +147,7 @@ Mốc đếm cửa sổ khiếu nại phải là **thời điểm ĐVVC callback
 
 #### L10 - Mô hình chi phí biến đổi chưa tách theo nhóm đơn
 
-Phụ lục 9.2 tính VC = 20.000đ/đơn, gồm 18.000đ phí ship do REBOX chi trả. Nhưng với đơn <100k, buyer đã trả 15.000đ ⇒ REBOX chỉ chịu 3.000–7.000đ; còn đơn ≥100k REBOX chịu 100% phí ship. Mô hình đang **thận trọng quá mức cho đơn nhỏ, thiếu hụt cho đơn lớn**.
+Phụ lục 9.2 tính VC = 20.000đ/đơn, gồm 18.000đ phí ship do REBOXE chi trả. Nhưng với đơn <100k, buyer đã trả 15.000đ ⇒ REBOXE chỉ chịu 3.000–7.000đ; còn đơn ≥100k REBOXE chịu 100% phí ship. Mô hình đang **thận trọng quá mức cho đơn nhỏ, thiếu hụt cho đơn lớn**.
 
 Hệ thống phải ghi nhận `actual_shipping_cost` per đơn (lấy từ API đối soát ĐVVC) để đối chiếu thực tế và tách dự phóng theo 2 nhóm đơn.
 
@@ -160,7 +160,7 @@ Hệ thống phải ghi nhận `actual_shipping_cost` per đơn (lấy từ API 
 | Q1 | Ký quỹ kích hoạt 100.000đ, không tier | Chốt | `07` A09 |
 | Q2 | Hold theo breakdown + reserve 45.000đ | Chốt | `07` A08 |
 | Q3 | Ngưỡng hư hỏng mặc định 30% | Chốt | `01` §4.3 |
-| Q4 | 100% tiền hàng đi thẳng seller; REBOX không giữ tiền hàng | Chốt có legal gate cho ví ký quỹ | `07` A10; `05` §2 |
+| Q4 | 100% tiền hàng đi thẳng seller; REBOXE không giữ tiền hàng | Chốt có legal gate cho ví ký quỹ | `07` A10; `05` §2 |
 | Q5 | Vendor PSP và cấu trúc custody/refund | **BLOCKED** | Business + Legal, chặn tiền thật |
 | Q6 | CSV/XLSX và API sàn là hai kênh nhập ngang hàng, cùng trả `ReturnManifestDraft`; bản đầu chỉ bật spreadsheet | Chốt | `07` A06 |
 | Q7 | Danh mục hàng cấm/hạn chế | Còn 5 câu Legal | `06` §8 |

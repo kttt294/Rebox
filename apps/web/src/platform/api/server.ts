@@ -1,4 +1,4 @@
-import { createApiClient } from "@rebox/api-client";
+import { createApiClient } from "@reboxe/api-client";
 
 export function createPublicApiClient() {
   return createApiClient({

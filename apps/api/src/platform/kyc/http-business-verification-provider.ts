@@ -1,4 +1,4 @@
-import type { BusinessVerificationProvider, VerificationResult } from "@rebox/backend";
+import type { BusinessVerificationProvider, VerificationResult } from "@reboxe/backend";
 
 export class HttpBusinessVerificationProvider implements BusinessVerificationProvider {
   constructor(

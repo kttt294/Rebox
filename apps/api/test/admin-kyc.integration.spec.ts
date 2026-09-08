@@ -5,7 +5,7 @@ import type { AddressInfo } from "node:net";
 import type { INestApplication } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { Test } from "@nestjs/testing";
-import { createDatabase, KycModule, type CatalogMediaStorage } from "@rebox/backend";
+import { createDatabase, KycModule, type CatalogMediaStorage } from "@reboxe/backend";
 import { exportJWK, generateKeyPair, SignJWT, type KeyLike } from "jose";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { KYC } from "../src/backend.providers";

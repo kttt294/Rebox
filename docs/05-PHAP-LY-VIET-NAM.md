@@ -1,6 +1,6 @@
-# REBOX - Rà soát pháp lý Việt Nam
+# REBOXE - Rà soát pháp lý Việt Nam
 
-> **Miễn trừ:** đây là bản rà soát kỹ thuật do người thiết kế hệ thống lập ra để nhận diện nghĩa vụ pháp lý cần đưa vào sản phẩm. **Không phải ý kiến tư vấn pháp luật.** Mô hình REBOX chạm vào ba lĩnh vực có điều kiện (sàn TMĐT, trung gian thanh toán, xử lý dữ liệu cá nhân nhạy cảm), nên **bắt buộc phải có luật sư/công ty luật rà soát trước khi vận hành thật**.
+> **Miễn trừ:** đây là bản rà soát kỹ thuật do người thiết kế hệ thống lập ra để nhận diện nghĩa vụ pháp lý cần đưa vào sản phẩm. **Không phải ý kiến tư vấn pháp luật.** Mô hình REBOXE chạm vào ba lĩnh vực có điều kiện (sàn TMĐT, trung gian thanh toán, xử lý dữ liệu cá nhân nhạy cảm), nên **bắt buộc phải có luật sư/công ty luật rà soát trước khi vận hành thật**.
 >
 > **Mốc kiểm tra: 25/08/2026.** Luật Bảo vệ dữ liệu cá nhân 91/2025/QH15 và Nghị định 356/2025/NĐ-CP đã có hiệu lực từ 01/01/2026; Nghị định 13/2023/NĐ-CP đã hết hiệu lực. Luật Thương mại điện tử 122/2025/QH15 đã có hiệu lực từ 01/07/2026. Nghị định 330/2026/NĐ-CP về xử phạt trong an ninh mạng và bảo vệ dữ liệu cá nhân có hiệu lực từ 19/08/2026. Vì vậy các phân tích cũ dựa trên Nghị định 52/2013, 85/2021 hoặc 13/2023 chỉ là lịch sử và phải được Legal remap sang khung hiện hành trước production.
 >
@@ -30,11 +30,11 @@
 
 ## 1. Đăng ký sàn giao dịch thương mại điện tử
 
-### 1.1. REBOX thuộc loại nào
+### 1.1. REBOXE thuộc loại nào
 
-REBOX cho phép người bán thứ ba mở gian hàng, đăng bán và giao dịch trên nền tảng ⇒ là **sàn giao dịch thương mại điện tử**, thuộc nhóm _website/ứng dụng cung cấp dịch vụ TMĐT_.
+REBOXE cho phép người bán thứ ba mở gian hàng, đăng bán và giao dịch trên nền tảng ⇒ là **sàn giao dịch thương mại điện tử**, thuộc nhóm _website/ứng dụng cung cấp dịch vụ TMĐT_.
 
-**Hệ quả kỹ thuật:** REBOX phải coi hồ sơ/điều kiện vận hành nền tảng là gate trước khi mở public. Quy trình cụ thể phải được Legal cập nhật theo Luật Thương mại điện tử 122/2025/QH15 và văn bản thi hành; không tiếp tục dùng checklist Nghị định 52/2013/85/2021 như kết luận hiện hành.
+**Hệ quả kỹ thuật:** REBOXE phải coi hồ sơ/điều kiện vận hành nền tảng là gate trước khi mở public. Quy trình cụ thể phải được Legal cập nhật theo Luật Thương mại điện tử 122/2025/QH15 và văn bản thi hành; không tiếp tục dùng checklist Nghị định 52/2013/85/2021 như kết luận hiện hành.
 
 GĐ1 chỉ ra mắt web. Nếu app mobile GĐ3 được triển khai, Legal phải đánh giá và hoàn thành nghĩa vụ riêng áp dụng cho app trước khi phát hành.
 
@@ -81,9 +81,9 @@ Vận hành sàn TMĐT chưa đăng ký bị xử phạt hành chính theo Ngh�
 
 ### 2.1. Bản chất pháp lý của thiết kế hiện tại
 
-Hệ thống REBOX như mô tả trong tài liệu gốc thực hiện các hành vi sau:
+Hệ thống REBOXE như mô tả trong tài liệu gốc thực hiện các hành vi sau:
 
-1. **Nhận tiền của người bán** vào ví ký quỹ do REBOX quản lý
+1. **Nhận tiền của người bán** vào ví ký quỹ do REBOXE quản lý
 2. **Giữ và phong tỏa** khoản tiền đó theo lệnh của hệ thống
 3. **Tự động trừ** để thu phí
 4. **Dùng tiền đó chi trả cho người mua** khi hoàn tiền
@@ -94,24 +94,24 @@ Hành vi 1 + 2 + 4 - nhận, giữ, và chi tiền của người này trả cho
 
 ### 2.2. Vì sao thiết kế "tiền đi thẳng về seller" chưa giải quyết được vấn đề
 
-Nhóm dự án đã có trực giác đúng khi để tiền hàng đi thẳng từ buyer về tài khoản seller (không qua REBOX). Điều đó **loại bỏ được rủi ro với tiền hàng**. Nhưng **ví ký quỹ vẫn nằm nguyên trong vùng rủi ro**, vì REBOX vẫn nhận, giữ, và chi tiền của người dùng.
+Nhóm dự án đã có trực giác đúng khi để tiền hàng đi thẳng từ buyer về tài khoản seller (không qua REBOXE). Điều đó **loại bỏ được rủi ro với tiền hàng**. Nhưng **ví ký quỹ vẫn nằm nguyên trong vùng rủi ro**, vì REBOXE vẫn nhận, giữ, và chi tiền của người dùng.
 
 Đặc biệt hành vi **dùng tiền ký quỹ của shop A để chi cho buyer B** là chuyển giá trị giữa hai người dùng qua trung gian - đúng bản chất của hoạt động thanh toán.
 
-Ngoài ra, mock UI ghi _"96% về Shop / 4% phí tạm thu"_ (M2). Nếu triển khai theo phương án này thì REBOX **chắc chắn** đang giữ tiền của người khác. **Phải loại bỏ phương án 96/4.**
+Ngoài ra, mock UI ghi _"96% về Shop / 4% phí tạm thu"_ (M2). Nếu triển khai theo phương án này thì REBOXE **chắc chắn** đang giữ tiền của người khác. **Phải loại bỏ phương án 96/4.**
 
 ### 2.3. Bốn hướng xử lý (phải chọn một trước Sprint 4)
 
 | Phương án                                                                | Cách làm                                                                                                                                                                                                                                                                                                                                           | Ưu                                                                                                      | Nhược                                                                                                                                 |
 | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| **A. Hợp tác với đơn vị có giấy phép TGTT** ⭐ khuyến nghị | Toàn bộ ví ký quỹ do một tổ chức được NHNN cấp phép vận hành. REBOX chỉ ra lệnh nghiệp vụ qua API, không tự giữ tiền                                                                                                                                                                                                          | An toàn pháp lý; có sẵn hạ tầng đối soát, payout, AML                                          | Mất phí; phụ thuộc đối tác; cần thời gian đàm phán 4–8 tuần                                                               |
-| **B. Tài khoản đảm bảo thanh toán tại ngân hàng**            | Mở tài khoản chuyên dùng, tách hoàn toàn khỏi tài khoản hoạt động của REBOX; tiền ký quỹ không phải tài sản của REBOX                                                                                                                                                                                                         | Minh bạch, dễ giải trình                                                                             | **Vẫn chưa chắc đủ** để loại trừ tính chất TGTT khi có chi cho bên thứ ba. Bắt buộc phải hỏi ý kiến luật sư |
-| **C. Cấu trúc lại thành tiền đặt cọc thuần túy**            | Ký quỹ chỉ dùng để**cấn trừ nghĩa vụ của seller với REBOX** (phí sàn, phí ship). **Không dùng để chi cho buyer.** Việc hoàn tiền do seller trực tiếp chuyển cho buyer, REBOX chỉ ra quyết định và giám sát; seller không thực hiện thì REBOX cấn trừ cọc để bù cho chính mình rồi tự đòi | Gần với chế định đặt cọc (Điều 328 Bộ luật Dân sự 2015) hơn; giảm mạnh tính chất TGTT | Trải nghiệm hoàn tiền chậm và kém hơn hẳn; mất lời hứa "hoàn tiền tự động"                                             |
+| **A. Hợp tác với đơn vị có giấy phép TGTT** ⭐ khuyến nghị | Toàn bộ ví ký quỹ do một tổ chức được NHNN cấp phép vận hành. REBOXE chỉ ra lệnh nghiệp vụ qua API, không tự giữ tiền                                                                                                                                                                                                          | An toàn pháp lý; có sẵn hạ tầng đối soát, payout, AML                                          | Mất phí; phụ thuộc đối tác; cần thời gian đàm phán 4–8 tuần                                                               |
+| **B. Tài khoản đảm bảo thanh toán tại ngân hàng**            | Mở tài khoản chuyên dùng, tách hoàn toàn khỏi tài khoản hoạt động của REBOXE; tiền ký quỹ không phải tài sản của REBOXE                                                                                                                                                                                                         | Minh bạch, dễ giải trình                                                                             | **Vẫn chưa chắc đủ** để loại trừ tính chất TGTT khi có chi cho bên thứ ba. Bắt buộc phải hỏi ý kiến luật sư |
+| **C. Cấu trúc lại thành tiền đặt cọc thuần túy**            | Ký quỹ chỉ dùng để**cấn trừ nghĩa vụ của seller với REBOXE** (phí sàn, phí ship). **Không dùng để chi cho buyer.** Việc hoàn tiền do seller trực tiếp chuyển cho buyer, REBOXE chỉ ra quyết định và giám sát; seller không thực hiện thì REBOXE cấn trừ cọc để bù cho chính mình rồi tự đòi | Gần với chế định đặt cọc (Điều 328 Bộ luật Dân sự 2015) hơn; giảm mạnh tính chất TGTT | Trải nghiệm hoàn tiền chậm và kém hơn hẳn; mất lời hứa "hoàn tiền tự động"                                             |
 | **D. Sandbox**                                                        | Tham gia cơ chế thử nghiệm có kiểm soát trong lĩnh vực ngân hàng nếu mô hình thuộc phạm vi áp dụng                                                                                                                                                                                                                                 | Đúng kênh cho mô hình mới                                                                          | Thủ tục nặng, không phù hợp quy mô sinh viên ở GĐ1                                                                            |
 
 **Khuyến nghị:** phương án **A** cho sản phẩm chính thức. Trong giai đoạn thử nghiệm 100 shop, có thể vận hành theo hướng **C** với quy mô nhỏ và đối soát thủ công, **sau khi có ý kiến bằng văn bản của luật sư**.
 
-**Yêu cầu nghiệp vụ mới cần đưa qua A10:** với chuyển khoản đi thẳng vào tài khoản seller, seller phải xác nhận đã nhận tiền trước khi giao hàng. Nếu seller không xác nhận trong 12 giờ, hoặc đã xác nhận nhưng không bàn giao khiến ĐVVC hủy lấy hàng, REBOX dự kiến hoàn đúng `buyer_payable` bằng cách khấu trừ ký quỹ seller — nhưng chỉ khi có bằng chứng buyer thực sự đã chuyển khoản. Đây chính là hành vi 1 + 2 + 4 nêu tại §2.1, nên không được bật tiền thật chỉ vì đã mô tả xong flow kỹ thuật. Production bắt buộc dùng phương án A hoặc một cấu trúc khác được PSP/Legal xác nhận bằng văn bản; nếu chưa đóng A10 thì chỉ chạy fake/sandbox hoặc review thủ công, không auto-payout.
+**Yêu cầu nghiệp vụ mới cần đưa qua A10:** với chuyển khoản đi thẳng vào tài khoản seller, seller phải xác nhận đã nhận tiền trước khi giao hàng. Nếu seller không xác nhận trong 12 giờ, hoặc đã xác nhận nhưng không bàn giao khiến ĐVVC hủy lấy hàng, REBOXE dự kiến hoàn đúng `buyer_payable` bằng cách khấu trừ ký quỹ seller — nhưng chỉ khi có bằng chứng buyer thực sự đã chuyển khoản. Đây chính là hành vi 1 + 2 + 4 nêu tại §2.1, nên không được bật tiền thật chỉ vì đã mô tả xong flow kỹ thuật. Production bắt buộc dùng phương án A hoặc một cấu trúc khác được PSP/Legal xác nhận bằng văn bản; nếu chưa đóng A10 thì chỉ chạy fake/sandbox hoặc review thủ công, không auto-payout.
 
 ### 2.4. Yêu cầu bắt buộc lên kiến trúc
 
@@ -119,7 +119,7 @@ Ngoài ra, mock UI ghi _"96% về Shop / 4% phí tạm thu"_ (M2). Nếu triển
 
 ### 2.5. Nghĩa vụ đi kèm nếu chạm vào dòng tiền
 
-- A10/Legal phải xác định **chủ thể báo cáo** và nghĩa vụ của từng bên theo Luật Phòng, chống rửa tiền 2022. PSP/ngân hàng thực hiện nghĩa vụ pháp định của họ khi họ là đối tượng báo cáo; REBOX chỉ thực hiện nghĩa vụ pháp định trực tiếp áp dụng cho mình và phần hỗ trợ/monitoring đã cam kết trong hợp đồng, không tự tuyên bố thay PSP báo cáo mọi giao dịch.
+- A10/Legal phải xác định **chủ thể báo cáo** và nghĩa vụ của từng bên theo Luật Phòng, chống rửa tiền 2022. PSP/ngân hàng thực hiện nghĩa vụ pháp định của họ khi họ là đối tượng báo cáo; REBOXE chỉ thực hiện nghĩa vụ pháp định trực tiếp áp dụng cho mình và phần hỗ trợ/monitoring đã cam kết trong hợp đồng, không tự tuyên bố thay PSP báo cáo mọi giao dịch.
 - Hệ thống chuẩn bị capability theo phân công đã duyệt: cờ bất thường, ngưỡng cấu hình có version, freeze/review, xuất hồ sơ và audit. Không hardcode ngưỡng “giao dịch lớn” trước khi Legal/PSP mapping vai trò.
 
 ---
@@ -130,7 +130,7 @@ Ngoài ra, mock UI ghi _"96% về Shop / 4% phí tạm thu"_ (M2). Nếu triển
 
 Baseline hiện hành của tài liệu là **Luật Bảo vệ dữ liệu cá nhân 91/2025/QH15** và **Nghị định 356/2025/NĐ-CP**, cùng có hiệu lực từ 01/01/2026; chế tài hiện hành còn có **Nghị định 330/2026/NĐ-CP** từ 19/08/2026. Nghị định 13/2023/NĐ-CP đã hết hiệu lực; mọi mapping điều khoản cũ phải được Legal làm lại trước production.
 
-### 3.2. REBOX xử lý những loại dữ liệu nào
+### 3.2. REBOXE xử lý những loại dữ liệu nào
 
 | Loại dữ liệu                                                                                            | Phân loại                                   | Rủi ro            |
 | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------- | ------------------ |
@@ -140,7 +140,7 @@ Baseline hiện hành của tài liệu là **Luật Bảo vệ dữ liệu cá 
 | **Video khui hộp** - có thể chứa khuôn mặt, giọng nói, hình ảnh nhà riêng, người thân | **Có thể là nhạy cảm**             | 🔴 Cao             |
 | Lịch sử mua hàng, hành vi                                                                              | Cơ bản                                      | Trung bình        |
 | **Mã vận đơn đơn hoàn** - chứa dữ liệu của người mua trên sàn khác                   | Cơ bản,**của bên thứ ba**          | 🔴 Cao (xem §3.6) |
-| Raw bank/PSP/carrier event, sender/account/reference ngoài REBOX                    | Có thể chứa dữ liệu tài chính của bên thứ ba | 🔴 Cao; chỉ ingest allowlist tối thiểu, không lưu nguyên sao kê |
+| Raw bank/PSP/carrier event, sender/account/reference ngoài REBOXE                    | Có thể chứa dữ liệu tài chính của bên thứ ba | 🔴 Cao; chỉ ingest allowlist tối thiểu, không lưu nguyên sao kê |
 
 ### 3.3. Nghĩa vụ và cách hiện thực
 
@@ -157,15 +157,15 @@ Baseline hiện hành của tài liệu là **Luật Bảo vệ dữ liệu cá 
 | Thông báo vi phạm                                                         | Quy trình xử lý sự cố rò rỉ; thông báo cơ quan trong thời hạn luật định                                                                                                |
 | Chỉ định người/bộ phận phụ trách BVDLCN                             | Legal Officer kiêm nhiệm ở GĐ1                                                                                                                                                    |
 
-Không mặc định dựa vào miễn trừ dành cho startup/SME: REBOX dự kiến trực tiếp xử lý eKYC/sinh trắc, tài khoản và evidence nhạy cảm. Legal phải kiểm tra điều kiện loại trừ miễn trừ và lập hồ sơ tác động/chuyển dữ liệu đầy đủ nếu thuộc diện áp dụng trước khi có dữ liệu thật.
+Không mặc định dựa vào miễn trừ dành cho startup/SME: REBOXE dự kiến trực tiếp xử lý eKYC/sinh trắc, tài khoản và evidence nhạy cảm. Legal phải kiểm tra điều kiện loại trừ miễn trừ và lập hồ sơ tác động/chuyển dữ liệu đầy đủ nếu thuộc diện áp dụng trước khi có dữ liệu thật.
 
 ### 3.4. Video khui hộp - điểm nóng nhất
 
-Đây là loại dữ liệu rủi ro cao và đặc thù riêng của REBOX.
+Đây là loại dữ liệu rủi ro cao và đặc thù riêng của REBOXE.
 
 #### 3.4.1. "Buyer tự nguyện tải lên" có đủ không? - Không
 
-Buyer chỉ nộp video khi **chính họ** muốn khiếu nại. Đó là hành động tự nguyện, và đây là một lập luận hay được nêu ra để cho rằng REBOX không cần làm gì thêm. **Lập luận này sai.**
+Buyer chỉ nộp video khi **chính họ** muốn khiếu nại. Đó là hành động tự nguyện, và đây là một lập luận hay được nêu ra để cho rằng REBOXE không cần làm gì thêm. **Lập luận này sai.**
 
 Tính tự nguyện chỉ là **một trong nhiều điều kiện** để sự đồng ý có giá trị. Thiết kế giữ checklist bảo thủ dưới đây; Legal phải map từng dòng sang Luật 91/2025 và Nghị định 356/2025 trước khi duyệt nội dung production:
 
@@ -207,7 +207,7 @@ Hiện thực kỹ thuật: tách `dispute_evidences` thành **bản gốc** và
 
 #### 3.4.4. Đừng đặt tất cả lên nền "sự đồng ý"
 
-Sự đồng ý **rút lại được**. Kịch bản xấu: buyer nộp video → được hoàn tiền → rút lại đồng ý và yêu cầu xoá. Lúc đó REBOX phải xoá chứng cứ của một quyết định đã chuyển tiền, và mất khả năng tự bảo vệ nếu seller khởi kiện.
+Sự đồng ý **rút lại được**. Kịch bản xấu: buyer nộp video → được hoàn tiền → rút lại đồng ý và yêu cầu xoá. Lúc đó REBOXE phải xoá chứng cứ của một quyết định đã chuyển tiền, và mất khả năng tự bảo vệ nếu seller khởi kiện.
 
 **Giả thuyết cấu trúc căn cứ hai lớp để Legal thẩm định:**
 
@@ -260,7 +260,7 @@ Yêu cầu bắt buộc:
 
 ### 3.6. 🔴 Mã vận đơn - rò rỉ dữ liệu của bên thứ ba
 
-Tài liệu gốc đề xuất **dùng mã vận đơn làm ID sản phẩm công khai** (L4). Mã vận đơn tra cứu được trên website của đơn vị vận chuyển, có thể để lộ **tên, số điện thoại, địa chỉ của người mua gốc trên Shopee/TikTok** - những người **không hề có quan hệ gì với REBOX và chưa từng đồng ý** cho REBOX xử lý dữ liệu của họ.
+Tài liệu gốc đề xuất **dùng mã vận đơn làm ID sản phẩm công khai** (L4). Mã vận đơn tra cứu được trên website của đơn vị vận chuyển, có thể để lộ **tên, số điện thoại, địa chỉ của người mua gốc trên Shopee/TikTok** - những người **không hề có quan hệ gì với REBOXE và chưa từng đồng ý** cho REBOXE xử lý dữ liệu của họ.
 
 Đây là hành vi làm lộ dữ liệu cá nhân của bên thứ ba, không có căn cứ pháp lý.
 
@@ -275,16 +275,16 @@ Tài liệu gốc đề xuất **dùng mã vận đơn làm ID sản phẩm côn
 
 Live API sàn là GĐ3. Các yêu cầu dưới đây là gate cho tương lai, không phải chức năng MVP.
 
-Thiết kế truy cập API đã đổi từ _đồng bộ nền toàn bộ đơn hoàn_ sang _import do seller chủ động_ (`01-SPEC` §7.1.1): seller mở màn hình import, chọn một tập đơn hoàn hoặc khoảng thời gian hữu hạn, xem preview rồi mới commit. Danh sách dùng để chọn chỉ giữ tạm và chỉ chứa trường tối thiểu; REBOX không chạy đồng bộ nền hoặc sao chép cơ sở dữ liệu đơn hàng của shop.
+Thiết kế truy cập API đã đổi từ _đồng bộ nền toàn bộ đơn hoàn_ sang _import do seller chủ động_ (`01-SPEC` §7.1.1): seller mở màn hình import, chọn một tập đơn hoàn hoặc khoảng thời gian hữu hạn, xem preview rồi mới commit. Danh sách dùng để chọn chỉ giữ tạm và chỉ chứa trường tối thiểu; REBOXE không chạy đồng bộ nền hoặc sao chép cơ sở dữ liệu đơn hàng của shop.
 
-Điều này thu hẹp đáng kể bề mặt rủi ro đối với **dữ liệu của người mua gốc trên sàn khác** - nhóm chủ thể dữ liệu chưa từng có quan hệ nào với REBOX.
+Điều này thu hẹp đáng kể bề mặt rủi ro đối với **dữ liệu của người mua gốc trên sàn khác** - nhóm chủ thể dữ liệu chưa từng có quan hệ nào với REBOXE.
 
 **⚠️ Phải mô tả đúng, không được nói quá:**
 
 | Cách nói                                                                                                          | Đúng/Sai                                                                                                                                |
 | ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| _"Người bán kiểm soát REBOX được đọc đơn nào"_                                                       | ❌**Sai sự thật.** OAuth của Shopee/TikTok cấp quyền ở tầng shop theo scope; không có cơ chế giới hạn theo từng đơn |
-| _"REBOX chỉ import khi người bán chủ động chọn phạm vi hữu hạn, và không chạy đồng bộ nền toàn bộ đơn hàng"_ | ✅ Đúng - đây là **tự giới hạn của REBOX**, thực thi bằng kỹ thuật và quy trình nội bộ |
+| _"Người bán kiểm soát REBOXE được đọc đơn nào"_                                                       | ❌**Sai sự thật.** OAuth của Shopee/TikTok cấp quyền ở tầng shop theo scope; không có cơ chế giới hạn theo từng đơn |
+| _"REBOXE chỉ import khi người bán chủ động chọn phạm vi hữu hạn, và không chạy đồng bộ nền toàn bộ đơn hàng"_ | ✅ Đúng - đây là **tự giới hạn của REBOXE**, thực thi bằng kỹ thuật và quy trình nội bộ |
 
 Khác biệt này quan trọng cả trong Chính sách bảo mật, Quy chế sàn, lẫn tài liệu bán hàng. Mô tả sai một biện pháp bảo vệ dữ liệu là hành vi cung cấp thông tin không chính xác cho chủ thể dữ liệu.
 
@@ -295,7 +295,7 @@ Tự giới hạn không phải hình thức: **giảm thiểu dữ liệu là n
 | Yêu cầu                              | Cách làm                                                                                                                                                                                                                                                                                                     |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Chứng minh được sự tự giới hạn | Mỗi lần import/đọc đơn ghi `audit_logs`: shop nào, phạm vi nào, đơn nào, thời điểm, mục đích |
-| Minh bạch với seller | Trang **"REBOX đã đọc những đơn nào"** trong phần cài đặt kết nối |
+| Minh bạch với seller | Trang **"REBOXE đã đọc những đơn nào"** trong phần cài đặt kết nối |
 | Quyền xoá | Nút **"Xoá dữ liệu tạm"**; dữ liệu đã commit hoặc tham gia giao dịch theo retention nghiệp vụ tương ứng |
 | Giới hạn danh sách chọn | Chỉ lấy định danh và metadata tối thiểu để seller chọn đơn, giữ ngắn hạn, không ghi thành bản sao đơn hàng; chỉ lấy chi tiết cho đơn seller chọn |
 | Thu hồi uỷ quyền | Seller ngắt kết nối ⇒ xoá token + dữ liệu khám phá tạm trong 24h |
@@ -304,7 +304,7 @@ Tự giới hạn không phải hình thức: **giảm thiểu dữ liệu là n
 
 ## 4. An ninh mạng và lưu trú dữ liệu
 
-Khung an ninh mạng đã thay đổi với Luật An ninh mạng 116/2025/QH15 có hiệu lực từ 01/07/2026. Tài liệu này không kết luận blanket rằng mọi dữ liệu của REBOX bắt buộc đặt tại Việt Nam; Legal phải xác định nghĩa vụ theo loại dịch vụ, loại dữ liệu, yêu cầu của cơ quan có thẩm quyền và data flow thực tế.
+Khung an ninh mạng đã thay đổi với Luật An ninh mạng 116/2025/QH15 có hiệu lực từ 01/07/2026. Tài liệu này không kết luận blanket rằng mọi dữ liệu của REBOXE bắt buộc đặt tại Việt Nam; Legal phải xác định nghĩa vụ theo loại dịch vụ, loại dữ liệu, yêu cầu của cơ quan có thẩm quyền và data flow thực tế.
 
 | Gate | Hiện thực kiến trúc |
 |---|---|
@@ -339,7 +339,7 @@ Căn cứ: **Luật Bảo vệ quyền lợi người tiêu dùng 2023** (hiệu
 | _"Video vi phạm quy tắc sẽ lập tức bị hủy quyền khiếu nại"_ | 🔴 Nguy cơ vô hiệu | Video là**chứng cứ ưu tiên** giúp xử lý nhanh; không có video vẫn được khiếu nại nhưng xử lý thủ công, gánh nặng chứng minh cao hơn                                                                            |
 | _"ĐIỀU KIỆN BẮT BUỘC"_ trên UI buyer                            | 🔴 Tương tự        | _"ĐIỀU KIỆN ĐỂ XỬ LÝ NHANH"_ + dòng giải thích (`03-FE` §1.2)                                                                                                                                                                  |
 | _"Thời hạn khiếu nại cố định là 03 ngày"_                    | 🟠 Hạn chế quyền   | Giữ 3 ngày cho**quy trình xử lý nhanh nội bộ**, nhưng nêu rõ: hết hạn vẫn tiếp nhận qua CSKH, và **không ảnh hưởng quyền theo pháp luật** (bảo hành, khởi kiện, khiếu nại tới cơ quan nhà nước) |
-| Quyết định của REBOX là "chung thẩm"                              | 🟠                    | Nêu rõ: quyết định cuối cùng**trong hệ thống REBOX**, không loại trừ quyền khiếu nại tới cơ quan quản lý, hòa giải, trọng tài hoặc khởi kiện                                                                  |
+| Quyết định của REBOXE là "chung thẩm"                              | 🟠                    | Nêu rõ: quyết định cuối cùng**trong hệ thống REBOXE**, không loại trừ quyền khiếu nại tới cơ quan quản lý, hòa giải, trọng tài hoặc khởi kiện                                                                  |
 
 ### 5.2. Nghĩa vụ đối với nền tảng số trung gian
 
@@ -347,19 +347,19 @@ Căn cứ: **Luật Bảo vệ quyền lợi người tiêu dùng 2023** (hiệu
 | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | Công khai quy trình tiếp nhận, giải quyết khiếu nại                        | Trang riêng + hiển thị trong luồng khiếu nại                                        |
 | Công khai đầu mối liên hệ, phương thức liên lạc                         | Footer + trang Liên hệ + trong ứng dụng                                               |
-| **Chỉ rõ tiêu chí xác định thứ tự ưu tiên hiển thị sản phẩm** | Trang "Cách REBOX sắp xếp sản phẩm" - nêu rõ tiêu chí và cả yếu tố trả phí |
+| **Chỉ rõ tiêu chí xác định thứ tự ưu tiên hiển thị sản phẩm** | Trang "Cách REBOXE sắp xếp sản phẩm" - nêu rõ tiêu chí và cả yếu tố trả phí |
 | **Phân biệt rõ nội dung quảng cáo/tài trợ**                          | Chỉ áp dụng nếu feature quảng bá trả phí A15 được bật; lúc đó nhãn "Tài trợ" là bắt buộc trước lần hiển thị đầu tiên |
 | Lưu trữ và cung cấp thông tin người bán khi người tiêu dùng yêu cầu  | Chức năng trong Admin                                                                   |
 | Cho phép người tiêu dùng phản hồi, đánh giá                              | Module review (có thể để GĐ3)                                                        |
 
-Ngoài ra, luật đặt ra **nghĩa vụ tăng cường cho nền tảng số lớn** (kiểm toán định kỳ hoạt động quảng cáo và hệ thống thuật toán, báo cáo cơ quan quản lý). REBOX ở GĐ1–2 nhiều khả năng chưa tới ngưỡng, nhưng **thiết kế sẵn khả năng giải trình thuật toán** (`01-SPEC` §8.3) để không phải làm lại sau.
+Ngoài ra, luật đặt ra **nghĩa vụ tăng cường cho nền tảng số lớn** (kiểm toán định kỳ hoạt động quảng cáo và hệ thống thuật toán, báo cáo cơ quan quản lý). REBOXE ở GĐ1–2 nhiều khả năng chưa tới ngưỡng, nhưng **thiết kế sẵn khả năng giải trình thuật toán** (`01-SPEC` §8.3) để không phải làm lại sau.
 
 ### 5.3. Mô tả trung thực hàng hóa
 
-REBOX bán **nguyên kiện hàng hoàn chưa mở kiểm tra**, nên nghĩa vụ mô tả giới hạn xác minh phải xuất hiện ngay trên card và trước thanh toán:
+REBOXE bán **nguyên kiện hàng hoàn chưa mở kiểm tra**, nên nghĩa vụ mô tả giới hạn xác minh phải xuất hiện ngay trên card và trước thanh toán:
 
-- Bắt buộc hiển thị `UNOPENED_UNINSPECTED`: seller/REBOX chưa mở, chưa kiểm đếm, chưa xác nhận nội dung và tình trạng sản phẩm bên trong
-- Bản kê CSV/API phải được ghi là **dữ liệu nguồn khai báo**, không phải kết quả kiểm định của REBOX
+- Bắt buộc hiển thị `UNOPENED_UNINSPECTED`: seller/REBOXE chưa mở, chưa kiểm đếm, chưa xác nhận nội dung và tình trạng sản phẩm bên trong
+- Bản kê CSV/API phải được ghi là **dữ liệu nguồn khai báo**, không phải kết quả kiểm định của REBOXE
 - `SealStatus` chỉ mô tả seal/bao bì nhìn từ bên ngoài; không được suy thành “mới”, “như mới” hay “còn tốt” cho sản phẩm
 - Badge "MỚI 99% - ĐƠN HOÀN" không được dùng cho flow nguyên kiện
 - Cấm hành vi cung cấp thông tin sai lệch, gây nhầm lẫn
@@ -368,9 +368,9 @@ Legal phải duyệt riêng cơ chế đồng ý của buyer, phạm vi đổi t
 
 #### 5.3.1. 🔴 Giá tham chiếu ảo trong luồng đăng bán thủ công
 
-Với listing nguyên kiện từ API/CSV, `original_price` là tổng `source_quantity × đơn giá nguồn` của các dòng khai báo. Con số này đối chiếu được với bản kê, nhưng không chứng minh kiện thực tế có đủ hàng. Với listing đăng thủ công, seller tự gõ cả `original_price` lẫn `price`; REBOX không có cách kiểm chứng con số gốc đó.
+Với listing nguyên kiện từ API/CSV, `original_price` là tổng `source_quantity × đơn giá nguồn` của các dòng khai báo. Con số này đối chiếu được với bản kê, nhưng không chứng minh kiện thực tế có đủ hàng. Với listing đăng thủ công, seller tự gõ cả `original_price` lẫn `price`; REBOXE không có cách kiểm chứng con số gốc đó.
 
-Nếu vẫn hiển thị giá gốc gạch ngang kèm % giảm cho trường hợp này, REBOX đang xuất bản một **giá tham chiếu không có căn cứ** ra cho người tiêu dùng - hành vi cung cấp thông tin gây nhầm lẫn về giá. Khác với các vi phạm khác trong tài liệu này vốn do hành vi của seller, ở đây **trách nhiệm thuộc về REBOX** với tư cách bên xuất bản thông tin, vì chính nền tảng in ra màn hình mức giảm giá không kiểm chứng được.
+Nếu vẫn hiển thị giá gốc gạch ngang kèm % giảm cho trường hợp này, REBOXE đang xuất bản một **giá tham chiếu không có căn cứ** ra cho người tiêu dùng - hành vi cung cấp thông tin gây nhầm lẫn về giá. Khác với các vi phạm khác trong tài liệu này vốn do hành vi của seller, ở đây **trách nhiệm thuộc về REBOXE** với tư cách bên xuất bản thông tin, vì chính nền tảng in ra màn hình mức giảm giá không kiểm chứng được.
 
 Trần "giá bán tối đa 90% giá gốc" mà tài liệu gốc và `hosodangky.docx` mô tả cũng vô hiệu trong trường hợp này: seller chỉ cần khai giá gốc cao hơn thực tế để mức giảm luôn hiển thị "hợp lệ" trong khi giá bán thực chất không hề rẻ.
 
@@ -382,14 +382,14 @@ Hai vấn đề dễ bị gộp làm một khi đọc nhanh, nhưng cần tách 
 
 | | Giá tham chiếu ảo (§5.3.1) | Chưa kiểm chứng tính cạnh tranh (mục này) |
 |---|---|---|
-| Câu hỏi pháp lý | REBOX có đang **công bố** một con số sai sự thật không? | REBOX có đang **đảm bảo** một điều mà mình không kiểm chứng được không? |
-| Có xử lý dứt điểm được không | Có - ẩn con số không kiểm chứng được là đủ | Không - không tồn tại nguồn dữ liệu độc lập để REBOX biết "giá thị trường" của một món hàng tùy ý |
+| Câu hỏi pháp lý | REBOXE có đang **công bố** một con số sai sự thật không? | REBOXE có đang **đảm bảo** một điều mà mình không kiểm chứng được không? |
+| Có xử lý dứt điểm được không | Có - ẩn con số không kiểm chứng được là đủ | Không - không tồn tại nguồn dữ liệu độc lập để REBOXE biết "giá thị trường" của một món hàng tùy ý |
 | Cách xử lý | Kỹ thuật: ẩn `original_price`/`discount_pct` ở tầng API | Sản phẩm: để cơ chế lựa chọn của người mua tự điều tiết (buyer không mua hàng định giá không hợp lý) |
-| Rủi ro còn lại nếu xử lý đúng | Không còn - đã loại bỏ được thông tin sai | **Rủi ro không nằm ở việc thiếu cơ chế kiểm soát giá**, mà ở việc **hồ sơ/marketing tuyên bố một cam kết REBOX không giữ được** |
+| Rủi ro còn lại nếu xử lý đúng | Không còn - đã loại bỏ được thông tin sai | **Rủi ro không nằm ở việc thiếu cơ chế kiểm soát giá**, mà ở việc **hồ sơ/marketing tuyên bố một cam kết REBOXE không giữ được** |
 
-**Quyết định sản phẩm đã chốt:** REBOX không chủ động kiểm soát hay xác nhận tính cạnh tranh của giá đối với listing `SELLER_DECLARED`. Đây là lựa chọn hợp lý, tương tự cách các nền tảng rao vặt ngang hàng vận hành (Chợ Tốt, Facebook Marketplace) - không nền tảng nào giải được bài toán "biết giá thị trường thật" ở mức từng listing riêng lẻ, và cố xử lý bằng luật cứng chỉ tạo ảo giác kiểm soát chứ không tạo ra kiểm soát thật.
+**Quyết định sản phẩm đã chốt:** REBOXE không chủ động kiểm soát hay xác nhận tính cạnh tranh của giá đối với listing `SELLER_DECLARED`. Đây là lựa chọn hợp lý, tương tự cách các nền tảng rao vặt ngang hàng vận hành (Chợ Tốt, Facebook Marketplace) - không nền tảng nào giải được bài toán "biết giá thị trường thật" ở mức từng listing riêng lẻ, và cố xử lý bằng luật cứng chỉ tạo ảo giác kiểm soát chứ không tạo ra kiểm soát thật.
 
-**Hệ quả bắt buộc kéo theo:** vì REBOX không giữ cam kết này cho toàn sàn, **mọi phát biểu tuyệt đối kiểu "REBOX luôn có giá thấp hơn thị trường"** - dù trong Quy chế sàn, tài liệu quảng bá, hay chính hồ sơ dự thi - đều là rủi ro thông tin gây nhầm lẫn, cùng bản chất với các mục đã sửa ở §5.4 (M7, "100% có lợi"...). Không cần xây thêm cơ chế kỹ thuật nào, chỉ cần **giới hạn đúng phạm vi câu chữ**: mọi tuyên bố về mức giá tốt hơn thị trường phải nêu rõ áp dụng cho nhóm `VERIFIED_*` (giá đã đối chiếu, trần 90% được ép cứng), không diễn đạt như áp dụng cho toàn bộ sản phẩm trên sàn.
+**Hệ quả bắt buộc kéo theo:** vì REBOXE không giữ cam kết này cho toàn sàn, **mọi phát biểu tuyệt đối kiểu "REBOXE luôn có giá thấp hơn thị trường"** - dù trong Quy chế sàn, tài liệu quảng bá, hay chính hồ sơ dự thi - đều là rủi ro thông tin gây nhầm lẫn, cùng bản chất với các mục đã sửa ở §5.4 (M7, "100% có lợi"...). Không cần xây thêm cơ chế kỹ thuật nào, chỉ cần **giới hạn đúng phạm vi câu chữ**: mọi tuyên bố về mức giá tốt hơn thị trường phải nêu rõ áp dụng cho nhóm `VERIFIED_*` (giá đã đối chiếu, trần 90% được ép cứng), không diễn đạt như áp dụng cho toàn bộ sản phẩm trên sàn.
 
 ### 5.4. Cam kết quảng bá phải chính xác
 
@@ -446,16 +446,16 @@ Hàng hóa lưu thông phải có nhãn theo Nghị định 43/2017/NĐ-CP (sử
 
 Pháp luật hiện hành đặt ra hai nhóm nghĩa vụ cho sàn TMĐT:
 
-| Nghĩa vụ                                                                 | Nội dung                                                                                                              | Áp dụng cho REBOX                                                                        |
+| Nghĩa vụ                                                                 | Nội dung                                                                                                              | Áp dụng cho REBOXE                                                                        |
 | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | **Cung cấp thông tin người bán cho cơ quan thuế**             | Định kỳ cung cấp thông tin về người bán và doanh thu trên sàn                                              | **Áp dụng** - cần chức năng xuất báo cáo theo biểu mẫu của cơ quan thuế |
 | **Khấu trừ, nộp thuế thay** hộ kinh doanh, cá nhân kinh doanh | Sàn**có chức năng thanh toán** phải khấu trừ VAT và TNCN trên từng giao dịch, kê khai và nộp thay | **Cần xác định** - xem §7.2                                                     |
 
 ### 7.2. Điểm cần làm rõ với cơ quan thuế
 
-Nghĩa vụ khấu trừ nộp thay gắn với việc sàn **có chức năng thanh toán**. Thiết kế của REBOX cố ý để tiền hàng đi thẳng về seller, nên **về hình thức** có thể không thuộc diện này.
+Nghĩa vụ khấu trừ nộp thay gắn với việc sàn **có chức năng thanh toán**. Thiết kế của REBOXE cố ý để tiền hàng đi thẳng về seller, nên **về hình thức** có thể không thuộc diện này.
 
-Nhưng REBOX vẫn: sinh mã QR thanh toán, xác nhận giao dịch, giữ ký quỹ, khấu trừ phí, và chi hoàn tiền. Cơ quan thuế có thể xem đây là có chức năng thanh toán.
+Nhưng REBOXE vẫn: sinh mã QR thanh toán, xác nhận giao dịch, giữ ký quỹ, khấu trừ phí, và chi hoàn tiền. Cơ quan thuế có thể xem đây là có chức năng thanh toán.
 
 **Bắt buộc:** xin ý kiến bằng văn bản của cơ quan thuế quản lý trước khi phát sinh doanh thu. Đây là loại rủi ro mà việc "cứ làm rồi tính" dẫn đến truy thu và phạt chậm nộp.
 
@@ -466,7 +466,7 @@ Nhưng REBOX vẫn: sinh mã QR thanh toán, xác nhận giao dịch, giữ ký 
 - Báo cáo theo kỳ, xuất được theo định dạng cơ quan thuế yêu cầu
 - Thu thập mã số thuế / số định danh của người bán ngay từ bước eKYC
 
-### 7.3. Nghĩa vụ thuế của chính REBOX
+### 7.3. Nghĩa vụ thuế của chính REBOXE
 
 | Loại                                               | Áp dụng                                                                                                                                                                                               |
 | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -527,7 +527,7 @@ Lưu ý pháp luật quảng cáo cũng vừa được sửa đổi (Luật sử
 
 ### 9.2. Điều khoản ký quỹ - soạn cẩn thận
 
-Vì cơ chế cho phép REBOX **đơn phương trừ tiền và khóa toàn bộ gian hàng**, hợp đồng người bán phải quy định rõ:
+Vì cơ chế cho phép REBOXE **đơn phương trừ tiền và khóa toàn bộ gian hàng**, hợp đồng người bán phải quy định rõ:
 
 - Bản chất pháp lý của khoản ký quỹ và quyền sở hữu
 - Các trường hợp được khấu trừ, công thức tính, cách thông báo
@@ -564,7 +564,7 @@ Cách làm đúng — chọn một hoặc kết hợp:
 
 Theo pháp luật sở hữu trí tuệ, **tác giả là chủ sở hữu tác phẩm**, trừ khi tác phẩm được tạo ra theo hợp đồng lao động hoặc hợp đồng giao việc có thoả thuận khác.
 
-Hệ quả với REBOX ở thời điểm hiện tại: **toàn bộ mã nguồn thuộc về hai bạn CNTT với tư cách cá nhân**, không thuộc về dự án. Nếu một người rời nhóm, về nguyên tắc họ vẫn giữ quyền đối với phần mình viết. Không có bản quyền phần mềm rõ ràng thì cũng không nhà đầu tư nào rót vốn.
+Hệ quả với REBOXE ở thời điểm hiện tại: **toàn bộ mã nguồn thuộc về hai bạn CNTT với tư cách cá nhân**, không thuộc về dự án. Nếu một người rời nhóm, về nguyên tắc họ vẫn giữ quyền đối với phần mình viết. Không có bản quyền phần mềm rõ ràng thì cũng không nhà đầu tư nào rót vốn.
 
 Rủi ro này **tăng theo thời gian và theo mức độ thành công** của dự án. Ký khi cả ba còn là sinh viên chưa có gì để tranh chấp thì rẻ và nhanh; ký sau khi đã có giải thưởng, có doanh thu, có nhà đầu tư quan tâm thì mỗi chữ đều thành đàm phán.
 
@@ -577,8 +577,8 @@ Rủi ro này **tăng theo thời gian và theo mức độ thành công** của
 | 1 | **Thoả thuận thành viên sáng lập** — tỷ lệ sở hữu, vesting (thường 3–4 năm, cliff 1 năm), xử lý khi có người rời nhóm, quyền quyết định | Chống tranh chấp và chống trường hợp người rời nhóm sớm vẫn giữ cổ phần lớn |
 | 2 | **Chuyển giao quyền sở hữu trí tuệ cho pháp nhân** — mọi mã nguồn, thiết kế, tài liệu, thương hiệu tạo ra trong dự án | **Quan trọng nhất.** Không có văn bản này thì không gọi được vốn |
 | 3 | Cam kết chuyển giao SHTT cho **mọi người tham gia sau** — cộng tác viên, freelancer, người thuê ngoài | Áp dụng ngay từ người đầu tiên, không chờ |
-| 4 | Tra cứu nhãn hiệu "REBOX" tại Cục Sở hữu trí tuệ xem đã có ai đăng ký chưa | Làm trước khi đầu tư vào thương hiệu |
-| 5 | Nộp đơn **đăng ký nhãn hiệu "REBOX"** | Thủ tục kéo dài, nộp càng sớm càng tốt |
+| 4 | Tra cứu nhãn hiệu "REBOXE" tại Cục Sở hữu trí tuệ xem đã có ai đăng ký chưa | Làm trước khi đầu tư vào thương hiệu |
+| 5 | Nộp đơn **đăng ký nhãn hiệu "REBOXE"** | Thủ tục kéo dài, nộp càng sớm càng tốt |
 | 6 | Cân nhắc đăng ký bản quyền chương trình máy tính | Tạo chứng cứ về thời điểm và quyền tác giả |
 
 Mục 1 và 2 nằm trong chuyên môn của thành viên ngành Luật, và là việc **có thể làm ngay tuần này** mà không cần chờ thành lập pháp nhân — ký thoả thuận giữa ba cá nhân trước, chuyển giao cho pháp nhân khi công ty ra đời.
@@ -647,4 +647,4 @@ Không mở cho người dùng ngoài khi còn ô chưa tích.
 - [Luật An ninh mạng 116/2025/QH15](https://vanban.chinhphu.vn/?docid=216499&pageid=27160) — hiệu lực 01/07/2026.
 - [Luật Phòng, chống rửa tiền 14/2022/QH15](https://vanban.chinhphu.vn/?classid=1&docid=207710&orggroupid=1&pageid=27160) — dùng để Legal xác định đúng đối tượng báo cáo và phân công nghĩa vụ với PSP/ngân hàng.
 
-Các nguồn trên chỉ xác nhận văn bản và ngày hiệu lực. Mapping nghĩa vụ cụ thể của REBOX vẫn cần luật sư chịu trách nhiệm rà soát.
+Các nguồn trên chỉ xác nhận văn bản và ngày hiệu lực. Mapping nghĩa vụ cụ thể của REBOXE vẫn cần luật sư chịu trách nhiệm rà soát.

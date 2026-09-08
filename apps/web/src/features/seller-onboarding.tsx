@@ -1,6 +1,6 @@
 "use client";
 
-import { ApiClientError } from "@rebox/api-client";
+import { ApiClientError } from "@reboxe/api-client";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -233,7 +233,7 @@ export function SellerOnboarding() {
               <div className="mt-6 grid gap-5 sm:grid-cols-[140px_1fr]">
                 <div>
                   <div className="relative mx-auto size-28 overflow-hidden rounded-2xl bg-[var(--accent-soft)]">
-                    <Image alt="Ảnh đại diện shop mẫu" fill sizes="112px" src="/rebox/seller-avatar.svg" />
+                    <Image alt="Ảnh đại diện shop mẫu" fill sizes="112px" src="/reboxe/seller-avatar.svg" />
                   </div>
                   <label className="mt-3 block text-center text-xs font-bold text-[var(--accent)]">
                     Chọn ảnh đại diện
@@ -243,7 +243,7 @@ export function SellerOnboarding() {
                 </div>
                 <div className="grid gap-4">
                   <Field label="Tên shop">
-                    <input className={inputClass} maxLength={120} minLength={2} placeholder="Ví dụ: REBOX Store Hà Nội" required value={form.displayName} onChange={(event) => update("displayName", event.target.value)} />
+                    <input className={inputClass} maxLength={120} minLength={2} placeholder="Ví dụ: REBOXE Store Hà Nội" required value={form.displayName} onChange={(event) => update("displayName", event.target.value)} />
                   </Field>
                   <Field label="Mô tả ngắn">
                     <textarea className={`${inputClass} min-h-24 resize-y`} maxLength={500} minLength={10} placeholder="Mô tả mặt hàng và khu vực hoạt động của shop" required value={form.description} onChange={(event) => update("description", event.target.value)} />

@@ -1,6 +1,6 @@
 "use client";
 
-import { ApiClientError } from "@rebox/api-client";
+import { ApiClientError } from "@reboxe/api-client";
 import Image from "next/image";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { AccountShell } from "../../../features/account-shell";

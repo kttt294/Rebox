@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Pool } from "pg";
 import { AccountModule } from "../src/modules/account";
-import type { NotificationPreferences } from "@rebox/shared";
+import type { NotificationPreferences } from "@reboxe/shared";
 
 const databaseUrl = process.env.DATABASE_URL ?? "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
 const piiSecret = process.env.SELLER_PII_ENCRYPTION_KEY ?? "test-seller-pii-encryption-key-at-least-32-characters";

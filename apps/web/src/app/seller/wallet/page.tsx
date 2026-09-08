@@ -1,6 +1,6 @@
 "use client";
 
-import type { SellerFinanceSnapshot } from "@rebox/shared";
+import type { SellerFinanceSnapshot } from "@reboxe/shared";
 import { useEffect, useState } from "react";
 import { FinanceWorkspace, SellerShell } from "../../../features/seller-shell";
 import { createBrowserApiClient } from "../../../platform/api/browser";

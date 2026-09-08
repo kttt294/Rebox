@@ -17,7 +17,7 @@ async function createPublishedListing(request: APIRequestContext, prefix: string
     headers: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
       ? { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }
       : undefined,
-    data: { email: "verified-seller@rebox.test", password: sellerPassword }
+    data: { email: "verified-seller@reboxe.test", password: sellerPassword }
   });
   await requireOk(authResponse, "E2E seller authentication");
   const { access_token: accessToken } = await authResponse.json() as { access_token: string };
@@ -66,12 +66,12 @@ async function authenticate(request: APIRequestContext, email: string) {
 }
 
 async function createPublishedPackageListing(request: APIRequestContext, prefix: string) {
-  const headers = await authenticate(request, "verified-seller@rebox.test");
+  const headers = await authenticate(request, "verified-seller@reboxe.test");
   const tracking = `E2E-${crypto.randomUUID()}`.toUpperCase();
   const title = `${prefix} ${crypto.randomUUID()}`;
   const csv = Buffer.from([
-    "source_platform,source_order_ref,source_return_ref,source_tracking_no,source_item_ref,source_sku,source_quantity,product_name,variant_name,brand,source_category,original_unit_price_vnd,return_reason_raw,return_reason,returned_at,package_weight_gram,package_length_cm,package_width_cm,package_height_cm,product_image_urls,rebox_category_id,package_disclosure,outer_package_notes,package_listing_price_vnd",
-    `SHOPEE,ORDER-${crypto.randomUUID()},RETURN-${crypto.randomUUID()},${tracking},LINE-1,SKU-1,1,${title},Mẫu test,REBOX,Danh mục,120000,Đổi ý,CHANGE_MIND,2026-09-07T00:00:00Z,500,20,20,10,https://example.test/item.jpg,fashion,UNOPENED_UNINSPECTED,Seal nguyên,120000`
+    "source_platform,source_order_ref,source_return_ref,source_tracking_no,source_item_ref,source_sku,source_quantity,product_name,variant_name,brand,source_category,original_unit_price_vnd,return_reason_raw,return_reason,returned_at,package_weight_gram,package_length_cm,package_width_cm,package_height_cm,product_image_urls,reboxe_category_id,package_disclosure,outer_package_notes,package_listing_price_vnd",
+    `SHOPEE,ORDER-${crypto.randomUUID()},RETURN-${crypto.randomUUID()},${tracking},LINE-1,SKU-1,1,${title},Mẫu test,REBOXE,Danh mục,120000,Đổi ý,CHANGE_MIND,2026-09-07T00:00:00Z,500,20,20,10,https://example.test/item.jpg,fashion,UNOPENED_UNINSPECTED,Seal nguyên,120000`
   ].join("\n"));
   const previewResponse = await request.post(
     `http://127.0.0.1:3001/v1/shops/${reviewShopId}/return-imports/preview`,
@@ -112,7 +112,7 @@ async function createPublishedPackageListing(request: APIRequestContext, prefix:
 }
 
 async function ensureBuyerAddress(request: APIRequestContext) {
-  const headers = await authenticate(request, "moderator@rebox.test");
+  const headers = await authenticate(request, "moderator@reboxe.test");
   const listed = await request.get("http://127.0.0.1:3001/v1/account/addresses", { headers });
   await requireOk(listed, "E2E buyer address lookup");
   if ((await listed.json() as unknown[]).length > 0) return;
@@ -132,7 +132,7 @@ async function ensureBuyerAddress(request: APIRequestContext) {
 }
 
 async function signInBuyer(page: Page) {
-  await page.getByRole("textbox", { name: "Email" }).fill("moderator@rebox.test");
+  await page.getByRole("textbox", { name: "Email" }).fill("moderator@reboxe.test");
   await page.getByRole("textbox", { name: "Mật khẩu" }).fill(sellerPassword);
   await page.getByRole("button", { name: "ĐĂNG NHẬP" }).click();
 }
@@ -142,7 +142,7 @@ async function signInAsReviewer(page: Page) {
     id: "10000000-0000-4000-8000-000000000003",
     aud: "authenticated",
     role: "authenticated",
-    email: "moderator@rebox.test",
+    email: "moderator@reboxe.test",
     app_metadata: { provider: "email", providers: ["email"] },
     user_metadata: {},
     identities: [],
@@ -175,7 +175,7 @@ test("renders only an active listing through the public NestJS endpoint", async 
   await page.goto("/listings/RBX-01JTESTPUBLICLISTING00000");
   const detail = page.locator("section").filter({ has: page.getByRole("heading", { name: "Áo khoác hoàn đơn synthetic" }) });
   await expect(detail.getByRole("heading", { name: "Áo khoác hoàn đơn synthetic" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "REBOX Verified Fixture", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "REBOXE Verified Fixture", exact: true })).toBeVisible();
   await expect(detail.getByText("120.000đ")).toBeVisible();
   await expect(detail.getByText("Xước nhẹ ở khóa kéo")).toBeVisible();
 });
@@ -195,10 +195,10 @@ test("normalizes the cart and places cart and buy-now sandbox orders", async ({ 
   await expect(page.getByRole("button", { name: "Đã thêm vào giỏ" })).toBeVisible();
   await page.reload();
   await page.getByRole("button", { name: "Thêm vào giỏ hàng" }).click();
-  await expect.poll(() => page.evaluate(() => localStorage.getItem("rebox.cart.v1"))).toBe(
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("reboxe.cart.v1"))).toBe(
     JSON.stringify([{ listingId: first.id, quantity: 1 }])
   );
-  await page.evaluate(({ firstId, secondId }) => localStorage.setItem("rebox.cart.v1", JSON.stringify([
+  await page.evaluate(({ firstId, secondId }) => localStorage.setItem("reboxe.cart.v1", JSON.stringify([
     { listingId: firstId, quantity: 5 },
     { listingId: firstId, quantity: 2 },
     { listingId: secondId, quantity: 7 }
@@ -221,7 +221,7 @@ test("normalizes the cart and places cart and buy-now sandbox orders", async ({ 
   await expect(page.getByRole("link", { name: first.title })).toHaveCount(0);
   await page.getByRole("button", { name: "Đặt đơn SANDBOX_COD" }).click();
   await expect(page.getByRole("status")).toContainText("đã xác nhận SANDBOX_COD");
-  await expect.poll(() => page.evaluate(() => localStorage.getItem("rebox.cart.v1"))).toBe(
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("reboxe.cart.v1"))).toBe(
     JSON.stringify([{ listingId: first.id, quantity: 1 }])
   );
 

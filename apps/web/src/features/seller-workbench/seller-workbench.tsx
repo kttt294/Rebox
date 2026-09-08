@@ -1,7 +1,7 @@
 "use client";
 
-import { ApiClientError } from "@rebox/api-client";
-import { maxCatalogImageBytes, maxCatalogImages, type ActorContext, type Listing, type SellerInventoryPackage } from "@rebox/shared";
+import { ApiClientError } from "@reboxe/api-client";
+import { maxCatalogImageBytes, maxCatalogImages, type ActorContext, type Listing, type SellerInventoryPackage } from "@reboxe/shared";
 import Link from "next/link";
 import { useCallback, useEffect, useState, type ChangeEvent } from "react";
 import { createBrowserApiClient } from "../../platform/api/browser";
@@ -176,7 +176,7 @@ export function SellerWorkbench() {
       setError(caught instanceof ApiClientError && caught.code === "SHOP_NOT_VERIFIED"
         ? "Shop đang chờ xác minh nên chưa thể đăng công khai. Bản nháp của bạn vẫn được giữ nguyên."
         : caught instanceof ApiClientError && caught.code === "LISTING_CATEGORY_BANNED"
-          ? "Danh mục này bị cấm trên REBOX. Listing vẫn được giữ ở bản nháp."
+          ? "Danh mục này bị cấm trên REBOXE. Listing vẫn được giữ ở bản nháp."
         : caught instanceof ApiClientError && caught.code === "LISTING_DISCLOSURE_REQUIRED"
           ? "Danh mục này yêu cầu mô tả tình trạng chi tiết hơn. Listing vẫn được giữ ở bản nháp."
         : caught instanceof ApiClientError && caught.code === "INVALID_CATEGORY"
@@ -269,7 +269,7 @@ export function SellerWorkbench() {
   return (
     <div className="grid gap-6">
       <section id="inventory" className="flex min-h-[calc(100vh-100px)] flex-col overflow-hidden rounded-xl border border-[var(--line)] bg-white p-5">
-        <h1 className="text-[22px] font-bold leading-normal text-[var(--ink)]">Quản Lý Kho Hàng REBOX</h1>
+        <h1 className="text-[22px] font-bold leading-normal text-[var(--ink)]">Quản Lý Kho Hàng REBOXE</h1>
 
         <div className="mt-1 flex h-11 items-end gap-1 overflow-x-auto border-b border-[var(--line)]" aria-label="Lọc trạng thái kho hàng">
           {([
@@ -321,7 +321,7 @@ export function SellerWorkbench() {
             <option value="product">Tên sản phẩm</option>
           </select>
           <input aria-label="Nhập tên sản phẩm hoặc mã đơn" className="h-[34px] min-w-[220px] flex-1 rounded-sm border border-[var(--line)] px-3 text-xs" onChange={(event) => setSearchInput(event.target.value)} placeholder="Nhập tên sản phẩm" type="search" value={searchInput} />
-          <span className="flex h-[34px] items-center rounded-sm border border-[var(--line)] px-3 text-xs">Đơn vị vận chuyển: REBOX</span>
+          <span className="flex h-[34px] items-center rounded-sm border border-[var(--line)] px-3 text-xs">Đơn vị vận chuyển: REBOXE</span>
           <button className="h-[34px] rounded-sm bg-[var(--accent)] px-4 text-xs font-medium text-white">Áp dụng</button>
           <button className="h-[34px] rounded-sm border border-[var(--line)] bg-white px-4 text-xs text-[var(--accent)]" onClick={() => { setSearchInput(""); setSearchTerm(""); setStatusFilter("all"); setStockFilter("all"); }} type="button">Đặt lại</button>
         </form>

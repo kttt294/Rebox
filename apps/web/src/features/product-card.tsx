@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { PublicListing } from "@rebox/shared";
+import type { PublicListing } from "@reboxe/shared";
 import { formatPrice } from "./commerce-data";
 import { ProductVisual } from "./commerce-ui";
 

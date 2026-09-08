@@ -14,7 +14,7 @@ import {
   type BusinessVerificationProvider,
   type CatalogMediaStorage,
   type DatabaseContext
-} from "@rebox/backend";
+} from "@reboxe/backend";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { HttpBusinessVerificationProvider } from "./platform/kyc/http-business-verification-provider";
 import { createVnptKycProvider } from "./platform/kyc/vnpt-kyc-provider";

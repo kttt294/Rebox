@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Headers, Inject, Param, Post } from "@nestjs/common";
-import { DomainError, type ClaimsModule } from "@rebox/backend";
-import { createDisputeSchema, createEvidenceSchema, disputeDecisionSchema, disputeReplySchema, processingRecordSchema } from "@rebox/shared";
+import { DomainError, type ClaimsModule } from "@reboxe/backend";
+import { createDisputeSchema, createEvidenceSchema, disputeDecisionSchema, disputeReplySchema, processingRecordSchema } from "@reboxe/shared";
 import { CLAIMS } from "../../backend.providers";
 import { CurrentActor } from "../decorators/current-actor";
 import type { Actor } from "../types/authenticated-request";

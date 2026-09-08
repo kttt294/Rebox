@@ -1,4 +1,4 @@
-# REBOX - Kế hoạch triển khai
+# REBOXE - Kế hoạch triển khai
 
 Xây dựng theo mô hình Lean Startup như tài liệu gốc định hướng, với một điều chỉnh quan trọng: **phạm vi trong tài liệu vượt xa năng lực của đội 3 người (2 lập trình viên + 1 pháp lý) trong 6 tháng**. Kế hoạch này cắt phạm vi để có sản phẩm chạy thật. Mọi quyết định kiến trúc và phạm vi trong kế hoạch này tuân theo [`07-ARCHITECTURE-DECISIONS.md`](07-ARCHITECTURE-DECISIONS.md).
 
@@ -24,7 +24,7 @@ Xây dựng theo mô hình Lean Startup như tài liệu gốc định hướng,
 
 ### 1.2. Khoảng cách năng lực
 
-Phạm vi trong `REBOX.docx` (2 mobile app + 2 web app + admin console + sàn giao dịch + ví ký quỹ + AI thị giác máy tính + tích hợp 3 sàn + 2 ĐVVC + cổng thanh toán + public API) tương ứng khoảng **18–30 người-tháng** cho một đội có kinh nghiệm.
+Phạm vi trong `REBOXE.docx` (2 mobile app + 2 web app + admin console + sàn giao dịch + ví ký quỹ + AI thị giác máy tính + tích hợp 3 sàn + 2 ĐVVC + cổng thanh toán + public API) tương ứng khoảng **18–30 người-tháng** cho một đội có kinh nghiệm.
 
 Hai sinh viên làm bán thời gian trong 6 tháng cho ra khoảng **6–9 người-tháng**.
 
@@ -84,7 +84,7 @@ Những việc này **không viết code nhưng chặn ngày ra mắt**. Bắt �
 | ---- | --------------------------------------------------------------------------------------------------- | ---------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------- |
 | 0.1  | Thành lập pháp nhân (Công ty TNHH hoặc CP)                                                          | Pháp lý + Trưởng dự án | 2–3 tuần                | Bắt buộc có trước khi đăng ký sàn TMĐT                                                                          |
 | 0.2  | **Thỏa thuận sáng lập + chuyển giao quyền SHTT**                                                    | Pháp lý                | 1 tuần                  | Mã nguồn hiện thuộc sở hữu cá nhân 2 dev, không thuộc dự án. "Góp vốn bằng công sức" không hợp lệ theo Luật DN 2020 - xem `05-PHAP-LY` §9.3 |
-| 0.3  | Đăng ký nhãn hiệu "REBOX"                                                                           | Pháp lý                | nộp sớm                 | Thủ tục kéo dài 18–24 tháng, nộp càng sớm càng tốt                                                              |
+| 0.3  | Đăng ký nhãn hiệu "REBOXE"                                                                           | Pháp lý                | nộp sớm                 | Thủ tục kéo dài 18–24 tháng, nộp càng sớm càng tốt                                                              |
 | 0.4  | Soạn Quy chế hoạt động sàn, Chính sách bảo mật, Quy trình giải quyết tranh chấp, Hợp đồng người bán | Pháp lý                | 3–4 tuần                | Đầu vào bắt buộc của hồ sơ đăng ký sàn - xem `05-PHAP-LY` §1                                                    |
 | 0.5  | **Đăng ký sàn TMĐT tại online.gov.vn**                                                              | Pháp lý                | nộp T2, duyệt 1–3 tháng | **Đường găng dài nhất.** Nộp ngay khi có pháp nhân                                                              |
 | 0.6  | **Chốt đối tác thanh toán có giấy phép**                                                            | Business + Pháp lý     | 4–6 tuần                | Blocker của Sprint 4. Xem `05-PHAP-LY` §2                                                                       |

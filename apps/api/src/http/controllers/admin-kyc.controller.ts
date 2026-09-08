@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Header, Headers, HttpCode, Inject, Param, Post, Query, UseGuards } from "@nestjs/common";
-import { DomainError, type KycModule } from "@rebox/backend";
-import { adminKycQuerySchema, kycDecisionSchema } from "@rebox/shared";
+import { DomainError, type KycModule } from "@reboxe/backend";
+import { adminKycQuerySchema, kycDecisionSchema } from "@reboxe/shared";
 import { KYC } from "../../backend.providers";
 import { CurrentActor } from "../decorators/current-actor";
 import { KycReviewerGuard } from "../guards/kyc-reviewer.guard";

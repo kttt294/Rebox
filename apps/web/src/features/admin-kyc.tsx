@@ -1,7 +1,7 @@
 "use client";
 
-import { ApiClientError } from "@rebox/api-client";
-import type { AdminKycDetail, AdminKycQueue, KycDecisionInput } from "@rebox/shared";
+import { ApiClientError } from "@reboxe/api-client";
+import type { AdminKycDetail, AdminKycQueue, KycDecisionInput } from "@reboxe/shared";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { createBrowserApiClient } from "../platform/api/browser";
@@ -82,7 +82,7 @@ export function AdminKyc() {
       const existing = factors.data.totp[0];
       if (existing) setFactor({ id: existing.id });
       else {
-        const enrolled = await mfa.enroll({ factorType: "totp", friendlyName: `REBOX staff ${Date.now()}` });
+        const enrolled = await mfa.enroll({ factorType: "totp", friendlyName: `REBOXE staff ${Date.now()}` });
         if (enrolled.error) throw enrolled.error;
         setFactor({ id: enrolled.data.id, qr: enrolled.data.totp.qr_code });
       }
@@ -105,7 +105,7 @@ export function AdminKyc() {
 
   return <main className="mx-auto max-w-6xl space-y-6 p-5 sm:p-8">
     <div className="flex flex-wrap items-center justify-between gap-4">
-      <div><p className="text-sm text-[var(--muted)]">REBOX · Quản trị</p><h1 className="text-3xl font-bold">Duyệt hồ sơ người bán</h1></div>
+      <div><p className="text-sm text-[var(--muted)]">REBOXE · Quản trị</p><h1 className="text-3xl font-bold">Duyệt hồ sơ người bán</h1></div>
       <button className={button} disabled={busy} onClick={() => void reload()}>Tải lại hàng đợi</button>
     </div>
     {error ? <p role="alert" className="rounded-lg bg-amber-50 p-4 text-amber-900">{error}</p> : null}

@@ -1,5 +1,5 @@
 import { Inject, Module, type OnApplicationShutdown } from "@nestjs/common";
-import type { DatabaseContext } from "@rebox/backend";
+import type { DatabaseContext } from "@reboxe/backend";
 import { OutboxConsumer } from "./outbox.consumer";
 import { DATABASE, workerProviders } from "./worker.providers";
 

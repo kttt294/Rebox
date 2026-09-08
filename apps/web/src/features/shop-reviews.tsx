@@ -1,7 +1,7 @@
 "use client";
 
-import { ApiClientError } from "@rebox/api-client";
-import type { ShopReview, ShopReviewEligibility } from "@rebox/shared";
+import { ApiClientError } from "@reboxe/api-client";
+import type { ShopReview, ShopReviewEligibility } from "@reboxe/shared";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
@@ -118,7 +118,7 @@ export function ShopReviews({ shopId }: { shopId: string }) {
             : reviews.map((review) => (
               <article className="border-b border-[var(--line)] pb-4 last:border-b-0" key={review.id}>
                 <div className="flex items-center gap-3">
-                  <strong className="text-sm">Người dùng REBOX</strong>
+                  <strong className="text-sm">Người dùng REBOXE</strong>
                   <span aria-label={`${review.rating} trên 5 sao`} className="text-amber-500">{"★".repeat(review.rating)}<span className="text-slate-300">{"★".repeat(5 - review.rating)}</span></span>
                   <time className="ml-auto text-xs text-[var(--muted)]" dateTime={review.updatedAt}>{new Date(review.updatedAt).toLocaleDateString("vi-VN")}</time>
                 </div>

@@ -1,4 +1,4 @@
-# REBOX — Nhật ký hòa giải tài liệu
+# REBOXE — Nhật ký hòa giải tài liệu
 
 ## 07/09/2026 — MVP synthetic
 
@@ -47,7 +47,7 @@ File này ghi lại lần chuẩn hóa bộ docs theo [`07-ARCHITECTURE-DECISION
 | Ledger | Một bảng entry và `CHECK SUM = 0` cross-row | `ledger_transactions` + `ledger_postings`, ghi qua một interface, property test và reconciliation |
 | Withdrawal | Trừ thẳng available khi payout async | `AVAILABLE → WITHDRAWAL_PENDING → SETTLED | FAILED`; projection/reconcile theo đủ ba bucket |
 | Refund | Đánh order `REFUNDED` ngay khi admin duyệt | Entity refund `APPROVED → PENDING → PAID | FAILED`; chỉ báo đã hoàn sau provider success + `REFUND_PAID` |
-| Settlement account | Mặc định một `BANK_SETTLEMENT` của REBOX | Operational account theo provider/account/currency; mapping pháp định chờ A10 + kế toán, đối soát theo opening/closing/fees |
+| Settlement account | Mặc định một `BANK_SETTLEMENT` của REBOXE | Operational account theo provider/account/currency; mapping pháp định chờ A10 + kế toán, đối soát theo opening/closing/fees |
 | Evidence | Video 180 giây; R2/Supabase Storage dùng như WORM | Video tối đa 90 giây; bản gốc ở provider WORM/Object Lock riêng; Supabase Storage chỉ cho media thường |
 | Evidence identity | Chỉ lưu object key trong bucket versioned | Lưu provider/bucket/key/version/lock/checksum; mọi read/delete/hold target đúng immutable version |
 | Retention | Ghi `closed_at + 90 ngày` ngay khi upload dù chưa có `closed_at` | Appeal dùng chung `dispute_case`; ingest đặt lock tạm, watchdog gia hạn; chỉ từ `final_closed_at` mới chốt target và tôn trọng legal hold |

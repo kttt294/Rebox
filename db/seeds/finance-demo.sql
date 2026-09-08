@@ -3,15 +3,15 @@
 
 INSERT INTO profiles (id, status)
 SELECT id, 'ACTIVE' FROM auth.users
-WHERE email IN ('shop-test@rebox.test', 'buyer-test@rebox.test')
+WHERE email IN ('shop-test@reboxe.test', 'buyer-test@reboxe.test')
 ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status;
 
 INSERT INTO shops (id, display_name, legal_type, kyc_status, kyc_verified_at, status)
-VALUES ('RBX-DEMO-SHOP-2026', 'REBOX Shop Test', 'INDIVIDUAL', 'VERIFIED', now(), 'ACTIVE')
+VALUES ('RBX-DEMO-SHOP-2026', 'REBOXE Shop Test', 'INDIVIDUAL', 'VERIFIED', now(), 'ACTIVE')
 ON CONFLICT (id) DO UPDATE SET display_name = EXCLUDED.display_name, kyc_status = EXCLUDED.kyc_status, status = EXCLUDED.status;
 
 INSERT INTO shop_memberships (user_id, shop_id, role, status)
-SELECT id, 'RBX-DEMO-SHOP-2026', 'OWNER', 'ACTIVE' FROM auth.users WHERE email = 'shop-test@rebox.test'
+SELECT id, 'RBX-DEMO-SHOP-2026', 'OWNER', 'ACTIVE' FROM auth.users WHERE email = 'shop-test@reboxe.test'
 ON CONFLICT (user_id, shop_id) DO UPDATE SET role = EXCLUDED.role, status = EXCLUDED.status;
 
 INSERT INTO categories (id, name, active, sort_order)
@@ -47,7 +47,7 @@ CROSS JOIN (VALUES
   ('RBX-DEMO-002', 'SHIPPING', 850000::bigint, now() - interval '2 days'),
   ('RBX-DEMO-003', 'COMPLETED', 225000::bigint, now() - interval '1 day')
 ) AS order_data(id, status, total_vnd, placed_at)
-WHERE users.email = 'buyer-test@rebox.test'
+WHERE users.email = 'buyer-test@reboxe.test'
 ON CONFLICT (id) DO UPDATE SET
   buyer_id = EXCLUDED.buyer_id, shop_id = EXCLUDED.shop_id, status = EXCLUDED.status, total_vnd = EXCLUDED.total_vnd,
   item_count = EXCLUDED.item_count, placed_at = EXCLUDED.placed_at, updated_at = now();

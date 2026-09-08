@@ -169,7 +169,7 @@ export const returnManifestLineDraftSchema = z.object({
   originalUnitPriceVnd: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
   returnReason: z.string().trim().min(1).max(200).optional(),
   productImageUrls: z.array(z.string().url()).max(20),
-  reboxCategoryId: z.string().trim().min(1).max(80)
+  reboxeCategoryId: z.string().trim().min(1).max(80)
 }).strict();
 
 export const returnManifestDraftSchema = z.object({

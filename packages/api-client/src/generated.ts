@@ -1123,7 +1123,7 @@ export interface components {
             originalUnitPriceVnd?: number;
             returnReason?: string;
             productImageUrls: string[];
-            reboxCategoryId: string;
+            reboxeCategoryId: string;
         };
         ReturnManifestDraft: {
             /** @enum {string} */

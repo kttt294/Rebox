@@ -1,5 +1,5 @@
 {
-  "name": "rebox",
+  "name": "reboxe",
   "version": "0.0.0",
   "private": true,
   "packageManager": "pnpm@11.24.0",
@@ -8,16 +8,16 @@
   },
   "scripts": {
     "build": "corepack pnpm -r build",
-    "dev": "corepack pnpm --parallel --filter @rebox/api --filter @rebox/worker --filter @rebox/web dev",
+    "dev": "corepack pnpm --parallel --filter @reboxe/api --filter @reboxe/worker --filter @reboxe/web dev",
     "lint": "eslint .",
-    "typecheck": "corepack pnpm --filter @rebox/shared build && corepack pnpm --filter @rebox/api-client build && corepack pnpm --filter @rebox/backend build && corepack pnpm -r typecheck",
-    "test": "corepack pnpm --filter @rebox/shared build && corepack pnpm --filter @rebox/backend build && vitest run",
+    "typecheck": "corepack pnpm --filter @reboxe/shared build && corepack pnpm --filter @reboxe/api-client build && corepack pnpm --filter @reboxe/backend build && corepack pnpm -r typecheck",
+    "test": "corepack pnpm --filter @reboxe/shared build && corepack pnpm --filter @reboxe/backend build && vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "db:start": "supabase start",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "corepack pnpm --filter @rebox/shared build && corepack pnpm --filter @rebox/backend build && corepack pnpm --filter @rebox/backend migrate",
-    "db:seed": "corepack pnpm --filter @rebox/shared build && corepack pnpm --filter @rebox/backend build && corepack pnpm --filter @rebox/backend seed",
+    "db:migrate": "corepack pnpm --filter @reboxe/shared build && corepack pnpm --filter @reboxe/backend build && corepack pnpm --filter @reboxe/backend migrate",
+    "db:seed": "corepack pnpm --filter @reboxe/shared build && corepack pnpm --filter @reboxe/backend build && corepack pnpm --filter @reboxe/backend seed",
     "db:reset": "supabase db reset --local --no-seed && corepack pnpm db:migrate && corepack pnpm db:seed",
     "supabase": "supabase"
   },

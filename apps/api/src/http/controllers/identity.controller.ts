@@ -1,12 +1,12 @@
 import { Body, Controller, Get, Inject, Post } from "@nestjs/common";
-import type { IdentityModule } from "@rebox/backend";
-import { DomainError } from "@rebox/backend";
+import type { IdentityModule } from "@reboxe/backend";
+import { DomainError } from "@reboxe/backend";
 import {
   createSellerDocumentUploadSchema,
   createShopSchema,
   type ActorContext,
   type CatalogImageUploadIntent
-} from "@rebox/shared";
+} from "@reboxe/shared";
 import { IDENTITY } from "../../backend.providers";
 import { CurrentActor } from "../decorators/current-actor";
 import type { Actor } from "../types/authenticated-request";

@@ -1,4 +1,4 @@
-import { sellerFinanceSnapshotSchema, type SellerFinanceSnapshot } from "@rebox/shared";
+import { sellerFinanceSnapshotSchema, type SellerFinanceSnapshot } from "@reboxe/shared";
 import type { Pool } from "pg";
 import type { IdentityModule } from "../identity";
 

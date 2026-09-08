@@ -10,7 +10,7 @@ test("submits email/password to Supabase and shows an invalid-credentials error"
   });
 
   await page.goto("/login");
-  await page.getByRole("textbox", { name: "Email" }).fill("seller@rebox.test");
+  await page.getByRole("textbox", { name: "Email" }).fill("seller@reboxe.test");
   await page.getByRole("textbox", { name: "Mật khẩu" }).fill("wrong-password");
 
   const requestPromise = page.waitForRequest("**/auth/v1/token?grant_type=password");
@@ -18,7 +18,7 @@ test("submits email/password to Supabase and shows an invalid-credentials error"
   const request = await requestPromise;
 
   expect(request.postDataJSON()).toMatchObject({
-    email: "seller@rebox.test",
+    email: "seller@reboxe.test",
     password: "wrong-password"
   });
   await expect(page.locator("p[role='alert']")).toHaveText("Email hoặc mật khẩu không đúng.");

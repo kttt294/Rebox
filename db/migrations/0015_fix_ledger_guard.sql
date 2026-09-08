@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION rebox_guard_ledger() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION reboxe_guard_ledger() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF TG_TABLE_NAME = 'ledger_transactions' THEN
     IF OLD.status = 'POSTED' THEN RAISE EXCEPTION 'POSTED_LEDGER_IMMUTABLE'; END IF;

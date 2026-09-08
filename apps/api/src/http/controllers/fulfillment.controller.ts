@@ -1,6 +1,6 @@
 import { Body, Controller, Inject, Param, Post } from "@nestjs/common";
-import { DomainError, type FulfillmentModule } from "@rebox/backend";
-import { fakeCarrierEventSchema } from "@rebox/shared";
+import { DomainError, type FulfillmentModule } from "@reboxe/backend";
+import { fakeCarrierEventSchema } from "@reboxe/shared";
 import { FULFILLMENT } from "../../backend.providers";
 import { CurrentActor } from "../decorators/current-actor";
 import type { Actor } from "../types/authenticated-request";

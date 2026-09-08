@@ -1,4 +1,4 @@
-import type { KycIdentity, KycImage, KycProvider } from "@rebox/backend";
+import type { KycIdentity, KycImage, KycProvider } from "@reboxe/backend";
 import { randomUUID } from "node:crypto";
 
 type JsonObject = Record<string, unknown>;

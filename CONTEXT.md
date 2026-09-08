@@ -1,11 +1,11 @@
-# REBOX Marketplace
+# REBOXE Marketplace
 
-REBOX bán lại nguyên kiện hàng hoàn giữa doanh nghiệp và người tiêu dùng. Kiện không được mở để kiểm đếm hay kiểm định trước khi đăng bán.
+REBOXE bán lại nguyên kiện hàng hoàn giữa doanh nghiệp và người tiêu dùng. Kiện không được mở để kiểm đếm hay kiểm định trước khi đăng bán.
 
 ## Language
 
 **Kiện hoàn (`ReturnPackage`)**:
-Một kiện hàng hoàn vật lý còn nguyên trạng bên ngoài; đây là đơn vị tồn kho và đơn vị được bán trên REBOX.
+Một kiện hàng hoàn vật lý còn nguyên trạng bên ngoài; đây là đơn vị tồn kho và đơn vị được bán trên REBOXE.
 _Avoid_: món hàng, unit, SKU tồn kho
 
 **Dòng khai báo (`ReturnLine`)**:
@@ -25,7 +25,7 @@ Card công khai bán đúng một kiện hoàn; số lượng khả dụng chỉ
 _Avoid_: listing SKU, listing từng dòng, listing nhiều unit
 
 **Chưa mở kiểm tra (`UNOPENED_UNINSPECTED`)**:
-Công bố rằng REBOX và seller không mở kiện, không xác nhận nội dung hoặc tình trạng sản phẩm bên trong.
+Công bố rằng REBOXE và seller không mở kiện, không xác nhận nội dung hoặc tình trạng sản phẩm bên trong.
 _Avoid_: mới 99%, như mới, đã kiểm định
 
 **Tình trạng vỏ kiện (`SealStatus`)**:

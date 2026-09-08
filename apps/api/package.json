@@ -1,5 +1,5 @@
 {
-  "name": "@rebox/api",
+  "name": "@reboxe/api",
   "version": "0.0.0",
   "private": true,
   "scripts": {
@@ -13,8 +13,8 @@
     "@nestjs/core": "11.2.3",
     "@nestjs/platform-express": "11.2.3",
     "@nestjs/swagger": "11.4.7",
-    "@rebox/backend": "workspace:*",
-    "@rebox/shared": "workspace:*",
+    "@reboxe/backend": "workspace:*",
+    "@reboxe/shared": "workspace:*",
     "@supabase/supabase-js": "2.112.4",
     "jose": "5.10.0",
     "reflect-metadata": "0.2.2",

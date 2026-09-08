@@ -4,7 +4,7 @@ const user = {
   id: "20000000-0000-4000-8000-000000000001",
   aud: "authenticated",
   role: "authenticated",
-  email: "buyer@rebox.test",
+  email: "buyer@reboxe.test",
   email_confirmed_at: "2026-09-05T00:00:00.000Z",
   phone: "",
   app_metadata: { provider: "email", providers: ["email"] },
@@ -93,7 +93,7 @@ test("keeps a new account as buyer and creates a seller shop after five onboardi
   await page.route("http://127.0.0.1:3001/seller-upload/**", (route) => route.fulfill({ status: 200, body: "ok" }));
 
   await page.goto("/login?next=/seller/onboarding");
-  await page.getByRole("textbox", { name: "Email" }).fill("buyer@rebox.test");
+  await page.getByRole("textbox", { name: "Email" }).fill("buyer@reboxe.test");
   await page.getByPlaceholder("Mật khẩu").fill("secure-password");
   await page.getByRole("button", { name: "ĐĂNG NHẬP" }).click();
   await expect(page).toHaveURL(/\/seller\/onboarding$/);

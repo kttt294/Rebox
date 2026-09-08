@@ -1,4 +1,4 @@
-# REBOX API Catalog
+# REBOXE API Catalog
 
 Base URL local: `http://127.0.0.1:3001`. Tất cả route dưới đây đã có controller/module; trạng thái là `IMPLEMENTED_LOCAL` hoặc `SANDBOX_ONLY`. Payment/carrier/evidence production là `BLOCKED_PROVIDER`. Mobile, AI triage và live marketplace API là `DEFERRED_GĐ3`.
 
@@ -54,10 +54,10 @@ Forgot/reset password dùng Supabase Auth trực tiếp ở web. Social login đ
 
 ## Contract và kiểm tra drift
 
-Contract machine-readable nằm ở `packages/api-client/openapi/rebox.yaml`; generated types ở `packages/api-client/src/generated.ts`.
+Contract machine-readable nằm ở `packages/api-client/openapi/reboxe.yaml`; generated types ở `packages/api-client/src/generated.ts`.
 
 ```bash
-corepack pnpm --filter @rebox/api-client generate
+corepack pnpm --filter @reboxe/api-client generate
 git diff --exit-code -- packages/api-client/src/generated.ts
 ```
 

@@ -18,7 +18,7 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/v1/me", (route) => route.fulfill({ json: {
     id: "10000000-0000-4000-8000-000000000004",
     profileStatus: "ACTIVE",
-    shops: [{ id: "RBX-DEMO-SHOP-2026", displayName: "REBOX Shop Test", role: "OWNER", membershipStatus: "ACTIVE", kycId: null, kycStatus: "VERIFIED", status: "ACTIVE" }]
+    shops: [{ id: "RBX-DEMO-SHOP-2026", displayName: "REBOXE Shop Test", role: "OWNER", membershipStatus: "ACTIVE", kycId: null, kycStatus: "VERIFIED", status: "ACTIVE" }]
   } }));
   await page.route("**/v1/shops/RBX-DEMO-SHOP-2026/finance", (route) => route.fulfill({ json: financeSnapshot }));
 });

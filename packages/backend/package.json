@@ -1,5 +1,5 @@
 {
-  "name": "@rebox/backend",
+  "name": "@reboxe/backend",
   "version": "0.0.0",
   "private": true,
   "main": "dist/index.js",
@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@rebox/shared": "workspace:*",
+    "@reboxe/shared": "workspace:*",
     "drizzle-orm": "0.45.2",
     "pg": "8.23.0",
     "read-excel-file": "9.3.4",

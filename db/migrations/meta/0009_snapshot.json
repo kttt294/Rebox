@@ -1184,8 +1184,8 @@
           "notNull": true,
           "default": "'[]'::jsonb"
         },
-        "rebox_category_id": {
-          "name": "rebox_category_id",
+        "reboxe_category_id": {
+          "name": "reboxe_category_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -1213,12 +1213,12 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "return_lines_rebox_category_id_categories_id_fk": {
-          "name": "return_lines_rebox_category_id_categories_id_fk",
+        "return_lines_reboxe_category_id_categories_id_fk": {
+          "name": "return_lines_reboxe_category_id_categories_id_fk",
           "tableFrom": "return_lines",
           "tableTo": "categories",
           "columnsFrom": [
-            "rebox_category_id"
+            "reboxe_category_id"
           ],
           "columnsTo": [
             "id"

@@ -4,7 +4,7 @@ import { exportJWK, generateKeyPair, SignJWT, type KeyLike } from "jose";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { SupabaseJwtGuard } from "../src/http/guards/supabase-jwt.guard";
 
-const issuer = "http://rebox.test/auth/v1";
+const issuer = "http://reboxe.test/auth/v1";
 let server: Server;
 let privateKey: KeyLike;
 let jwksUrl: string;

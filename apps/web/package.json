@@ -1,5 +1,5 @@
 {
-  "name": "@rebox/web",
+  "name": "@reboxe/web",
   "version": "0.0.0",
   "private": true,
   "scripts": {
@@ -9,8 +9,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@rebox/api-client": "workspace:*",
-    "@rebox/shared": "workspace:*",
+    "@reboxe/api-client": "workspace:*",
+    "@reboxe/shared": "workspace:*",
     "@supabase/ssr": "0.12.5",
     "@supabase/supabase-js": "2.112.4",
     "next": "16.3.3",

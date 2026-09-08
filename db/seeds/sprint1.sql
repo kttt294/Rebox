@@ -9,7 +9,7 @@ VALUES
   (
     '00000000-0000-0000-0000-000000000000',
     '10000000-0000-4000-8000-000000000001',
-    'authenticated', 'authenticated', 'verified-seller@rebox.test',
+    'authenticated', 'authenticated', 'verified-seller@reboxe.test',
     crypt('Synthetic-Test-Password-123!', gen_salt('bf')), now(),
     '', '', '', '',
     '{"provider":"email","providers":["email"]}', '{}', now(), now()
@@ -17,7 +17,7 @@ VALUES
   (
     '00000000-0000-0000-0000-000000000000',
     '10000000-0000-4000-8000-000000000002',
-    'authenticated', 'authenticated', 'pending-seller@rebox.test',
+    'authenticated', 'authenticated', 'pending-seller@reboxe.test',
     crypt('Synthetic-Test-Password-123!', gen_salt('bf')), now(),
     '', '', '', '',
     '{"provider":"email","providers":["email"]}', '{}', now(), now()
@@ -25,7 +25,7 @@ VALUES
   (
     '00000000-0000-0000-0000-000000000000',
     '10000000-0000-4000-8000-000000000003',
-    'authenticated', 'authenticated', 'moderator@rebox.test',
+    'authenticated', 'authenticated', 'moderator@reboxe.test',
     crypt('Synthetic-Test-Password-123!', gen_salt('bf')), now(),
     '', '', '', '',
     '{"provider":"email","providers":["email"]}', '{}', now(), now()
@@ -42,19 +42,19 @@ VALUES
   (
     '10000000-0000-4000-8000-000000000001',
     '10000000-0000-4000-8000-000000000001',
-    '{"sub":"10000000-0000-4000-8000-000000000001","email":"verified-seller@rebox.test","email_verified":true}',
+    '{"sub":"10000000-0000-4000-8000-000000000001","email":"verified-seller@reboxe.test","email_verified":true}',
     'email', now(), now(), now()
   ),
   (
     '10000000-0000-4000-8000-000000000002',
     '10000000-0000-4000-8000-000000000002',
-    '{"sub":"10000000-0000-4000-8000-000000000002","email":"pending-seller@rebox.test","email_verified":true}',
+    '{"sub":"10000000-0000-4000-8000-000000000002","email":"pending-seller@reboxe.test","email_verified":true}',
     'email', now(), now(), now()
   ),
   (
     '10000000-0000-4000-8000-000000000003',
     '10000000-0000-4000-8000-000000000003',
-    '{"sub":"10000000-0000-4000-8000-000000000003","email":"moderator@rebox.test","email_verified":true}',
+    '{"sub":"10000000-0000-4000-8000-000000000003","email":"moderator@reboxe.test","email_verified":true}',
     'email', now(), now(), now()
   )
 ON CONFLICT (provider_id, provider) DO NOTHING;
@@ -151,7 +151,7 @@ FROM (VALUES
   ('banned-human-body', 'BANNED', '{"reason":"Mô và bộ phận cơ thể người","source":"docs/06-DANH-MUC-HANG-CAM.md#2"}'::jsonb),
   ('banned-weapons-explosives', 'BANNED', '{"reason":"Vũ khí, pháo và vật liệu nổ","source":"docs/06-DANH-MUC-HANG-CAM.md#2"}'::jsonb),
   ('banned-illegal-content', 'BANNED', '{"reason":"Văn hóa phẩm bất hợp pháp","source":"docs/06-DANH-MUC-HANG-CAM.md#2"}'::jsonb),
-  ('banned-medicines', 'BANNED', '{"reason":"Thuốc chữa bệnh không phù hợp mô hình REBOX","source":"docs/06-DANH-MUC-HANG-CAM.md#2"}'::jsonb),
+  ('banned-medicines', 'BANNED', '{"reason":"Thuốc chữa bệnh không phù hợp mô hình REBOXE","source":"docs/06-DANH-MUC-HANG-CAM.md#2"}'::jsonb),
   ('banned-tobacco-vape', 'BANNED', '{"reason":"Thuốc lá và thuốc lá điện tử","source":"docs/06-DANH-MUC-HANG-CAM.md#2"}'::jsonb),
   ('banned-counterfeit-illicit', 'BANNED', '{"reason":"Hàng giả, nhập lậu hoặc không rõ nguồn gốc","source":"docs/06-DANH-MUC-HANG-CAM.md#2"}'::jsonb),
   ('banned-financial-identity', 'BANNED', '{"reason":"Tiền tệ, tài khoản và giấy tờ định danh","source":"docs/06-DANH-MUC-HANG-CAM.md#2"}'::jsonb),
@@ -169,8 +169,8 @@ ON CONFLICT (category_id, policy_version) DO UPDATE SET
 
 INSERT INTO shops (id, display_name, legal_type, kyc_status, kyc_verified_at, status)
 VALUES
-  ('RBX-01JTESTVERIFIED0000000000', 'REBOX Verified Fixture', 'INDIVIDUAL', 'VERIFIED', now(), 'ACTIVE'),
-  ('RBX-01JTESTPENDING00000000000', 'REBOX Pending Fixture', 'INDIVIDUAL', 'PENDING', NULL, 'ONBOARDING')
+  ('RBX-01JTESTVERIFIED0000000000', 'REBOXE Verified Fixture', 'INDIVIDUAL', 'VERIFIED', now(), 'ACTIVE'),
+  ('RBX-01JTESTPENDING00000000000', 'REBOXE Pending Fixture', 'INDIVIDUAL', 'PENDING', NULL, 'ONBOARDING')
 ON CONFLICT (id) DO NOTHING;
 
 -- Catalog data is persisted in PostgreSQL and consumed by the storefront API.

@@ -119,7 +119,7 @@ describe("Sprint 1 contracts", () => {
         sourceQuantity: 3,
         productName: "Áo thun cotton",
         productImageUrls: [],
-        reboxCategoryId: "fashion"
+        reboxeCategoryId: "fashion"
       }]
     };
 

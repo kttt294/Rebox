@@ -5,8 +5,8 @@ import {
   Logger
 } from "@nestjs/common";
 import type { ArgumentsHost, ExceptionFilter } from "@nestjs/common";
-import { DomainError } from "@rebox/backend";
-import type { ErrorCode, ErrorResponse } from "@rebox/shared";
+import { DomainError } from "@reboxe/backend";
+import type { ErrorCode, ErrorResponse } from "@reboxe/shared";
 import { randomUUID } from "node:crypto";
 import type { AuthenticatedRequest } from "../types/authenticated-request";
 

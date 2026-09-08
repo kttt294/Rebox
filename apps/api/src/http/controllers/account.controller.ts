@@ -1,11 +1,11 @@
 import { Body, Controller, Delete, Get, Inject, Param, Post, Put } from "@nestjs/common";
-import { DomainError, type AccountModule } from "@rebox/backend";
+import { DomainError, type AccountModule } from "@reboxe/backend";
 import {
   changePasswordSchema,
   createAccountAddressSchema,
   notificationPreferencesSchema,
   privacyPreferencesSchema
-} from "@rebox/shared";
+} from "@reboxe/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ACCOUNT, SUPABASE_AUTH } from "../../backend.providers";
 import { CurrentActor } from "../decorators/current-actor";

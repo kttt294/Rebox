@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Inject, Param, Patch, Post } from "@nestjs/common";
-import { DomainError, type OperationsModule } from "@rebox/backend";
-import { createSupportTicketSchema, legalAcceptanceSchema, privacyRequestSchema, supportReplySchema } from "@rebox/shared";
+import { DomainError, type OperationsModule } from "@reboxe/backend";
+import { createSupportTicketSchema, legalAcceptanceSchema, privacyRequestSchema, supportReplySchema } from "@reboxe/shared";
 import { OPERATIONS } from "../../backend.providers";
 import { CurrentActor } from "../decorators/current-actor";
 import { Public } from "../decorators/public";

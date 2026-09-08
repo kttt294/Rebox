@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Headers, Inject, Param, Patch, Post, Put, Query, UploadedFile, UseInterceptors } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { DomainError, type InventoryModule } from "@rebox/backend";
+import { DomainError, type InventoryModule } from "@reboxe/backend";
 import {
   completeCatalogImageUploadSchema,
   commitReturnManifestSchema,
@@ -27,7 +27,7 @@ import {
   listingReviewDecisionSchema,
   type PackageListingDraftResult,
   type BatchCreatePackageListingsResult
-} from "@rebox/shared";
+} from "@reboxe/shared";
 import { INVENTORY } from "../../backend.providers";
 import { CurrentActor } from "../decorators/current-actor";
 import { Public } from "../decorators/public";

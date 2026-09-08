@@ -671,12 +671,12 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
       "rollback.csv",
       await returnManifestFixture()
     );
-    const stored = await pool.query<{ normalized_payload: { drafts: Array<{ lines: Array<{ reboxCategoryId: string }> }> } }>(
+    const stored = await pool.query<{ normalized_payload: { drafts: Array<{ lines: Array<{ reboxeCategoryId: string }> }> } }>(
       "SELECT normalized_payload FROM return_import_batches WHERE id = $1",
       [preview.batchId]
     );
     const payload = stored.rows[0]!.normalized_payload;
-    payload.drafts[1]!.lines[0]!.reboxCategoryId = "missing-category";
+    payload.drafts[1]!.lines[0]!.reboxeCategoryId = "missing-category";
     await pool.query("UPDATE return_import_batches SET normalized_payload = $2::jsonb WHERE id = $1", [
       preview.batchId,
       JSON.stringify(payload)
@@ -725,7 +725,7 @@ describe("Sprint 1 PostgreSQL vertical slice", () => {
 });
 
 function returnManifestFixture(): Promise<Buffer> {
-  return readFile(resolve(process.cwd(), "docs/fixtures/return-import/rebox-return-import-sample.csv"));
+  return readFile(resolve(process.cwd(), "docs/fixtures/return-import/reboxe-return-import-sample.csv"));
 }
 
 function listingInput(title: string) {

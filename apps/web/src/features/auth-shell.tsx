@@ -6,7 +6,7 @@ export function AuthHeader({ title }: { title: string }) {
     <header className="h-[84px] bg-white px-4 sm:px-6">
       <div className="mx-auto flex h-full w-full max-w-[880px] items-center gap-3">
         <Link aria-label="Về trang chủ" className="grid size-9 shrink-0 place-items-center rounded bg-[var(--accent-header)] text-lg font-bold text-white" href="/">R</Link>
-        <Link className="text-[28px] font-bold leading-none" href="/">REBOX</Link>
+        <Link className="text-[28px] font-bold leading-none" href="/">REBOXE</Link>
         <span className="h-[26px] w-px bg-[var(--line)]" />
         <h1 className="whitespace-nowrap text-2xl font-normal">{title}</h1>
         <Link className="ml-auto hidden whitespace-nowrap text-[13px] text-[var(--accent)] hover:underline sm:block" href="/">Bạn cần giúp đỡ?</Link>
@@ -80,7 +80,7 @@ export function SocialLogin() {
 export function AuthTerms({ action }: { action: "đăng ký" | "đăng nhập" }) {
   return (
     <p className="text-center text-[11px] leading-[15px] text-[var(--muted)]">
-      Bằng việc {action}, bạn đồng ý với <Link className="text-[var(--accent)] underline" href="/legal/marketplace-rules">Điều khoản dịch vụ</Link> và <Link className="text-[var(--accent)] underline" href="/legal/privacy-policy">Chính sách bảo mật</Link> của REBOX.
+      Bằng việc {action}, bạn đồng ý với <Link className="text-[var(--accent)] underline" href="/legal/marketplace-rules">Điều khoản dịch vụ</Link> và <Link className="text-[var(--accent)] underline" href="/legal/privacy-policy">Chính sách bảo mật</Link> của REBOXE.
     </p>
   );
 }

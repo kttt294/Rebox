@@ -15,7 +15,7 @@ CREATE TABLE ledger_postings (
 );
 CREATE INDEX idx_ledger_postings_account ON ledger_postings(account_key, created_at);
 
-CREATE OR REPLACE FUNCTION rebox_guard_ledger() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION reboxe_guard_ledger() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF TG_TABLE_NAME = 'ledger_transactions' THEN
     IF OLD.status = 'POSTED' THEN RAISE EXCEPTION 'POSTED_LEDGER_IMMUTABLE'; END IF;
@@ -26,17 +26,17 @@ BEGIN
   END IF;
   RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
 END $$;
-CREATE TRIGGER ledger_transactions_immutable BEFORE UPDATE OR DELETE ON ledger_transactions FOR EACH ROW EXECUTE FUNCTION rebox_guard_ledger();
-CREATE TRIGGER ledger_postings_immutable BEFORE UPDATE OR DELETE ON ledger_postings FOR EACH ROW EXECUTE FUNCTION rebox_guard_ledger();
+CREATE TRIGGER ledger_transactions_immutable BEFORE UPDATE OR DELETE ON ledger_transactions FOR EACH ROW EXECUTE FUNCTION reboxe_guard_ledger();
+CREATE TRIGGER ledger_postings_immutable BEFORE UPDATE OR DELETE ON ledger_postings FOR EACH ROW EXECUTE FUNCTION reboxe_guard_ledger();
 
-CREATE OR REPLACE FUNCTION rebox_check_ledger_balance() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION reboxe_check_ledger_balance() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF NEW.status = 'POSTED' AND (SELECT coalesce(sum(amount_vnd), 0) FROM ledger_postings WHERE transaction_id = NEW.id) <> 0 THEN
     RAISE EXCEPTION 'UNBALANCED_LEDGER_TRANSACTION';
   END IF;
   RETURN NEW;
 END $$;
-CREATE TRIGGER ledger_transactions_balanced BEFORE UPDATE OF status ON ledger_transactions FOR EACH ROW EXECUTE FUNCTION rebox_check_ledger_balance();
+CREATE TRIGGER ledger_transactions_balanced BEFORE UPDATE OF status ON ledger_transactions FOR EACH ROW EXECUTE FUNCTION reboxe_check_ledger_balance();
 
 CREATE TABLE orders (
   id text PRIMARY KEY, buyer_id uuid NOT NULL REFERENCES profiles(id), status text NOT NULL DEFAULT 'RESERVED'
@@ -126,9 +126,9 @@ CREATE TABLE legal_acceptances (
   source text NOT NULL, accepted_at timestamptz NOT NULL DEFAULT now(),
   FOREIGN KEY(slug, version) REFERENCES legal_artifacts(slug, version), UNIQUE(user_id, slug, version)
 );
-CREATE OR REPLACE FUNCTION rebox_immutable_legal_artifact() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION reboxe_immutable_legal_artifact() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN RAISE EXCEPTION 'LEGAL_ARTIFACT_IMMUTABLE'; END $$;
-CREATE TRIGGER legal_artifacts_immutable BEFORE UPDATE OR DELETE ON legal_artifacts FOR EACH ROW EXECUTE FUNCTION rebox_immutable_legal_artifact();
+CREATE TRIGGER legal_artifacts_immutable BEFORE UPDATE OR DELETE ON legal_artifacts FOR EACH ROW EXECUTE FUNCTION reboxe_immutable_legal_artifact();
 CREATE TABLE support_tickets (
   id text PRIMARY KEY, user_id uuid NOT NULL REFERENCES profiles(id), category text NOT NULL, content text NOT NULL,
   order_id text REFERENCES orders(id), case_id text REFERENCES dispute_cases(id), status text NOT NULL DEFAULT 'OPEN',
@@ -144,8 +144,8 @@ CREATE TABLE privacy_requests (
 );
 
 INSERT INTO legal_artifacts(slug, version, title, body, body_hash, effective_at) VALUES
-('marketplace-rules','2026-09-07','Quy chế sàn','Quy chế vận hành REBOX sandbox. Không phát sinh thanh toán thật.',encode(digest('Quy chế vận hành REBOX sandbox. Không phát sinh thanh toán thật.','sha256'),'hex'),now()),
-('privacy-policy','2026-09-07','Chính sách bảo mật','REBOX chỉ dùng dữ liệu synthetic trong MVP sandbox.',encode(digest('REBOX chỉ dùng dữ liệu synthetic trong MVP sandbox.','sha256'),'hex'),now()),
+('marketplace-rules','2026-09-07','Quy chế sàn','Quy chế vận hành REBOXE sandbox. Không phát sinh thanh toán thật.',encode(digest('Quy chế vận hành REBOXE sandbox. Không phát sinh thanh toán thật.','sha256'),'hex'),now()),
+('privacy-policy','2026-09-07','Chính sách bảo mật','REBOXE chỉ dùng dữ liệu synthetic trong MVP sandbox.',encode(digest('REBOXE chỉ dùng dữ liệu synthetic trong MVP sandbox.','sha256'),'hex'),now()),
 ('dispute-process','2026-09-07','Giải quyết tranh chấp','Tranh chấp được tiếp nhận kể cả khi không có video.',encode(digest('Tranh chấp được tiếp nhận kể cả khi không có video.','sha256'),'hex'),now()),
 ('seller-terms','2026-09-07','Điều khoản người bán','Số dư và vận chuyển trong MVP đều là dữ liệu mô phỏng.',encode(digest('Số dư và vận chuyển trong MVP đều là dữ liệu mô phỏng.','sha256'),'hex'),now()),
 ('processing-notice','2026-09-07','Thông báo xử lý dữ liệu','eKYC và evidence cần processing record trước khi xử lý.',encode(digest('eKYC và evidence cần processing record trước khi xử lý.','sha256'),'hex'),now());

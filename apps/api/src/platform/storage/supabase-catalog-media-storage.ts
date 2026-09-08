@@ -2,7 +2,7 @@ import type {
   CatalogImageObject,
   CatalogImageUploadIntent,
   CatalogMediaStorage
-} from "@rebox/backend";
+} from "@reboxe/backend";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createHash } from "node:crypto";
 import sharp from "sharp";

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { adminKycQuerySchema, kycDecisionSchema, kycIdempotencyKeySchema } from "@rebox/shared";
+import { adminKycQuerySchema, kycDecisionSchema, kycIdempotencyKeySchema } from "@reboxe/shared";
 import type {
   AdminKycDetail, AdminKycQuery, AdminKycQueue, KycDecisionInput, KycDecisionResult,
   KycStatus,
@@ -7,7 +7,7 @@ import type {
   SubmitKycBankInput,
   SubmitKycDocumentInput,
   SubmitKycTaxInput
-} from "@rebox/shared";
+} from "@reboxe/shared";
 import type { Pool, PoolClient } from "pg";
 import { ulid } from "ulid";
 import { DomainError } from "../../errors";

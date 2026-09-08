@@ -1,4 +1,4 @@
-project_id = "rebox"
+project_id = "reboxe"
 
 [api]
 enabled = true
@@ -37,5 +37,5 @@ enable_confirmations = true
 otp_length = 6
 
 [auth.email.template.confirmation]
-subject = "Mã xác thực đăng ký REBOX"
+subject = "Mã xác thực đăng ký REBOXE"
 content_path = "./supabase/templates/confirmation.html"

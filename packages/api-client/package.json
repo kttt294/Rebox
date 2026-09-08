@@ -1,15 +1,15 @@
 {
-  "name": "@rebox/api-client",
+  "name": "@reboxe/api-client",
   "version": "0.0.0",
   "private": true,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "generate": "openapi-typescript openapi/rebox.yaml -o src/generated.ts",
+    "generate": "openapi-typescript openapi/reboxe.yaml -o src/generated.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@rebox/shared": "workspace:*"
+    "@reboxe/shared": "workspace:*"
   }
 }

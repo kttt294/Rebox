@@ -1,5 +1,5 @@
 import { Inject, Injectable, type CanActivate, type ExecutionContext } from "@nestjs/common";
-import type { KycModule } from "@rebox/backend";
+import type { KycModule } from "@reboxe/backend";
 import { KYC } from "../../backend.providers";
 import type { AuthenticatedRequest } from "../types/authenticated-request";
 

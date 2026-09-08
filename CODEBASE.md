@@ -1,4 +1,4 @@
-# REBOX codebase
+# REBOXE codebase
 
 Trạng thái hiện tại: MVP synthetic có source code, migration, seed, OpenAPI client, web, API, worker và integration/E2E tests. Provider tiền, carrier và evidence production chưa được bật.
 
@@ -7,7 +7,7 @@ Nguồn quyết định canonical: [`docs/07-ARCHITECTURE-DECISIONS.md`](docs/07
 ## Cấu trúc
 
 ```text
-rebox/
+reboxe/
 ├─ apps/
 │  ├─ api/          # NestJS HTTP composition root
 │  ├─ worker/       # Outbox/job composition root
@@ -51,15 +51,15 @@ Chỉ tạo interface cho biên thật: external provider, clock/ID cần test, 
 | `apps/api` | NestJS HTTP composition root, authz, orchestration đồng bộ | Bản sao logic module; job loop dài; gọi side effect ngoài trong DB transaction |
 | `apps/worker` | Claim PostgreSQL outbox, scheduled job, retry/dead-letter, reconciliation/retention | HTTP controller hoặc business rule riêng khác API |
 
-`apps/api` và `apps/worker` cùng gọi implementation trong `@rebox/backend`; chúng không gọi HTTP lẫn nhau để dùng lại nghiệp vụ. `apps/mobile` và `apps/ai-triage` chỉ là placeholder GĐ3, chưa thuộc runtime MVP.
+`apps/api` và `apps/worker` cùng gọi implementation trong `@reboxe/backend`; chúng không gọi HTTP lẫn nhau để dùng lại nghiệp vụ. `apps/mobile` và `apps/ai-triage` chỉ là placeholder GĐ3, chưa thuộc runtime MVP.
 
 ## Quy tắc phụ thuộc
 
 - `apps/*` được phép import từ `packages/*`.
 - `packages/*` không import từ `apps/*`.
-- `apps/web` và `apps/mobile` không import `@rebox/backend`.
-- `@rebox/core` và `@rebox/shared` không import framework, database hoặc Supabase SDK.
-- Component không gọi `fetch` trực tiếp; mọi request đi qua `@rebox/api-client`.
+- `apps/web` và `apps/mobile` không import `@reboxe/backend`.
+- `@reboxe/core` và `@reboxe/shared` không import framework, database hoặc Supabase SDK.
+- Component không gọi `fetch` trực tiếp; mọi request đi qua `@reboxe/api-client`.
 - `apps/api` và `apps/worker` chỉ là composition root; không nhân đôi nghiệp vụ.
 - Module không đọc bảng thuộc module khác để né interface. Query projection chỉ được phép qua read model đã xác định và không thay đổi invariant module sở hữu.
 - Không gọi HTTP ra PSP/carrier/notification/object storage bên trong DB transaction. Side effect không cần phản hồi ngay đi qua outbox; lời gọi đồng bộ phục vụ UX phải chạy sau commit, lưu intent/idempotency trước và có job retry/reconcile.
@@ -76,7 +76,7 @@ Chỉ tạo interface cho biên thật: external provider, clock/ID cần test, 
 
 ### Auth
 
-- Supabase Auth sở hữu credential, OTP/session, refresh và `auth.users` UUID. REBOX không có `password_hash` hay refresh-token table riêng.
+- Supabase Auth sở hữu credential, OTP/session, refresh và `auth.users` UUID. REBOXE không có `password_hash` hay refresh-token table riêng.
 - Web chỉ dùng Supabase cho auth/session, rồi gửi access token tới NestJS API.
 - NestJS xác minh JWT/JWKS và ánh xạ actor sang `profiles`, `shop_memberships`, `platform_staff_roles`.
 - `service_role`/server secret không bao giờ vào bundle hoặc biến môi trường public. Toggle Buyer/Seller chỉ đổi UI context, không cấp quyền.

@@ -1,4 +1,4 @@
-# REBOX
+# REBOXE
 
 Nền tảng TMĐT B2B2C cho phép seller bán lại **nguyên kiện hàng hoàn chưa mở kiểm tra**. Contract hỗ trợ hai kênh nhập bản kê ngang hàng, nhưng MVP hiện chỉ bật CSV/XLSX; kết nối trực tiếp Shopee/TikTok vẫn ghi “Sắp có”. Sau preview → commit, seller quét mã để tìm kiện đã nhập và đăng bán nguyên kiện.
 
@@ -32,7 +32,7 @@ Công thức hold, activation deposit, checkout một seller, TTL và phạm vi 
 
 ## Ghi chú
 
-`REBOX.docx` là tài liệu nguồn cục bộ và được loại trừ qua `.gitignore`. Bản prototype làm việc hiện nằm tại `docs/REBOX-UI/`, chỉ là tham chiếu UX và không phải nguồn quyết định canonical. Trước khi publish repo, chủ dự án phải rà soát quyền chia sẻ và dữ liệu nhạy cảm của các asset này.
+`REBOXE.docx` là tài liệu nguồn cục bộ và được loại trừ qua `.gitignore`. Bản prototype làm việc hiện nằm tại `docs/REBOXE-UI/`, chỉ là tham chiếu UX và không phải nguồn quyết định canonical. Trước khi publish repo, chủ dự án phải rà soát quyền chia sẻ và dữ liệu nhạy cảm của các asset này.
 
 ## Chạy MVP sandbox trên máy local
 
@@ -56,17 +56,17 @@ thay `DATABASE_URL`, issuer/JWKS và các biến public theo khối mẫu Cloud 
 Ba tài khoản local synthetic để kiểm tra seller và admin gate:
 
 ```text
-verified-seller@rebox.test / Synthetic-Test-Password-123!
-pending-seller@rebox.test  / Synthetic-Test-Password-123!
-moderator@rebox.test       / Synthetic-Test-Password-123!
+verified-seller@reboxe.test / Synthetic-Test-Password-123!
+pending-seller@reboxe.test  / Synthetic-Test-Password-123!
+moderator@reboxe.test       / Synthetic-Test-Password-123!
 ```
 
 Chạy ba runtime ở ba terminal:
 
 ```powershell
-corepack pnpm --filter @rebox/api dev
-corepack pnpm --filter @rebox/worker dev
-corepack pnpm --filter @rebox/web dev
+corepack pnpm --filter @reboxe/api dev
+corepack pnpm --filter @reboxe/worker dev
+corepack pnpm --filter @reboxe/web dev
 ```
 
 Kiểm tra toàn bộ:

@@ -27,11 +27,11 @@ export default tseslint.config(
     rules: {
       "no-restricted-globals": [
         "error",
-        { name: "fetch", message: "Web components must call @rebox/api-client instead of fetch directly." }
+        { name: "fetch", message: "Web components must call @reboxe/api-client instead of fetch directly." }
       ],
       "no-restricted-imports": [
         "error",
-        { paths: [{ name: "@rebox/backend", message: "The web runtime must not import server-only implementation." }] }
+        { paths: [{ name: "@reboxe/backend", message: "The web runtime must not import server-only implementation." }] }
       ]
     }
   }

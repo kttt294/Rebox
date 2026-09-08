@@ -34,7 +34,7 @@ export default async function SellerSectionPage({ params }: { params: Promise<{ 
         <div className="max-w-md text-center">
           <p className="mb-3 text-sm font-medium text-[var(--accent)]">{title}</p>
           <h1 className="text-3xl font-bold text-[var(--ink)]">Tính năng đang phát triển</h1>
-          <p className="mt-3 text-sm leading-6 text-[var(--muted)]">REBOX đang hoàn thiện tính năng này. Vui lòng quay lại sau.</p>
+          <p className="mt-3 text-sm leading-6 text-[var(--muted)]">REBOXE đang hoàn thiện tính năng này. Vui lòng quay lại sau.</p>
           <Link className="mt-6 inline-flex h-10 items-center rounded-lg bg-[var(--accent)] px-5 text-sm font-medium text-white" href="/seller/finance">Về trang đối soát</Link>
         </div>
       </section>

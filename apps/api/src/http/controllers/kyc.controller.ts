@@ -1,12 +1,12 @@
 import { Body, Controller, Get, Header, Inject, Param, Post } from "@nestjs/common";
-import type { KycModule } from "@rebox/backend";
-import { DomainError } from "@rebox/backend";
+import type { KycModule } from "@reboxe/backend";
+import { DomainError } from "@reboxe/backend";
 import {
   startKycSchema,
   submitKycBankSchema,
   submitKycDocumentSchema,
   submitKycTaxSchema
-} from "@rebox/shared";
+} from "@reboxe/shared";
 import { KYC } from "../../backend.providers";
 import { CurrentActor } from "../decorators/current-actor";
 import type { Actor } from "../types/authenticated-request";

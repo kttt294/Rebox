@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const devEval = process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@rebox/api-client", "@rebox/shared"],
+  transpilePackages: ["@reboxe/api-client", "@reboxe/shared"],
   async headers() {
     return [{ source: "/(.*)", headers: [
       { key: "X-Content-Type-Options", value: "nosniff" },

@@ -2,7 +2,7 @@ import { AdminKycController } from "./http/controllers/admin-kyc.controller";
 import { KycReviewerGuard } from "./http/guards/kyc-reviewer.guard";
 import { Inject, Module, type OnApplicationShutdown } from "@nestjs/common";
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
-import type { DatabaseContext } from "@rebox/backend";
+import type { DatabaseContext } from "@reboxe/backend";
 import { backendProviders, DATABASE } from "./backend.providers";
 import { AccountController } from "./http/controllers/account.controller";
 import { HealthController } from "./http/controllers/health.controller";

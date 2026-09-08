@@ -26,10 +26,10 @@ function localSupabaseEnvironment(): Record<string, string> {
   };
 }
 
-const localEnv = process.env.REBOX_E2E_LOCAL_ENV
-  ? JSON.parse(process.env.REBOX_E2E_LOCAL_ENV) as Record<string, string>
+const localEnv = process.env.REBOXE_E2E_LOCAL_ENV
+  ? JSON.parse(process.env.REBOXE_E2E_LOCAL_ENV) as Record<string, string>
   : localSupabaseEnvironment();
-process.env.REBOX_E2E_LOCAL_ENV = JSON.stringify(localEnv);
+process.env.REBOXE_E2E_LOCAL_ENV = JSON.stringify(localEnv);
 process.env.SUPABASE_URL = localEnv.SUPABASE_URL;
 process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = localEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
@@ -45,7 +45,7 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
     {
-      command: "corepack pnpm --filter @rebox/api start",
+      command: "corepack pnpm --filter @reboxe/api start",
       url: "http://127.0.0.1:3001/health/ready",
       reuseExistingServer: false,
       env: {
@@ -63,7 +63,7 @@ export default defineConfig({
       }
     },
     {
-      command: "corepack pnpm --filter @rebox/web build && corepack pnpm --filter @rebox/web start",
+      command: "corepack pnpm --filter @reboxe/web build && corepack pnpm --filter @reboxe/web start",
       url: "http://localhost:3000",
       reuseExistingServer: false,
       env: localEnv

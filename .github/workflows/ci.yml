@@ -27,7 +27,7 @@ jobs:
       - name: Apply canonical migration and synthetic seed
         run: corepack pnpm db:migrate && corepack pnpm db:seed
       - name: Verify generated API contract
-        run: corepack pnpm --filter @rebox/api-client generate && git diff --exit-code -- packages/api-client/src/generated.ts
+        run: corepack pnpm --filter @reboxe/api-client generate && git diff --exit-code -- packages/api-client/src/generated.ts
       - name: Lint
         run: corepack pnpm lint
       - name: Typecheck

@@ -1,5 +1,5 @@
 "use client";
-import type { CommerceOrder } from "@rebox/shared";
+import type { CommerceOrder } from "@reboxe/shared";
 import { useEffect, useState } from "react";
 import { createBrowserApiClient } from "../platform/api/browser";
 

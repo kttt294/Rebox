@@ -113,9 +113,9 @@ describe("synthetic marketplace critical journey", () => {
     const tracking = `TRACK-${randomUUID()}`.toUpperCase();
     const tracking2 = `TRACK-${randomUUID()}`.toUpperCase();
     const csv = Buffer.from([
-      "source_platform,source_order_ref,source_return_ref,source_tracking_no,source_item_ref,source_sku,source_quantity,product_name,variant_name,brand,source_category,original_unit_price_vnd,return_reason_raw,return_reason,returned_at,package_weight_gram,package_length_cm,package_width_cm,package_height_cm,product_image_urls,rebox_category_id,package_disclosure,outer_package_notes,package_listing_price_vnd",
-      `SHOPEE,ORDER-${randomUUID()},RETURN-${randomUUID()},${tracking},LINE-1,SKU-1,1,Sản phẩm synthetic,Mẫu test,REBOX,Danh mục,100000,Đổi ý,CHANGE_MIND,2026-09-07T00:00:00Z,500,20,20,10,https://example.test/item.jpg,fashion,UNOPENED_UNINSPECTED,Seal nguyên,100000`,
-      `SHOPEE,ORDER-${randomUUID()},RETURN-${randomUUID()},${tracking2},LINE-1,SKU-2,1,Sản phẩm cạnh tranh,Mẫu test,REBOX,Danh mục,100000,Đổi ý,CHANGE_MIND,2026-09-07T00:00:00Z,500,20,20,10,https://example.test/item2.jpg,fashion,UNOPENED_UNINSPECTED,Seal nguyên,100000`
+      "source_platform,source_order_ref,source_return_ref,source_tracking_no,source_item_ref,source_sku,source_quantity,product_name,variant_name,brand,source_category,original_unit_price_vnd,return_reason_raw,return_reason,returned_at,package_weight_gram,package_length_cm,package_width_cm,package_height_cm,product_image_urls,reboxe_category_id,package_disclosure,outer_package_notes,package_listing_price_vnd",
+      `SHOPEE,ORDER-${randomUUID()},RETURN-${randomUUID()},${tracking},LINE-1,SKU-1,1,Sản phẩm synthetic,Mẫu test,REBOXE,Danh mục,100000,Đổi ý,CHANGE_MIND,2026-09-07T00:00:00Z,500,20,20,10,https://example.test/item.jpg,fashion,UNOPENED_UNINSPECTED,Seal nguyên,100000`,
+      `SHOPEE,ORDER-${randomUUID()},RETURN-${randomUUID()},${tracking2},LINE-1,SKU-2,1,Sản phẩm cạnh tranh,Mẫu test,REBOXE,Danh mục,100000,Đổi ý,CHANGE_MIND,2026-09-07T00:00:00Z,500,20,20,10,https://example.test/item2.jpg,fashion,UNOPENED_UNINSPECTED,Seal nguyên,100000`
     ].join("\n"));
     const preview = await inventory.previewReturnManifest(sellerId, shopId, "synthetic.csv", csv);
     created.batchId = preview.batchId;
@@ -213,11 +213,11 @@ describe("synthetic marketplace critical journey", () => {
       const tracking = `RC-${index}-${randomUUID()}`.toUpperCase();
       return {
         tracking,
-        csv: `SHOPEE,ORDER-${randomUUID()},RETURN-${randomUUID()},${tracking},LINE-${index},SKU-${index},1,Release candidate ${index},Mẫu test,REBOX,Danh mục,100000,Đổi ý,CHANGE_MIND,2026-09-07T00:00:00Z,500,20,20,10,https://example.test/rc.jpg,fashion,UNOPENED_UNINSPECTED,Seal nguyên,100000`
+        csv: `SHOPEE,ORDER-${randomUUID()},RETURN-${randomUUID()},${tracking},LINE-${index},SKU-${index},1,Release candidate ${index},Mẫu test,REBOXE,Danh mục,100000,Đổi ý,CHANGE_MIND,2026-09-07T00:00:00Z,500,20,20,10,https://example.test/rc.jpg,fashion,UNOPENED_UNINSPECTED,Seal nguyên,100000`
       };
     });
     const csv = Buffer.from([
-      "source_platform,source_order_ref,source_return_ref,source_tracking_no,source_item_ref,source_sku,source_quantity,product_name,variant_name,brand,source_category,original_unit_price_vnd,return_reason_raw,return_reason,returned_at,package_weight_gram,package_length_cm,package_width_cm,package_height_cm,product_image_urls,rebox_category_id,package_disclosure,outer_package_notes,package_listing_price_vnd",
+      "source_platform,source_order_ref,source_return_ref,source_tracking_no,source_item_ref,source_sku,source_quantity,product_name,variant_name,brand,source_category,original_unit_price_vnd,return_reason_raw,return_reason,returned_at,package_weight_gram,package_length_cm,package_width_cm,package_height_cm,product_image_urls,reboxe_category_id,package_disclosure,outer_package_notes,package_listing_price_vnd",
       ...rows.map((row) => row.csv)
     ].join("\n"));
     const preview = await inventory.previewReturnManifest(sellerId, shopId, "release-candidate.csv", csv);

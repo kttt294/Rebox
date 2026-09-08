@@ -1,4 +1,4 @@
-import type { CheckoutInitInput, CommerceOrder, SellerFinanceProjection } from "@rebox/shared";
+import type { CheckoutInitInput, CommerceOrder, SellerFinanceProjection } from "@reboxe/shared";
 import { createHash } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import { ulid } from "ulid";

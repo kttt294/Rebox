@@ -1,4 +1,4 @@
-import type { ErrorCode } from "@rebox/shared";
+import type { ErrorCode } from "@reboxe/shared";
 
 export class DomainError extends Error {
   constructor(

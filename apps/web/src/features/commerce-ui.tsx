@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 
-export function ReboxBadge({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function ReboxeBadge({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <span className={`inline-flex items-center justify-center rounded bg-[var(--accent-soft)] text-[11px] font-medium text-[var(--accent)] ${className}`}>
       {children}

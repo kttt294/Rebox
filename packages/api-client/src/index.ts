@@ -35,7 +35,7 @@ import type {
   ScanReturnPackageInput,
   BatchCreatePackageListingsResult,
   SellerFinanceProjection
-} from "@rebox/shared";
+} from "@reboxe/shared";
 
 export type { paths } from "./generated";
 

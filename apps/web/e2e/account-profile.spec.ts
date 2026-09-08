@@ -4,7 +4,7 @@ const user = {
   id: "20000000-0000-4000-8000-000000000003",
   aud: "authenticated",
   role: "authenticated",
-  email: "seller@rebox.test",
+  email: "seller@reboxe.test",
   email_confirmed_at: "2026-09-05T00:00:00.000Z",
   phone: "0901234511",
   app_metadata: { provider: "email", providers: ["email"] },
@@ -34,7 +34,7 @@ test("renders the Figma profile form with authenticated account data", async ({ 
     if (path === "/v1/me") return route.fulfill({ json: {
       id: user.id,
       profileStatus: "ACTIVE",
-      shops: [{ id: "RBX-PROFILE", displayName: "REBOX Test Store", role: "OWNER", membershipStatus: "ACTIVE", kycId: "RBXKYC-PROFILE", kycStatus: "VERIFIED", status: "ACTIVE" }]
+      shops: [{ id: "RBX-PROFILE", displayName: "REBOXE Test Store", role: "OWNER", membershipStatus: "ACTIVE", kycId: "RBXKYC-PROFILE", kycStatus: "VERIFIED", status: "ACTIVE" }]
     } });
     if (path === "/v1/kyc/RBXKYC-PROFILE/status") return route.fulfill({ json: {
       success: true,
@@ -54,7 +54,7 @@ test("renders the Figma profile form with authenticated account data", async ({ 
 
   await expect(page.getByRole("heading", { name: "Hồ sơ của tôi" })).toBeVisible();
   await expect(page.getByLabel("Tên")).toHaveValue("NGUYEN VAN TEST");
-  await expect(page.getByText("seller@rebox.test", { exact: true })).toBeVisible();
+  await expect(page.getByText("seller@reboxe.test", { exact: true })).toBeVisible();
   await expect(page.getByText("********11", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Nam")).toBeChecked();
   await expect(page.getByText("01/01/2000", { exact: true })).toBeVisible();

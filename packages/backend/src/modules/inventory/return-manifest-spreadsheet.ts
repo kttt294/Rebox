@@ -1,5 +1,5 @@
-import type { ReturnManifestDraft, ReturnManifestPreviewRow } from "@rebox/shared";
-import { returnManifestDraftSchema } from "@rebox/shared";
+import type { ReturnManifestDraft, ReturnManifestPreviewRow } from "@reboxe/shared";
+import { returnManifestDraftSchema } from "@reboxe/shared";
 import readXlsxFile from "read-excel-file/node";
 import { DomainError } from "../../errors";
 
@@ -24,7 +24,7 @@ const headers = [
   "package_width_cm",
   "package_height_cm",
   "product_image_urls",
-  "rebox_category_id",
+  "reboxe_category_id",
   "package_disclosure",
   "outer_package_notes",
   "package_listing_price_vnd"
@@ -150,7 +150,7 @@ function parseWorksheet(data: unknown[][], headerRow: number, columns: Map<Heade
         originalUnitPriceVnd: optionalPositiveInteger(raw.original_unit_price_vnd),
         returnReason: optionalText(raw.return_reason),
         productImageUrls: imageUrls(raw.product_image_urls),
-        reboxCategoryId: text(raw.rebox_category_id)
+        reboxeCategoryId: text(raw.reboxe_category_id)
       }]
     });
 

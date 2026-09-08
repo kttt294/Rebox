@@ -20,7 +20,7 @@ async function bootstrap(): Promise<void> {
 
   const document = SwaggerModule.createDocument(
     app,
-    new DocumentBuilder().setTitle("REBOX API").setVersion("1.0").addBearerAuth().build()
+    new DocumentBuilder().setTitle("REBOXE API").setVersion("1.0").addBearerAuth().build()
   );
   SwaggerModule.setup("docs", app, document);
 

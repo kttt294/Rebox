@@ -5,7 +5,7 @@ import type {
   NotificationPreferences,
   PrivacyPreferences,
   PurchaseOrderSummary
-} from "@rebox/shared";
+} from "@reboxe/shared";
 import type { Pool, PoolClient } from "pg";
 import { ulid } from "ulid";
 import { DomainError } from "../../errors";

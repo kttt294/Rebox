@@ -13,7 +13,7 @@ const roboto = Roboto({
 });
 
 export const metadata: Metadata = {
-  title: "REBOX",
+  title: "REBOXE",
   description: "Sàn thanh lý hàng hoàn"
 };
 

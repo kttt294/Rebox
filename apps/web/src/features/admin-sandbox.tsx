@@ -1,5 +1,5 @@
 "use client";
-import type { Listing } from "@rebox/shared";
+import type { Listing } from "@reboxe/shared";
 import { useEffect, useState } from "react";
 import { createBrowserApiClient } from "../platform/api/browser";
 

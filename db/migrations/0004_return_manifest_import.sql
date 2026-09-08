@@ -60,7 +60,7 @@ CREATE TABLE "return_lines" (
 	"original_unit_price_vnd" bigint,
 	"return_reason" text,
 	"product_image_urls" jsonb DEFAULT '[]'::jsonb NOT NULL,
-	"rebox_category_id" text NOT NULL,
+	"reboxe_category_id" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "return_lines_package_source_item_unique" UNIQUE("return_package_id","source_item_ref"),
 	CONSTRAINT "return_lines_source_quantity_check" CHECK ("return_lines"."source_quantity" > 0)
@@ -70,7 +70,7 @@ ALTER TABLE "return_import_batches" ADD CONSTRAINT "return_import_batches_shop_i
 ALTER TABLE "return_packages" ADD CONSTRAINT "return_packages_shop_id_shops_id_fk" FOREIGN KEY ("shop_id") REFERENCES "public"."shops"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "return_packages" ADD CONSTRAINT "return_packages_ingest_batch_ref_return_import_batches_id_fk" FOREIGN KEY ("ingest_batch_ref") REFERENCES "public"."return_import_batches"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "return_lines" ADD CONSTRAINT "return_lines_return_package_id_return_packages_id_fk" FOREIGN KEY ("return_package_id") REFERENCES "public"."return_packages"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "return_lines" ADD CONSTRAINT "return_lines_rebox_category_id_categories_id_fk" FOREIGN KEY ("rebox_category_id") REFERENCES "public"."categories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "return_lines" ADD CONSTRAINT "return_lines_reboxe_category_id_categories_id_fk" FOREIGN KEY ("reboxe_category_id") REFERENCES "public"."categories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "idx_return_import_batches_shop_created" ON "return_import_batches" USING btree ("shop_id","created_at");--> statement-breakpoint
 ALTER TABLE "return_import_batches" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "return_packages" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint

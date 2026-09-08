@@ -1,5 +1,5 @@
 import { Controller, Get, Inject, Param } from "@nestjs/common";
-import type { FinanceModule } from "@rebox/backend";
+import type { FinanceModule } from "@reboxe/backend";
 import { FINANCE } from "../../backend.providers";
 import { CurrentActor } from "../decorators/current-actor";
 import type { Actor } from "../types/authenticated-request";

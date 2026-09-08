@@ -1,6 +1,6 @@
 "use client";
 
-import type { AccountAddress, CommerceOrder, PublicListing } from "@rebox/shared";
+import type { AccountAddress, CommerceOrder, PublicListing } from "@reboxe/shared";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatPrice } from "./commerce-data";
@@ -59,7 +59,7 @@ export function CheckoutPreview({ listingIds }: { listingIds: string[] }) {
 
   return (
     <main className="min-h-[calc(100vh-132px)] bg-[var(--paper)] px-4 pb-10 pt-5 sm:px-6 xl:px-0">
-      <div className="rebox-container">
+      <div className="reboxe-container">
         <h1 className="mb-4 text-xl font-medium">Xác nhận sản phẩm</h1>
         {loading ? (
           <p className="rounded-lg border border-[var(--line)] bg-white p-8 text-center text-[var(--muted)]">Đang tải dữ liệu...</p>

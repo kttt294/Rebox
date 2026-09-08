@@ -1,7 +1,7 @@
 "use client";
 
-import { ApiClientError } from "@rebox/api-client";
-import type { ActorContext, KycStatus, KycStatusResponse } from "@rebox/shared";
+import { ApiClientError } from "@reboxe/api-client";
+import type { ActorContext, KycStatus, KycStatusResponse } from "@reboxe/shared";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { createBrowserApiClient } from "../platform/api/browser";
@@ -12,7 +12,7 @@ const messages: Record<KycStatus, string> = {
   PROCESSING: "Hồ sơ đang xử lý hoặc còn thiếu bước xác minh. Chưa thể đăng bán.",
   MANUAL_REVIEW: "Hồ sơ đang chờ nhân viên duyệt. Bạn chưa thể đăng bán; vui lòng quay lại kiểm tra kết quả.",
   VERIFIED: "Hồ sơ đã được duyệt. Bạn được phép đăng bán.",
-  REJECTED: "Hồ sơ bị từ chối. Vui lòng liên hệ hỗ trợ REBOX và cung cấp mã hồ sơ bên dưới."
+  REJECTED: "Hồ sơ bị từ chối. Vui lòng liên hệ hỗ trợ REBOXE và cung cấp mã hồ sơ bên dưới."
 };
 
 export function SellerKycStatus() {

@@ -23,8 +23,8 @@ import type {
   SellerInventoryPackage,
   UpsertShopReviewInput,
   UpdateListingDraftInput
-} from "@rebox/shared";
-import { catalogImageMimeTypes, maxCatalogImageBytes, maxCatalogImages } from "@rebox/shared";
+} from "@reboxe/shared";
+import { catalogImageMimeTypes, maxCatalogImageBytes, maxCatalogImages } from "@reboxe/shared";
 import { createCipheriv, createHash, createHmac, randomBytes } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import { ulid } from "ulid";
@@ -153,7 +153,7 @@ const listingSelect = `
   LEFT JOIN LATERAL (
     SELECT jsonb_agg(jsonb_build_object(
       'productName', rl.product_name, 'variantName', rl.variant_name, 'brand', rl.brand,
-      'quantity', rl.source_quantity, 'categoryId', rl.rebox_category_id,
+      'quantity', rl.source_quantity, 'categoryId', rl.reboxe_category_id,
       'originalUnitPriceVnd', rl.original_unit_price_vnd
     ) ORDER BY rl.source_item_ref, rl.id) AS lines
     FROM return_lines rl WHERE rl.return_package_id = p.id
@@ -269,7 +269,7 @@ export class InventoryModule {
 
     const allowedCategories = new Set((await this.listCategories()).map((category) => category.id));
     const invalidGroups = new Set(parsed.drafts
-      .filter((draft) => draft.lines.some((line) => !allowedCategories.has(line.reboxCategoryId)))
+      .filter((draft) => draft.lines.some((line) => !allowedCategories.has(line.reboxeCategoryId)))
       .map(packageGroupOfDraft));
     for (const row of parsed.rows) {
       if (invalidGroups.has(row.packageGroup) && !row.errorCodes.includes("INVALID_CATEGORY")) {
@@ -379,7 +379,7 @@ export class InventoryModule {
               `INSERT INTO return_lines (
                  id, return_package_id, source_item_ref, source_sku, source_quantity,
                  product_name, variant_name, brand, source_category, original_unit_price_vnd,
-                 return_reason, product_image_urls, rebox_category_id
+                 return_reason, product_image_urls, reboxe_category_id
                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13)`,
               [
                 `RBX-${ulid()}`,
@@ -394,7 +394,7 @@ export class InventoryModule {
                 line.originalUnitPriceVnd ?? null,
                 line.returnReason ?? null,
                 JSON.stringify(line.productImageUrls),
-                line.reboxCategoryId
+                line.reboxeCategoryId
               ]
             );
           }
@@ -496,9 +496,9 @@ export class InventoryModule {
         throw new DomainError("PACKAGE_STATE_CONFLICT", 409, "Only an available package can become a listing");
       }
       const firstLine = (await client.query<{
-        product_name: string; rebox_category_id: string;
+        product_name: string; reboxe_category_id: string;
       }>(
-        `SELECT product_name, rebox_category_id FROM return_lines
+        `SELECT product_name, reboxe_category_id FROM return_lines
          WHERE return_package_id = $1 ORDER BY source_item_ref, id LIMIT 1`,
         [packageId]
       )).rows[0];
@@ -510,7 +510,7 @@ export class InventoryModule {
            id, return_package_id, shop_id, title, category_id, condition_grade,
            condition_notes, price, weight_gram, images, price_source, status
          ) VALUES ($1, $2, $3, $4, $5, 'NEW_SEALED', $6, $7, $8, '[]'::jsonb, 'VERIFIED_CSV', 'DRAFT')`,
-        [listingId, packageId, shopId, firstLine.product_name, firstLine.rebox_category_id,
+        [listingId, packageId, shopId, firstLine.product_name, firstLine.reboxe_category_id,
           "Kiện chưa mở kiểm tra; chỉ mô tả tình trạng bên ngoài.", Number(pkg.package_listing_price_vnd), pkg.package_weight_gram ?? 1]
       );
       const row = await this.selectOwnedListingRow(client, listingId, shopId);
@@ -810,7 +810,7 @@ export class InventoryModule {
       }) : null;
 
       if (policy?.policy_level === "BANNED") {
-        rejection = new DomainError("LISTING_CATEGORY_BANNED", 422, "This category is prohibited on REBOX");
+        rejection = new DomainError("LISTING_CATEGORY_BANNED", 422, "This category is prohibited on REBOXE");
       } else if (policy?.policy_level === "DISCLOSURE") {
         const configuredMinimum = policy.rule_snapshot.minimumConditionNotesLength;
         const minimum = typeof configuredMinimum === "number" && Number.isInteger(configuredMinimum)
@@ -1072,8 +1072,8 @@ export class InventoryModule {
       const query = parameter(input.q);
       conditions.push(`to_tsvector(
         'simple'::regconfig,
-        rebox_unaccent(l.title || ' ' || coalesce(l.description, '') || ' ' || l.condition_notes)
-      ) @@ plainto_tsquery('simple'::regconfig, rebox_unaccent(${query}))`);
+        reboxe_unaccent(l.title || ' ' || coalesce(l.description, '') || ' ' || l.condition_notes)
+      ) @@ plainto_tsquery('simple'::regconfig, reboxe_unaccent(${query}))`);
     }
     if (input.category) {
       conditions.push(`l.category_id = ${parameter(input.category)}`);

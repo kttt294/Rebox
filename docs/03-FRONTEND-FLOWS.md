@@ -1,12 +1,12 @@
-# REBOX - Luồng Frontend chi tiết
+# REBOXE - Luồng Frontend chi tiết
 
-Bám sát prototype trong `docs/REBOX-UI/`, nhưng phạm vi hiện hành tuân theo `07-ARCHITECTURE-DECISIONS.md`: GĐ1 là web responsive; native mobile và AI UI là GĐ3.
+Bám sát prototype trong `docs/REBOXE-UI/`, nhưng phạm vi hiện hành tuân theo `07-ARCHITECTURE-DECISIONS.md`: GĐ1 là web responsive; native mobile và AI UI là GĐ3.
 
 ---
 
 ## 0'. Truy vết prototype → đặc tả
 
-Bảng đối chiếu từng file trong `docs/REBOX-UI/` (và ảnh tương ứng trong `REBOX.docx`) với phần đặc tả đã viết. Prototype là nguồn tham khảo UX, không thắng quyết định canonical.
+Bảng đối chiếu từng file trong `docs/REBOXE-UI/` (và ảnh tương ứng trong `REBOXE.docx`) với phần đặc tả đã viết. Prototype là nguồn tham khảo UX, không thắng quyết định canonical.
 
 | File prototype                                 | Ảnh trong docx | Màn hình                                                                               | Đặc tả tại             | Ghi chú khi hiện thực                                                                                         |
 | ---------------------------------------------- | -------------- | -------------------------------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------- |
@@ -15,10 +15,10 @@ Bảng đối chiếu từng file trong `docs/REBOX-UI/` (và ảnh tương ứn
 | `luồng xem kho hàng và đối soát- seller.png`   | Hình 4         | Seller mobile: Kho hàng xả kho + Đối soát tài chính                                    | §2.5, §2.6             | Bổ sung trạng thái **BỊ ẨN** (thiếu quỹ) + tách 3 khối tiền                                                   |
 | `website-seller-đăng bán.png` (ảnh 2, 3)       | Hình 5         | Seller web: Quản lý kho hàng + Đối soát tài chính & Ví ký quỹ                          | §3.2                   | Tab **Phân tích hàng hoàn theo SKU** là target GĐ3, chưa có trong prototype                                   |
 | `luồng mua hàng - buyer.png`                   | Hình 6         | Buyer: chi tiết SP → giỏ → QR → hồ sơ & khiếu nại                                      | §1.2, §1.3, §1.4, §1.5 | Giỏ lưu nhiều kiện; **mỗi checkout đúng một package/một QR**; sửa nhãn "ĐIỀU KIỆN BẮT BUỘC"                 |
-| -                                              | Hình 7         | Buyer web: chi tiết SP + giỏ bên phải + hồ sơ & lịch sử đơn                            | §1.2, §1.3             | Khối "Sàn REBOX Bảo Vệ Dòng Tiền 100%" ghi "hoàn tiền trong 10s" - xem M7                                     |
+| -                                              | Hình 7         | Buyer web: chi tiết SP + giỏ bên phải + hồ sơ & lịch sử đơn                            | §1.2, §1.3             | Khối "Sàn REBOXE Bảo Vệ Dòng Tiền 100%" ghi "hoàn tiền trong 10s" - xem M7                                     |
 | `luồng admin.png`                              | Hình 8         | Admin mobile: danh sách tranh chấp → chi tiết AI Tầng 1 → thống kê → tham số AI        | §4.1, §4.2, §4.3       | Bỏ nhánh **AI TỪ CHỐI** (L6); ngưỡng 70% ở đây vs 80% ở bản web (M8)                                          |
 | -                                              | Hình 9         | Admin web: AI Risk Triage & Arbitration Console                                        | §4.2, §4.3             | Bảng tính hoàn tiền trong mock **sai công thức** (M9); bỏ nhãn "Độ chính xác AI 99.8%"                        |
-| `BMC rebox.png`                                | Hình 10        | Business Model Canvas                                                                  | -                      | Nguồn của gói quảng bá 20.000đ/SP/tuần → §1.1 (bắt buộc nhãn "Tài trợ")                                       |
+| `BMC reboxe.png`                                | Hình 10        | Business Model Canvas                                                                  | -                      | Nguồn của gói quảng bá 20.000đ/SP/tuần → §1.1 (bắt buộc nhãn "Tài trợ")                                       |
 | `cơ cấu tổ chức.png`                           | -              | Sơ đồ tổ chức (bản cũ, 10 thành viên)                                                            | `04-PLAN` §10          | **Đã lỗi thời** - đội thực tế là 3 người, xem `04-PLAN` §1.1                                                                                   |
 
 **Ba chi tiết trong prototype đã được giữ nguyên vì đúng và tốt:**
@@ -35,9 +35,9 @@ Bảng đối chiếu từng file trong `docs/REBOX-UI/` (và ảnh tương ứn
 
 | App              | Đối tượng               | Nền tảng                                     | Ghi chú                                                                 |
 | ---------------- | ----------------------- | -------------------------------------------- | ----------------------------------------------------------------------- |
-| **REBOX Buyer**  | Người mua               | Next.js responsive (GĐ1); Expo GĐ3 | Web cần SSR để SEO trang sản phẩm |
-| **REBOX Seller** | Chủ shop, nhân viên kho | Next.js responsive (GĐ1); Expo GĐ3 | Web ưu tiên bảng biểu/máy quét; native chỉ làm khi web là điểm nghẽn |
-| **REBOX Admin**  | Nội bộ                  | Web only ở MVP | MFA/AAL2; không có admin mobile approval ở GĐ1 |
+| **REBOXE Buyer**  | Người mua               | Next.js responsive (GĐ1); Expo GĐ3 | Web cần SSR để SEO trang sản phẩm |
+| **REBOXE Seller** | Chủ shop, nhân viên kho | Next.js responsive (GĐ1); Expo GĐ3 | Web ưu tiên bảng biểu/máy quét; native chỉ làm khi web là điểm nghẽn |
+| **REBOXE Admin**  | Nội bộ                  | Web only ở MVP | MFA/AAL2; không có admin mobile approval ở GĐ1 |
 
 **Quyết định:** GĐ1 có một web app. Toggle Buyer/Seller chỉ đổi context; quyền thật lấy từ `shop_memberships`. Buyer là capability mặc định, admin nằm trong `platform_staff_roles`. Khi làm GĐ3 mới cân nhắc một binary mobile Buyer/Seller.
 
@@ -46,7 +46,7 @@ Bảng đối chiếu từng file trong `docs/REBOX-UI/` (và ảnh tương ứn
 ```
 TanStack Query   → toàn bộ server state (cache, retry, optimistic, invalidation)
 Zustand          → UI state cục bộ (giỏ hàng chưa gửi, form nháp, vai trò hiện tại)
-React Hook Form + Zod  → form, dùng chung schema với backend qua @rebox/shared
+React Hook Form + Zod  → form, dùng chung schema với backend qua @reboxe/shared
 localStorage           → chỉ persist giỏ hàng/nháp không nhạy cảm; KHÔNG tự lưu auth token
 Supabase Auth adapter  → session web/SSR; không tự xây password/refresh-token flow
 ```
@@ -79,7 +79,7 @@ Supabase Realtime, nếu bật, chỉ invalidate query rồi client refetch Nest
 
 ```
 ┌─────────────────────────────┐
-│ REBOX              [BUYER]  │
+│ REBOXE              [BUYER]  │
 ├─────────────────────────────┤
 │ [🔍 Tìm sản phẩm...]        │
 │ [Tất cả][Thời trang][Đồ GD] │
@@ -124,11 +124,11 @@ Mỗi card nguồn hàng hoàn bán đúng một `ReturnPackage` chưa mở. Car
 
 ### 1.2. Chi tiết sản phẩm
 
-Khối quan trọng nhất là **"Cam kết của REBOX"** (prototype đã có):
+Khối quan trọng nhất là **"Cam kết của REBOXE"** (prototype đã có):
 
 ```
 ┌──────────────────────────────────────┐
-│ CAM KẾT CỦA REBOX                    │
+│ CAM KẾT CỦA REBOXE                    │
 │ Hoàn trả 100% tiền nếu hàng hóa khui │
 │ ra khác xa mô tả (khác trên 30%).    │
 │                                      │
@@ -206,7 +206,7 @@ Bước 2 (nếu QR): một checkout, một package, một QR
 
 **Đếm ngược 12 giờ:** tính từ `orders.created_at`, không reset khi reload hay khi buyer bấm lại. Khi hết hạn mà seller chưa xác nhận:
 
-- Có giao dịch provider đã khớp: “Đơn đã hủy do seller chưa xác nhận. REBOX đang hoàn đúng số tiền bạn đã chuyển từ ký quỹ seller.”
+- Có giao dịch provider đã khớp: “Đơn đã hủy do seller chưa xác nhận. REBOXE đang hoàn đúng số tiền bạn đã chuyển từ ký quỹ seller.”
 - Chưa có bằng chứng chuyển khoản: “Đơn đã hủy, không phát sinh hoàn tiền.”
 - Buyer đã báo chuyển nhưng giao dịch chưa khớp: “Đơn đã hủy và đang được đối soát”; không hứa đã hoàn tiền.
 
@@ -225,7 +225,7 @@ Prototype đã đúng. Bổ sung:
 └────────────────────────────────┘
 ```
 
-Đồng hồ đếm ngược là chi tiết nhỏ nhưng quan trọng: nó vừa nhắc buyer, vừa là bằng chứng REBOX đã thông báo rõ về thời hạn.
+Đồng hồ đếm ngược là chi tiết nhỏ nhưng quan trọng: nó vừa nhắc buyer, vừa là bằng chứng REBOXE đã thông báo rõ về thời hạn.
 
 ### 1.6. Luồng gửi khiếu nại (màn hình quan trọng nhất)
 
@@ -259,7 +259,7 @@ Không được đặt sau khi đã quay xong: lúc đó buyer đã tạo dữ l
   │  Trước khi quay video khiếu nại               │
   │                                               │
   │  Video của bạn sẽ được dùng để:               │
-  │  • Nhân viên REBOX xem để phân xử             │
+  │  • Nhân viên REBOXE xem để phân xử             │
   │  • NGƯỜI BÁN xem để phản hồi khiếu nại        │
   │    (chỉ bản đã che khuôn mặt và thông tin PII)│
   │                                               │
@@ -283,7 +283,7 @@ Không được đặt sau khi đã quay xong: lúc đó buyer đã tạo dữ l
   └──────────────────────────────────────────────┘
 ```
 
-Ô thứ hai chỉ là xác nhận đã đọc hướng dẫn giảm thiểu dữ liệu, không phải lời cam đoan rằng buyer có thể đồng ý thay cho mọi người vô tình xuất hiện và không phải miễn trừ trách nhiệm của REBOX. Nó **không thay thế** các biện pháp kỹ thuật ở bước REDACT: xem `05-PHAP-LY` §3.4.3.
+Ô thứ hai chỉ là xác nhận đã đọc hướng dẫn giảm thiểu dữ liệu, không phải lời cam đoan rằng buyer có thể đồng ý thay cho mọi người vô tình xuất hiện và không phải miễn trừ trách nhiệm của REBOXE. Nó **không thay thế** các biện pháp kỹ thuật ở bước REDACT: xem `05-PHAP-LY` §3.4.3.
 
 Năm ràng buộc bắt buộc lên màn hình này:
 
@@ -413,7 +413,7 @@ IDLE ──quét được mã──► RESOLVING (hiện skeleton ngay, KHÔNG c
                     (nhân viên kho quét liên tục)
 ```
 
-Scan chỉ đọc package đã commit trong REBOX, bất kể package được nhập từ API hay spreadsheet. `NOT_FOUND` đưa seller về §2.2 để tự chọn kênh import; scan không tự gọi nguồn ngoài.
+Scan chỉ đọc package đã commit trong REBOXE, bất kể package được nhập từ API hay spreadsheet. `NOT_FOUND` đưa seller về §2.2 để tự chọn kênh import; scan không tự gọi nguồn ngoài.
 
 **Chi tiết bắt buộc cho môi trường kho:**
 
@@ -516,7 +516,7 @@ Prototype hiển thị 3 con số: Số dư ký quỹ / Tạm khóa đối soát
 
 ```
 ┌──────────────────────────────────────┐
-│ VÍ KÝ QUỸ REBOX                      │
+│ VÍ KÝ QUỸ REBOXE                      │
 │ (tiền bạn nạp để bảo đảm giao dịch)  │
 │ Khả dụng:            300.000 VNĐ     │
 │ Đang giữ cho 2 đơn:  850.000 VNĐ     │
@@ -528,7 +528,7 @@ Prototype hiển thị 3 con số: Số dư ký quỹ / Tạm khóa đối soát
 ├──────────────────────────────────────┤
 │ DOANH THU BÁN HÀNG                   │
 │ (tiền về THẲNG tài khoản ngân hàng   │
-│  của bạn - REBOX không giữ)          │
+│  của bạn - REBOXE không giữ)          │
 │ Tháng này:         4.320.000 VNĐ     │
 │ TK nhận: Vietcombank ****1234        │
 ├──────────────────────────────────────┤
@@ -566,7 +566,7 @@ Màn hình này không có trong prototype nhưng bắt buộc phải có: selle
 │ ℹ️ Ảnh trích từ video, khuôn mặt đã được     │
 │    che để bảo vệ quyền riêng tư.             │
 │                                              │
-│ Tóm tắt vụ việc do REBOX cung cấp:           │
+│ Tóm tắt vụ việc do REBOXE cung cấp:           │
 │ • Niêm phong: đã mở trước khi quay           │
 │ • Không phát hiện sản phẩm trong video        │
 │ [Xem báo cáo đầy đủ]                         │
@@ -650,7 +650,7 @@ Bảng kho cơ bản thuộc GĐ1. Tab **"Phân tích hàng hoàn theo SKU"** d�
 └─────────────────────────────────────────────────────────┘
 ```
 
-Đây là tính năng giữ chân seller mạnh nhất trong toàn bộ sản phẩm: nó chuyển REBOX từ "chỗ xả hàng" thành "công cụ giảm tỷ lệ hoàn". Nên ưu tiên cao hơn nhiều tính năng hào nhoáng khác.
+Đây là tính năng giữ chân seller mạnh nhất trong toàn bộ sản phẩm: nó chuyển REBOXE từ "chỗ xả hàng" thành "công cụ giảm tỷ lệ hoàn". Nên ưu tiên cao hơn nhiều tính năng hào nhoáng khác.
 
 ### 3.3. Cài đặt kết nối
 
@@ -716,7 +716,7 @@ Mock dưới đây là **overlay target GĐ3** để bảo toàn ý tưởng pro
 │ QUYẾT ĐỊNH                                           │
 │ ○ Hoàn tiền toàn bộ  ○ Hoàn một phần [_____]đ        │
 │ ○ Từ chối khiếu nại                                  │
-│ Lỗi: ○ Seller  ○ ĐVVC  ○ REBOX  ○ Chưa xác định      │
+│ Lỗi: ○ Seller  ○ ĐVVC  ○ REBOXE  ○ Chưa xác định      │
 │ ☐ Yêu cầu trả hàng về shop                           │
 │ Lý do (bắt buộc, ≥30 ký tự):                         │
 │ [_________________________________________________]  │

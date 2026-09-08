@@ -351,7 +351,7 @@ export const returnLines = pgTable(
     originalUnitPriceVnd: bigint("original_unit_price_vnd", { mode: "number" }),
     returnReason: text("return_reason"),
     productImageUrls: jsonb("product_image_urls").$type<string[]>().notNull().default([]),
-    reboxCategoryId: text("rebox_category_id").notNull().references(() => categories.id),
+    reboxeCategoryId: text("reboxe_category_id").notNull().references(() => categories.id),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => [

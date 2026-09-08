@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: REBOX API
+  title: REBOXE API
   version: 1.4.0
 servers:
   - url: http://127.0.0.1:3001
@@ -1104,7 +1104,7 @@ components:
     ReturnManifestLineDraft:
       type: object
       additionalProperties: false
-      required: [sourceItemRef, sourceQuantity, productName, productImageUrls, reboxCategoryId]
+      required: [sourceItemRef, sourceQuantity, productName, productImageUrls, reboxeCategoryId]
       properties:
         sourceItemRef: { type: string }
         sourceSku: { type: string }
@@ -1118,7 +1118,7 @@ components:
         productImageUrls:
           type: array
           items: { type: string, format: uri }
-        reboxCategoryId: { type: string }
+        reboxeCategoryId: { type: string }
     ReturnManifestDraft:
       type: object
       additionalProperties: false

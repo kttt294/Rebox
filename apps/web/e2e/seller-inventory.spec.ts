@@ -38,7 +38,7 @@ test("chooses a category, edits a draft and sends it to policy review", async ({
         profileStatus: "ACTIVE",
         shops: [{
           id: shopId,
-          displayName: "REBOX Verified Fixture",
+          displayName: "REBOXE Verified Fixture",
           role: "OWNER",
           membershipStatus: "ACTIVE",
           kycStatus: "VERIFIED",
@@ -64,7 +64,7 @@ test("chooses a category, edits a draft and sends it to policy review", async ({
         ...body,
         id: "RBX-01JTESTEDITDRAFT000000000",
         shopId,
-        shopDisplayName: "REBOX Verified Fixture",
+        shopDisplayName: "REBOXE Verified Fixture",
         images: [],
         status: "DRAFT",
         publishedAt: null,
@@ -191,7 +191,7 @@ test("shows two manifest sources and previews the spreadsheet source only", asyn
         profileStatus: "ACTIVE",
         shops: [{
           id: shopId,
-          displayName: "REBOX Verified Fixture",
+          displayName: "REBOXE Verified Fixture",
           role: "OWNER",
           membershipStatus: "ACTIVE",
           kycStatus: "VERIFIED",
@@ -228,7 +228,7 @@ test("shows two manifest sources and previews the spreadsheet source only", asyn
             sourceQuantity: 3,
             productName: "Áo thun cotton",
             productImageUrls: [],
-            reboxCategoryId: "fashion"
+            reboxeCategoryId: "fashion"
           }]
         }],
         canCommit: true
