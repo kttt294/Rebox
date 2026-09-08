@@ -169,9 +169,14 @@ ON CONFLICT (category_id, policy_version) DO UPDATE SET
 
 INSERT INTO shops (id, display_name, legal_type, kyc_status, kyc_verified_at, status)
 VALUES
-  ('RBX-01JTESTVERIFIED0000000000', 'REBOXE Verified Fixture', 'INDIVIDUAL', 'VERIFIED', now(), 'ACTIVE'),
+  ('RBX-01JTESTVERIFIED0000000000', 'REBOXE Select', 'INDIVIDUAL', 'VERIFIED', now(), 'ACTIVE'),
   ('RBX-01JTESTPENDING00000000000', 'REBOXE Pending Fixture', 'INDIVIDUAL', 'PENDING', NULL, 'ONBOARDING')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+  display_name = EXCLUDED.display_name,
+  legal_type = EXCLUDED.legal_type,
+  kyc_status = EXCLUDED.kyc_status,
+  kyc_verified_at = EXCLUDED.kyc_verified_at,
+  status = EXCLUDED.status;
 
 -- Catalog data is persisted in PostgreSQL and consumed by the storefront API.
 INSERT INTO listings (
@@ -180,38 +185,38 @@ INSERT INTO listings (
 )
 VALUES
   ('RBX-01JTESTCATALOG-TECH-001', 'RBX-01JTESTVERIFIED0000000000',
-   'Tai nghe Bluetooth chống ồn', 'Tai nghe hàng hoàn đã được kiểm tra kết nối và pin.',
-   'electronics', 'LIKE_NEW_99', 'Hộp có vết móp nhẹ, thiết bị hoạt động tốt', 299000, 320, '[]'::jsonb, 'SELLER_DECLARED', 'ACTIVE', now() - interval '1 hour'),
+   'Tai nghe Bluetooth chống ồn', 'Kiện hoàn nguyên trạng, thông tin sản phẩm theo bản kê của người bán.',
+   'electronics', 'LIKE_NEW_99', 'Hộp có vết móp nhẹ ở góc, chưa mở kiểm tra nội dung', 299000, 320, '[{"key":"demo-products/headphones.webp","width":1200,"height":900}]'::jsonb, 'SELLER_DECLARED', 'ACTIVE', now() - interval '1 hour'),
   ('RBX-01JTESTCATALOG-TECH-002', 'RBX-01JTESTVERIFIED0000000000',
-   'Đồng hồ thông minh pin 7 ngày', 'Đồng hồ đổi trả, đầy đủ dây đeo và cáp sạc.',
-   'electronics', 'GOOD', 'Mặt kính có một vết xước nhỏ ở cạnh', 479000, 180, '[]'::jsonb, 'SELLER_DECLARED', 'ACTIVE', now() - interval '2 hours'),
+   'Đồng hồ thông minh pin 7 ngày', 'Kiện hoàn nguyên trạng, thông tin phụ kiện theo bản kê của người bán.',
+   'electronics', 'GOOD', 'Vỏ hộp có vết xước nhỏ ở cạnh, chưa mở kiểm tra nội dung', 479000, 180, '[{"key":"demo-products/smartwatch.webp","width":1200,"height":900}]'::jsonb, 'SELLER_DECLARED', 'ACTIVE', now() - interval '2 hours'),
   ('RBX-01JTESTCATALOG-HOME-001', 'RBX-01JTESTVERIFIED0000000000',
-   'Máy hút bụi cầm tay', 'Máy hút bụi hoàn đơn đã vệ sinh và kiểm tra lực hút.',
-   'home', 'LIKE_NEW_99', 'Thiếu túi nilon bọc ngoài, phụ kiện còn đủ', 549000, 2100, '[]'::jsonb, 'SELLER_DECLARED', 'ACTIVE', now() - interval '3 hours'),
+   'Máy hút bụi cầm tay', 'Kiện hoàn nguyên trạng, chưa mở để kiểm đếm hoặc kiểm định sản phẩm.',
+   'home', 'LIKE_NEW_99', 'Thiếu lớp nilon bọc ngoài, hộp sản phẩm còn nguyên', 549000, 2100, '[{"key":"demo-products/vacuum.webp","width":1200,"height":900}]'::jsonb, 'SELLER_DECLARED', 'ACTIVE', now() - interval '3 hours'),
   ('RBX-01JTESTCATALOG-HOME-002', 'RBX-01JTESTVERIFIED0000000000',
-   'Đèn bàn LED ba chế độ sáng', 'Đèn bàn đổi trả còn nguyên bộ nguồn.',
-   'home', 'GOOD', 'Chân đế có vết cấn nhỏ không ảnh hưởng sử dụng', 259000, 950, '[]'::jsonb, 'SELLER_DECLARED', 'ACTIVE', now() - interval '4 hours'),
+   'Đèn bàn LED ba chế độ sáng', 'Kiện hoàn nguyên trạng, thông tin sản phẩm theo bản kê của người bán.',
+   'home', 'GOOD', 'Thùng ngoài có vết cấn nhỏ, chưa mở kiểm tra nội dung', 259000, 950, '[{"key":"demo-products/lamp.webp","width":1200,"height":900}]'::jsonb, 'SELLER_DECLARED', 'ACTIVE', now() - interval '4 hours'),
   ('RBX-01JTESTCATALOG-FASHION-001', 'RBX-01JTESTVERIFIED0000000000',
-   'Áo khoác nỉ form rộng', 'Áo khoác khách đổi size, chưa qua sử dụng.',
-   'fashion', 'LIKE_NEW_99', 'Không còn tem giấy, vải và khóa kéo nguyên vẹn', 219000, 650, '[]'::jsonb, 'SELLER_DECLARED', 'ACTIVE', now() - interval '5 hours'),
+   'Áo khoác nỉ form rộng', 'Kiện hoàn do khách đổi kích cỡ, chưa mở kiểm tra sản phẩm bên trong.',
+   'fashion', 'LIKE_NEW_99', 'Bao bì ngoài còn nguyên, tem vận chuyển đã được che thông tin', 219000, 650, '[{"key":"demo-products/jacket.webp","width":1200,"height":900}]'::jsonb, 'SELLER_DECLARED', 'ACTIVE', now() - interval '5 hours'),
   ('RBX-01JTESTCATALOG-FASHION-002', 'RBX-01JTESTVERIFIED0000000000',
-   'Túi tote canvas nhiều ngăn', 'Túi hoàn đơn đã kiểm tra đường may và khóa.',
-   'fashion', 'GOOD', 'Có vết bụi nhẹ ở đáy túi', 119000, 380, '[]'::jsonb, 'SELLER_DECLARED', 'ACTIVE', now() - interval '6 hours'),
+   'Túi tote canvas nhiều ngăn', 'Kiện hoàn nguyên trạng, mô tả sản phẩm theo bản kê của người bán.',
+   'fashion', 'GOOD', 'Bao bì ngoài có vết bụi nhẹ ở đáy, chưa mở kiểm tra', 119000, 380, '[{"key":"demo-products/tote.webp","width":1200,"height":900}]'::jsonb, 'SELLER_DECLARED', 'ACTIVE', now() - interval '6 hours'),
   ('RBX-01JTESTCATALOG-BEAUTY-001', 'RBX-01JTESTVERIFIED0000000000',
-   'Máy sấy tóc hai chiều', 'Máy sấy đổi trả đã kiểm tra nhiệt và quạt.',
-   'beauty', 'GOOD', 'Vỏ hộp rách, thân máy có xước mảnh', 329000, 780, '[]'::jsonb, 'SELLER_DECLARED', 'ACTIVE', now() - interval '7 hours'),
+   'Máy sấy tóc hai chiều', 'Kiện hoàn nguyên trạng, chưa mở để kiểm tra thiết bị bên trong.',
+   'beauty', 'GOOD', 'Vỏ hộp rách nhẹ ở mép, seal chính vẫn còn nguyên', 329000, 780, '[{"key":"demo-products/hairdryer.webp","width":1200,"height":900}]'::jsonb, 'SELLER_DECLARED', 'ACTIVE', now() - interval '7 hours'),
   ('RBX-01JTESTCATALOG-BEAUTY-002', 'RBX-01JTESTVERIFIED0000000000',
    'Bộ chăm sóc da dịu nhẹ', 'Bộ sản phẩm hoàn do khách đặt nhầm, chưa mở nắp.',
-   'beauty', 'NEW_SEALED', 'Seal từng sản phẩm còn nguyên, hộp ngoài hơi móp', 189000, 620, '[]'::jsonb, 'SELLER_DECLARED', 'ACTIVE', now() - interval '8 hours'),
+   'beauty', 'NEW_SEALED', 'Seal kiện còn nguyên, hộp ngoài hơi móp ở một góc', 189000, 620, '[{"key":"demo-products/skincare.webp","width":1200,"height":900}]'::jsonb, 'SELLER_DECLARED', 'ACTIVE', now() - interval '8 hours'),
   ('RBX-01JTESTCATALOG-ACCESSORY-001', 'RBX-01JTESTVERIFIED0000000000',
-   'Sạc nhanh GaN 65W', 'Củ sạc đổi trả đã kiểm tra đủ các cổng ra.',
-   'accessories', 'LIKE_NEW_99', 'Không còn seal hộp, củ sạc không trầy xước', 429000, 210, '[]'::jsonb, 'SELLER_DECLARED', 'ACTIVE', now() - interval '9 hours'),
+   'Sạc nhanh GaN 65W', 'Kiện hoàn nguyên trạng, thông số theo bản kê của người bán.',
+   'accessories', 'LIKE_NEW_99', 'Hộp ngoài không còn seal, chưa mở kiểm tra sản phẩm', 429000, 210, '[{"key":"demo-products/charger.webp","width":1200,"height":900}]'::jsonb, 'SELLER_DECLARED', 'ACTIVE', now() - interval '9 hours'),
   ('RBX-01JTESTCATALOG-ACCESSORY-002', 'RBX-01JTESTVERIFIED0000000000',
-   'Cáp sạc bọc dù 100W', 'Cáp hoàn đơn đã đo công suất và kiểm tra đầu nối.',
-   'accessories', 'GOOD', 'Bao bì đã mở, dây hoạt động ổn định', 89000, 90, '[]'::jsonb, 'SELLER_DECLARED', 'ACTIVE', now() - interval '10 hours'),
+   'Cáp sạc bọc dù 100W', 'Kiện hoàn nguyên trạng, thông số theo bản kê của người bán.',
+   'accessories', 'GOOD', 'Bao bì ngoài có nếp gấp nhẹ, chưa mở kiểm tra nội dung', 89000, 90, '[{"key":"demo-products/cable.webp","width":1200,"height":900}]'::jsonb, 'SELLER_DECLARED', 'ACTIVE', now() - interval '10 hours'),
   ('RBX-01JTESTCATALOG-LIFESTYLE-001', 'RBX-01JTESTVERIFIED0000000000',
-   'Quạt mini cầm tay', 'Quạt đổi trả đã kiểm tra pin và các mức gió.',
-   'lifestyle', 'GOOD', 'Thân quạt có vết xước nhẹ gần nút nguồn', 139000, 260, '[]'::jsonb, 'SELLER_DECLARED', 'ACTIVE', now() - interval '11 hours')
+   'Quạt mini cầm tay', 'Kiện hoàn nguyên trạng, chưa mở để kiểm tra thiết bị bên trong.',
+   'lifestyle', 'GOOD', 'Vỏ hộp có vết xước nhẹ gần cạnh dưới', 139000, 260, '[{"key":"demo-products/fan.webp","width":1200,"height":900}]'::jsonb, 'SELLER_DECLARED', 'ACTIVE', now() - interval '11 hours')
 ON CONFLICT (id) DO UPDATE SET
   title = EXCLUDED.title,
   description = EXCLUDED.description,
@@ -220,6 +225,7 @@ ON CONFLICT (id) DO UPDATE SET
   condition_notes = EXCLUDED.condition_notes,
   price = EXCLUDED.price,
   weight_gram = EXCLUDED.weight_gram,
+  images = EXCLUDED.images,
   status = EXCLUDED.status,
   published_at = EXCLUDED.published_at;
 
@@ -236,9 +242,9 @@ INSERT INTO listings (
 VALUES
   (
     'RBX-01JTESTPUBLICLISTING00000', 'RBX-01JTESTVERIFIED0000000000',
-    'Áo khoác hoàn đơn synthetic', 'Fixture công khai cho smoke test.',
-    'fashion', 'GOOD', 'Xước nhẹ ở khóa kéo', 120000, 500,
-    '[]'::jsonb, 'SELLER_DECLARED', 'ACTIVE', now()
+    'Áo khoác gió unisex chống nước', 'Kiện hoàn nguyên trạng, mô tả sản phẩm theo bản kê của người bán.',
+    'fashion', 'GOOD', 'Bao bì ngoài có vết cấn nhẹ, chưa mở kiểm tra nội dung', 120000, 500,
+    '[{"key":"demo-products/jacket.webp","width":1200,"height":900}]'::jsonb, 'SELLER_DECLARED', 'ACTIVE', now()
   ),
   (
     'RBX-01JTESTDRAFTLISTING000000', 'RBX-01JTESTVERIFIED0000000000',
@@ -246,7 +252,17 @@ VALUES
     'fashion', 'GOOD', 'Synthetic draft', 90000, 400,
     '[]'::jsonb, 'SELLER_DECLARED', 'DRAFT', NULL
   )
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+  title = EXCLUDED.title,
+  description = EXCLUDED.description,
+  category_id = EXCLUDED.category_id,
+  condition_grade = EXCLUDED.condition_grade,
+  condition_notes = EXCLUDED.condition_notes,
+  price = EXCLUDED.price,
+  weight_gram = EXCLUDED.weight_gram,
+  images = EXCLUDED.images,
+  status = EXCLUDED.status,
+  published_at = EXCLUDED.published_at;
 WITH seeded AS (
   INSERT INTO ledger_transactions(id,kind,reference_id,status)
   VALUES('RBX-LTX-SANDBOX-SEED','SANDBOX_BALANCE_SEED','RBX-01JTESTVERIFIED0000000000:DEFAULT','DRAFT')

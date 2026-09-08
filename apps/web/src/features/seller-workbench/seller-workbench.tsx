@@ -15,7 +15,7 @@ const statusLabels: Record<Listing["status"], string> = {
   HIDDEN_BY_FUND: "Tạm ẩn",
   RESERVED: "Đã giữ chỗ",
   SOLD: "Đã bán",
-  RELISTABLE: "Có thể đăng lại",
+  RELISTABLE: "Hoàn hàng",
   SUSPENDED: "Tạm ngưng",
   DELISTED: "Đã gỡ"
 };
@@ -35,14 +35,15 @@ const listingStatusDescriptions: Record<Listing["status"], string> = {
   HIDDEN_BY_FUND: "Tạm ẩn do số dư ký quỹ",
   RESERVED: "Đang chờ hoàn tất đơn",
   SOLD: "Đã hoàn tất bán hàng",
-  RELISTABLE: "Có thể đăng bán lại",
+  RELISTABLE: "Đã hoàn về kho, có thể đăng bán lại",
   SUSPENDED: "Đang tạm ngưng",
   DELISTED: "Đã gỡ khỏi gian hàng"
 };
 
 function statusClass(status: Listing["status"]): string {
-  if (status === "ACTIVE" || status === "SOLD") return "bg-emerald-50 text-emerald-700";
-  if (status === "DRAFT" || status === "PENDING_REVIEW") return "bg-blue-50 text-blue-700";
+  if (status === "ACTIVE") return "bg-blue-50 text-blue-700";
+  if (status === "SOLD") return "bg-emerald-50 text-emerald-700";
+  if (status === "RELISTABLE") return "bg-red-50 text-red-700";
   return "bg-amber-50 text-amber-700";
 }
 
@@ -68,9 +69,9 @@ type InventoryItem = {
 
 const packageStatus: Record<SellerInventoryPackage["status"], Pick<InventoryItem, "stock" | "statusGroup" | "statusLabel" | "statusDescription" | "statusTone">> = {
   SOURCE_PENDING: { stock: 0, statusGroup: "other", statusLabel: "CHỜ NHẬP KHO", statusDescription: "Chờ quét mã kiện", statusTone: "bg-blue-50 text-blue-700" },
-  AVAILABLE: { stock: 1, statusGroup: "active", statusLabel: "CÒN HÀNG", statusDescription: "Sẵn sàng chuẩn bị bán", statusTone: "bg-emerald-50 text-emerald-700" },
+  AVAILABLE: { stock: 1, statusGroup: "active", statusLabel: "CÒN HÀNG", statusDescription: "Sẵn sàng chuẩn bị bán", statusTone: "bg-blue-50 text-blue-700" },
   RESERVED: { stock: 0, statusGroup: "other", statusLabel: "ĐÃ GIỮ CHỖ", statusDescription: "Đang chờ hoàn tất đơn", statusTone: "bg-amber-50 text-amber-700" },
-  SOLD: { stock: 0, statusGroup: "sold", statusLabel: "ĐÃ BÁN", statusDescription: "Chờ dữ liệu đối soát", statusTone: "bg-slate-100 text-slate-700" },
+  SOLD: { stock: 0, statusGroup: "sold", statusLabel: "ĐÃ BÁN", statusDescription: "Chờ dữ liệu đối soát", statusTone: "bg-emerald-50 text-emerald-700" },
   VOID: { stock: 0, statusGroup: "other", statusLabel: "ĐÃ HỦY", statusDescription: "Kiện không còn khả dụng", statusTone: "bg-red-50 text-red-700" }
 };
 

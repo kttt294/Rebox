@@ -113,7 +113,14 @@ export class ClaimsModule {
     if (!(await this.pool.query("SELECT 1 FROM shop_memberships WHERE user_id=$1 AND shop_id=$2 AND status='ACTIVE'", [actorId, shopId])).rowCount) {
       throw new DomainError("RESOURCE_NOT_FOUND", 404, "Shop not found");
     }
-    return (await this.pool.query("SELECT * FROM dispute_cases WHERE shop_id=$1 ORDER BY created_at DESC", [shopId])).rows.map(presentCase);
+    return (await this.pool.query(
+      `SELECT c.*,i.item_snapshot->>'title' AS product_title
+       FROM dispute_cases c
+       JOIN sub_orders so ON so.order_id=c.order_id
+       JOIN sub_order_items i ON i.sub_order_id=so.id
+       WHERE c.shop_id=$1 ORDER BY c.created_at DESC`,
+      [shopId]
+    )).rows.map(presentCase);
   }
 
   async resolve(actor: { id: string; aal?: string }, caseId: string, input: { decision: string; reason: string; refundAmountVnd: number; returnRequired: boolean }, idempotencyKey?: string) {
@@ -179,6 +186,7 @@ function hash(value: unknown): string { return createHash("sha256").update(JSON.
 function sanitize(value: string): string { return value.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120); }
 function presentCase(row: Record<string, unknown>) { return {
   id: row.id, orderId: row.order_id, shopId: row.shop_id, status: row.status, flags: row.flags, reason: row.reason,
+  productTitle: row.product_title,
   buyerPayableVnd: Number(row.buyer_payable_vnd), appealUntil: row.appeal_until instanceof Date ? row.appeal_until.toISOString() : null,
   createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
 }; }

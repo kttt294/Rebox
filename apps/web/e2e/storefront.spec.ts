@@ -173,11 +173,11 @@ async function mockReviewState(page: Page, eligible: boolean) {
 
 test("renders only an active listing through the public NestJS endpoint", async ({ page }) => {
   await page.goto("/listings/RBX-01JTESTPUBLICLISTING00000");
-  const detail = page.locator("section").filter({ has: page.getByRole("heading", { name: "Áo khoác hoàn đơn synthetic" }) });
-  await expect(detail.getByRole("heading", { name: "Áo khoác hoàn đơn synthetic" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "REBOXE Verified Fixture", exact: true })).toBeVisible();
+  const detail = page.locator("section").filter({ has: page.getByRole("heading", { name: "Áo khoác gió unisex chống nước" }) });
+  await expect(detail.getByRole("heading", { name: "Áo khoác gió unisex chống nước" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "REBOXE Select", exact: true })).toBeVisible();
   await expect(detail.getByText("120.000đ")).toBeVisible();
-  await expect(detail.getByText("Xước nhẹ ở khóa kéo")).toBeVisible();
+  await expect(detail.getByText("Bao bì ngoài có vết cấn nhẹ, chưa mở kiểm tra nội dung")).toBeVisible();
 });
 
 test("does not expose a draft listing", async ({ page }) => {

@@ -243,7 +243,7 @@ export function createApiClient(options: ApiClientOptions) {
     listCommerceOrders: () => request<CommerceOrder[]>("/v1/orders", { cache: "no-store" }),
     getCommerceOrder: (orderId: string) => request<CommerceOrder>(`/v1/orders/${encodeURIComponent(orderId)}`, { cache: "no-store" }),
     listSellerOrders: (shopId: string) => request<CommerceOrder[]>(`/v1/shops/${encodeURIComponent(shopId)}/orders`, { cache: "no-store" }),
-    listSellerDisputes: (shopId: string) => request<Array<{ id: string; orderId: string; status: string; reason: string; createdAt: string }>>(`/v1/shops/${encodeURIComponent(shopId)}/disputes`, { cache: "no-store" }),
+    listSellerDisputes: (shopId: string) => request<Array<{ id: string; orderId: string; productTitle: string; status: string; reason: string; createdAt: string }>>(`/v1/shops/${encodeURIComponent(shopId)}/disputes`, { cache: "no-store" }),
     getSellerFinanceProjection: (shopId: string) => request<SellerFinanceProjection>(`/v1/shops/${encodeURIComponent(shopId)}/finance/projection`, { cache: "no-store" }),
     createFakeShipment: (shopId: string, orderId: string) => request<{ id: string; trackingCode: string; status: string; label: string }>(`/v1/shops/${encodeURIComponent(shopId)}/orders/${encodeURIComponent(orderId)}/shipment`, { method: "POST" }),
     openDispute: (orderId: string, reason: string) => request<{ id: string; status: string }>(`/v1/orders/${encodeURIComponent(orderId)}/disputes`, { method: "POST", body: JSON.stringify({ reason }) }),

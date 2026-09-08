@@ -4,29 +4,37 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "../platform/auth/browser";
 
-function useSignedInEmail() {
-  const [email, setEmail] = useState<string | null>(null);
+function accountDisplayName(user?: User | null): string | null {
+  if (!user) return null;
+  const fullName = user.user_metadata.full_name;
+  return typeof fullName === "string" && fullName.trim()
+    ? fullName.trim()
+    : user.email?.split("@")[0] || null;
+}
+
+function useSignedInName() {
+  const [name, setName] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
     void supabase.auth.getSession().then((result: { data: { session: Session | null } }) => {
-      setEmail(result.data.session?.user.email ?? null);
+      setName(accountDisplayName(result.data.session?.user));
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
-      setEmail(session?.user.email ?? null);
+      setName(accountDisplayName(session?.user));
     });
     return () => { subscription.unsubscribe(); };
   }, []);
 
-  return email;
+  return name;
 }
 
 function UtilityNavigation({ compact = false }: { compact?: boolean }) {
   const router = useRouter();
-  const email = useSignedInEmail();
+  const name = useSignedInName();
 
   async function logout() {
     await getSupabaseBrowserClient().auth.signOut();
@@ -41,9 +49,9 @@ function UtilityNavigation({ compact = false }: { compact?: boolean }) {
       </p>
       <p className="ml-auto whitespace-nowrap">
         <Link className="hover:underline" href="/account/notifications">Thông báo</Link>&nbsp;&nbsp; <Link className="hover:underline" href="/support">Hỗ trợ</Link>&nbsp;&nbsp; Tiếng Việt&nbsp;&nbsp; | &nbsp;&nbsp;
-        {email ? (
+        {name ? (
           <>
-            <Link className="opacity-90 hover:underline" href="/account/profile">{email.split("@")[0]}</Link>
+            <Link className="opacity-90 hover:underline" href="/account/profile">{name}</Link>
             &nbsp;&nbsp; | &nbsp;&nbsp;
             <button className="hover:underline" onClick={logout} type="button">Đăng xuất</button>
           </>
@@ -137,7 +145,7 @@ function SellerHeader() {
   return (
     <header className="relative z-40 h-[52px] border-b border-[#eef2f7] bg-white">
       <div className="flex h-full items-center px-4">
-        <Link aria-label="REBOXE" className="grid size-7 shrink-0 place-items-center rounded-[5px] bg-[var(--accent)] text-[13px] font-bold text-white" href="/">R</Link>
+        <Link aria-label="REBOXE" className="ml-10 grid size-7 shrink-0 place-items-center rounded-[5px] bg-[var(--accent)] text-[13px] font-bold text-white" href="/">R</Link>
         <Link className="ml-3 text-[13px] text-[var(--muted)]" href="/">Trang chủ</Link>
         <span className="mx-1.5 text-[17px] text-[var(--muted)]">›</span>
         <span className="text-[13px] font-medium text-[var(--ink)]">Kênh người bán</span>

@@ -2,6 +2,39 @@ import { expect, test } from "@playwright/test";
 
 const shopId = "RBX-01JTESTVERIFIED0000000000";
 
+test("uses the inventory status color convention", async ({ page }) => {
+  const baseListing = {
+    shopId,
+    shopDisplayName: "REBOXE Verified Fixture",
+    description: "",
+    categoryId: "fashion",
+    conditionGrade: "GOOD",
+    conditionNotes: "Kiện thử nghiệm",
+    price: 120000,
+    weightGram: 500,
+    images: [],
+    publishedAt: "2026-09-08T00:00:00.000Z",
+    createdAt: "2026-09-08T00:00:00.000Z"
+  };
+  await page.route("**/v1/**", (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === "/v1/me") return route.fulfill({ json: { id: "seller-id", profileStatus: "ACTIVE", shops: [{ id: shopId, displayName: "REBOXE Verified Fixture", role: "OWNER", membershipStatus: "ACTIVE", kycStatus: "VERIFIED", status: "ACTIVE" }] } });
+    if (path === `/v1/shops/${shopId}/listings`) return route.fulfill({ json: [
+      { ...baseListing, id: "active", title: "Sản phẩm đang bán", status: "ACTIVE" },
+      { ...baseListing, id: "sold", title: "Sản phẩm đã bán", status: "SOLD" },
+      { ...baseListing, id: "returned", title: "Sản phẩm hoàn hàng", status: "RELISTABLE" }
+    ] });
+    if (path === `/v1/shops/${shopId}/return-packages`) return route.fulfill({ json: [] });
+    return route.fulfill({ status: 404, json: {} });
+  });
+
+  await page.goto("/seller/inventory");
+
+  await expect(page.getByRole("row", { name: /Sản phẩm đang bán/ }).getByText("ĐANG BÁN", { exact: true })).toHaveClass(/bg-blue-50/);
+  await expect(page.getByRole("row", { name: /Sản phẩm đã bán/ }).getByText("ĐÃ BÁN", { exact: true })).toHaveClass(/bg-emerald-50/);
+  await expect(page.getByRole("row", { name: /Sản phẩm hoàn hàng/ }).getByText("HOÀN HÀNG", { exact: true })).toHaveClass(/bg-red-50/);
+});
+
 test("chooses a category, edits a draft and sends it to policy review", async ({ page }) => {
   const listings: Array<Record<string, unknown>> = [];
   let updateBody: Record<string, unknown> | undefined;

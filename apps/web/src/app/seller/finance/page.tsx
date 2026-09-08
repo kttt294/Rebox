@@ -12,7 +12,7 @@ const compactMoney = (value: number) => `${value.toLocaleString("vi-VN")}đ`;
 function MetricCards({ finance }: { finance: SellerFinanceSnapshot }) {
   const metrics = [
     { label: "SỐ DƯ KÝ QUỸ KHẢ DỤNG", value: finance.availableBalanceVnd },
-    { label: "TẠM KHÓA ĐỐI SOÁT (AI HOLD)", value: finance.heldBalanceVnd },
+    { label: "TẠM KHÓA ĐỐI SOÁT", value: finance.heldBalanceVnd },
     { label: "TỔNG DOANH THU THỰC NHẬN", value: finance.netRevenueVnd }
   ];
   return (
@@ -121,7 +121,6 @@ export default function SellerFinancePage() {
     <SellerShell>
       <FinanceWorkspace active="overview">
         {error ? <div className="grid min-h-[420px] place-items-center text-sm text-red-600" role="alert">{error}</div> : !finance ? <div className="grid min-h-[420px] place-items-center text-sm text-[var(--muted)]">Đang tải dữ liệu tài chính...</div> : <>
-        <p className="rounded-lg bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">Dữ liệu mô phỏng — không phải số dư có thể rút.</p>
         <MetricCards finance={finance} />
         <div className="flex h-[562px] max-h-[562px] min-h-0 flex-1 flex-col gap-3">
           <RevenueTrend finance={finance} />

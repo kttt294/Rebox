@@ -2,6 +2,16 @@ import { sellerFinanceSnapshotSchema, type SellerFinanceSnapshot } from "@reboxe
 import type { Pool } from "pg";
 import type { IdentityModule } from "../identity";
 
+type PersistedSnapshotRow = {
+  available_balance_vnd: string;
+  held_balance_vnd: string;
+  net_revenue_vnd: string;
+  monthly_revenue: SellerFinanceSnapshot["monthlyRevenue"];
+  product_revenue: SellerFinanceSnapshot["productRevenue"];
+  wallet_transactions: SellerFinanceSnapshot["walletTransactions"];
+  updated_at: Date;
+};
+
 export class FinanceModule {
   constructor(private readonly pool: Pool, private readonly identity: IdentityModule) {}
 
@@ -9,6 +19,23 @@ export class FinanceModule {
     const client = await this.pool.connect();
     try {
       await this.identity.requireShopCapability(client, actorId, shopId, "VIEW_FINANCE");
+      const persisted = (await client.query<PersistedSnapshotRow>(
+        `SELECT available_balance_vnd::text,held_balance_vnd::text,net_revenue_vnd::text,
+                monthly_revenue,product_revenue,wallet_transactions,updated_at
+         FROM seller_finance_snapshots WHERE shop_id=$1`,
+        [shopId]
+      )).rows[0];
+      if (persisted) {
+        return sellerFinanceSnapshotSchema.parse({
+          availableBalanceVnd: Number(persisted.available_balance_vnd),
+          heldBalanceVnd: Number(persisted.held_balance_vnd),
+          netRevenueVnd: Number(persisted.net_revenue_vnd),
+          monthlyRevenue: persisted.monthly_revenue,
+          productRevenue: persisted.product_revenue,
+          walletTransactions: persisted.wallet_transactions,
+          updatedAt: persisted.updated_at.toISOString()
+        });
+      }
       const balances = await client.query<{ account_key: string; amount: string }>(
         `SELECT p.account_key,coalesce(sum(p.amount_vnd),0)::text AS amount FROM ledger_postings p
          JOIN ledger_transactions t ON t.id=p.transaction_id

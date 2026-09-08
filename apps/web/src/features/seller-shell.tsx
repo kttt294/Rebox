@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 type FinanceTab = "overview" | "wallet";
 
@@ -16,16 +16,18 @@ function SellerNavItem({ active, children, href }: { active?: boolean; children:
 
 export function SellerShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   return (
     <div className="flex min-h-[calc(100vh-52px)] bg-[var(--paper)] xl:h-[calc(100vh-52px)] xl:min-h-0 xl:overflow-hidden">
-      <aside className="hidden w-[220px] shrink-0 border-r border-[var(--line)] bg-white px-4 py-[18px] xl:block">
-        <nav aria-label="Điều hướng Seller Center">
+      <button aria-controls="seller-sidebar" aria-expanded={sidebarOpen} aria-label={sidebarOpen ? "Ẩn thanh bên" : "Hiện thanh bên"} className="fixed left-4 top-[10px] z-50 grid size-8 place-items-center rounded-md text-xl leading-none text-[#66758b] hover:bg-[var(--accent-soft)]" onClick={() => setSidebarOpen((open) => !open)} type="button"><span aria-hidden>☰</span></button>
+      <aside className="w-[220px] shrink-0 border-r border-[var(--line)] bg-white px-4 py-[18px]" hidden={!sidebarOpen} id="seller-sidebar">
+        <nav aria-label="Điều hướng Kênh người bán">
           <p className="mb-1 text-[11px] font-medium text-[var(--muted)]">QUẢN LÝ BÁN HÀNG</p>
           <div className="grid gap-1">
             <SellerNavItem active={pathname === "/seller/products/new"} href="/seller/products/new">Thêm Sản Phẩm</SellerNavItem>
             <SellerNavItem active={pathname === "/seller/inventory"} href="/seller/inventory">Quản Lý Kho Hàng</SellerNavItem>
-            <SellerNavItem active={pathname === "/seller/orders"} href="/seller/orders">Đơn hàng sandbox</SellerNavItem>
+            <SellerNavItem active={pathname === "/seller/orders"} href="/seller/orders">Đơn hàng thử nghiệm</SellerNavItem>
             <SellerNavItem active={pathname === "/seller/kyc"} href="/seller/kyc">Trạng thái xác minh</SellerNavItem>
             <SellerNavItem active={pathname === "/seller/returns"} href="/seller/returns">Khiếu nại / Hoàn trả</SellerNavItem>
           </div>
