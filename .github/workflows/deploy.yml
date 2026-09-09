@@ -101,12 +101,16 @@ jobs:
       packages: read
     env:
       IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}
-      VPS_HOST: ${{ secrets.VPS_HOST }}
-      VPS_USER: ${{ secrets.VPS_USER }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Prepare SSH target
+        env:
+          VPS_HOST_RAW: ${{ secrets.VPS_HOST }}
+          VPS_USER_RAW: ${{ secrets.VPS_USER }}
+        run: bash .github/scripts/prepare-ssh-target.sh
 
       - name: Configure SSH
         env:
