@@ -27,6 +27,7 @@ export function SellerShell({ children }: { children: ReactNode }) {
           <div className="grid gap-1">
             <SellerNavItem active={pathname === "/seller/products/new"} href="/seller/products/new">Thêm Sản Phẩm</SellerNavItem>
             <SellerNavItem active={pathname === "/seller/inventory"} href="/seller/inventory">Quản Lý Kho Hàng</SellerNavItem>
+            <SellerNavItem active={pathname === "/seller/promotions"} href="/seller/promotions">Quảng Bá Sản Phẩm</SellerNavItem>
             <SellerNavItem active={pathname === "/seller/orders"} href="/seller/orders">Đơn hàng thử nghiệm</SellerNavItem>
             <SellerNavItem active={pathname === "/seller/kyc"} href="/seller/kyc">Trạng thái xác minh</SellerNavItem>
             <SellerNavItem active={pathname === "/seller/returns"} href="/seller/returns">Khiếu nại / Hoàn trả</SellerNavItem>
@@ -37,7 +38,7 @@ export function SellerShell({ children }: { children: ReactNode }) {
           <SellerNavItem active={pathname === "/seller/reports"} href="/seller/reports">Báo Cáo Hiệu Suất</SellerNavItem>
         </nav>
       </aside>
-      <main className="min-w-0 flex-1 overscroll-contain p-4 sm:p-6 xl:overflow-y-auto">{children}</main>
+      <main className={`min-w-0 flex-1 overscroll-contain p-4 sm:p-6 ${pathname === "/seller/inventory" ? "xl:overflow-hidden" : "xl:overflow-y-auto"}`}>{children}</main>
     </div>
   );
 }

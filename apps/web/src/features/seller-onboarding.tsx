@@ -81,11 +81,11 @@ export function SellerOnboarding() {
         if (actor.profileStatus === "SUSPENDED" || actor.profileStatus === "DELETED") {
           setError("Tài khoản đang bị hạn chế và chưa thể đăng ký bán hàng.");
         }
+        setLoading(false);
       } catch (caught) {
         setError(caught instanceof ApiClientError && caught.status === 401
           ? "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."
           : "Không thể kiểm tra trạng thái tài khoản.");
-      } finally {
         setLoading(false);
       }
     }
@@ -223,7 +223,7 @@ export function SellerOnboarding() {
                 <input className={inputClass} inputMode="tel" maxLength={10} pattern="0[0-9]{9}" placeholder="0901234567" required value={form.phone} onChange={(event) => update("phone", event.target.value)} />
                 <span className="text-xs font-normal text-[var(--muted)]">Bản test chỉ yêu cầu nhập, chưa gửi OTP.</span>
               </Field>
-              <Actions nextDisabled={!emailVerified || Boolean(error)} />
+              <Actions nextDisabled={Boolean(error)} />
             </form>
           ) : null}
 

@@ -34,7 +34,9 @@ import type {
   PackageListingDraftResult,
   ScanReturnPackageInput,
   BatchCreatePackageListingsResult,
-  SellerFinanceProjection
+  SellerFinanceProjection,
+  ListingPromotion,
+  PromotionOverview
 } from "@reboxe/shared";
 
 export type { paths } from "./generated";
@@ -245,6 +247,14 @@ export function createApiClient(options: ApiClientOptions) {
     listSellerOrders: (shopId: string) => request<CommerceOrder[]>(`/v1/shops/${encodeURIComponent(shopId)}/orders`, { cache: "no-store" }),
     listSellerDisputes: (shopId: string) => request<Array<{ id: string; orderId: string; productTitle: string; status: string; reason: string; createdAt: string }>>(`/v1/shops/${encodeURIComponent(shopId)}/disputes`, { cache: "no-store" }),
     getSellerFinanceProjection: (shopId: string) => request<SellerFinanceProjection>(`/v1/shops/${encodeURIComponent(shopId)}/finance/projection`, { cache: "no-store" }),
+    getPromotionOverview: (shopId: string) => request<PromotionOverview>(`/v1/shops/${encodeURIComponent(shopId)}/promotions`, { cache: "no-store" }),
+    seedPromotionCredit: (shopId: string, key: string) => request<PromotionOverview>(`/v1/shops/${encodeURIComponent(shopId)}/promotions/credit`, {
+      method: "POST", headers: { "Idempotency-Key": key }
+    }),
+    sponsorListing: (shopId: string, listingId: string, key: string) => request<ListingPromotion>(
+      `/v1/shops/${encodeURIComponent(shopId)}/listings/${encodeURIComponent(listingId)}/promotions`, {
+        method: "POST", headers: { "Idempotency-Key": key }
+      }),
     createFakeShipment: (shopId: string, orderId: string) => request<{ id: string; trackingCode: string; status: string; label: string }>(`/v1/shops/${encodeURIComponent(shopId)}/orders/${encodeURIComponent(orderId)}/shipment`, { method: "POST" }),
     openDispute: (orderId: string, reason: string) => request<{ id: string; status: string }>(`/v1/orders/${encodeURIComponent(orderId)}/disputes`, { method: "POST", body: JSON.stringify({ reason }) }),
     createProcessingRecord: (input: { purpose: "DISPUTE_EVIDENCE" | "SELLER_EVIDENCE"; targetType: string; targetId: string; noticeVersion: string }) =>

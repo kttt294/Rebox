@@ -41,7 +41,7 @@ export default function LoginPage() {
     <div className="bg-[var(--paper)]">
       <AuthHeader title="Đăng nhập" />
       <AuthBody>
-        <form className="absolute left-1/2 top-[140px] flex h-[536px] w-full max-w-[400px] -translate-x-1/2 flex-col gap-3 overflow-hidden rounded bg-white px-[30px] py-6 lg:left-[750px] lg:translate-x-0" onSubmit={login}>
+        <form className="absolute left-1/2 top-[140px] flex h-[536px] w-full max-w-[400px] -translate-x-1/2 flex-col gap-3 overflow-hidden rounded bg-white px-[30px] py-6 lg:left-auto lg:right-0 lg:translate-x-0" onSubmit={login}>
           <div className="flex h-[58px] items-center gap-2">
             <h2 className="text-[22px] font-normal">Đăng nhập</h2>
           </div>

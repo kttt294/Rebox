@@ -1,4 +1,4 @@
-import type { CheckoutInitInput, CommerceOrder, SellerFinanceProjection } from "@reboxe/shared";
+import type { CheckoutInitInput, CommerceOrder, ListingPromotion, PromotionOverview, SellerFinanceProjection } from "@reboxe/shared";
 import { createHash } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import { ulid } from "ulid";
@@ -11,6 +11,13 @@ type OrderRow = {
   expires_at: Date; confirmed_at: Date | null; completed_at: Date | null; created_at: Date;
   item_snapshot: CommerceOrder["item"];
 };
+
+type PromotionRow = {
+  id: string; listing_id: string; fee_vnd: string; starts_at: Date; ends_at: Date;
+};
+
+const promotionFeeVnd = 20_000;
+const promotionDurationMs = 7 * 24 * 60 * 60_000;
 
 export class CommerceModule {
   private readonly piiKey: Buffer;
@@ -36,6 +43,88 @@ export class CommerceModule {
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;
+    } finally { client.release(); }
+  }
+
+  async seedPromotionCredit(actorId: string, shopId: string, idempotencyKey: string): Promise<PromotionOverview> {
+    this.requireSandbox();
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await this.requirePromotionManager(client, actorId, shopId);
+      await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`wallet:${shopId}`]);
+      const prior = await this.lockIdempotency(client, actorId, "promotion.credit", idempotencyKey, hash({ shopId }));
+      if (!prior) {
+        await this.post(client, "PROMOTION_CREDIT_SEED", `${shopId}:${idempotencyKey}`, [
+          [`shop:${shopId}:promotion_credit`, 100_000], ["sandbox:promotion_clearing", -100_000]
+        ]);
+        await this.saveIdempotency(client, actorId, "promotion.credit", idempotencyKey, { credited: true });
+      }
+      await client.query("COMMIT");
+      return this.getPromotionOverview(actorId, shopId);
+    } catch (error) {
+      await client.query("ROLLBACK"); throw error;
+    } finally { client.release(); }
+  }
+
+  async getPromotionOverview(actorId: string, shopId: string): Promise<PromotionOverview> {
+    await this.requirePromotionManager(this.pool, actorId, shopId);
+    const campaigns = await this.pool.query<PromotionRow>(
+      `SELECT id,listing_id,fee_vnd,starts_at,ends_at FROM listing_promotions
+       WHERE shop_id=$1 AND status='ACTIVE' AND starts_at<=now() AND ends_at>now()
+       ORDER BY ends_at`, [shopId]
+    );
+    return {
+      creditVnd: await this.accountBalance(this.pool, `shop:${shopId}:promotion_credit`),
+      campaigns: campaigns.rows.map(presentPromotion)
+    };
+  }
+
+  async sponsorListing(actorId: string, shopId: string, listingId: string, idempotencyKey: string): Promise<ListingPromotion> {
+    this.requireSandbox();
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await this.requirePromotionManager(client, actorId, shopId);
+      await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", ["promotion:home_top"]);
+      await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`wallet:${shopId}`]);
+      const prior = await this.lockIdempotency(client, actorId, "promotion.purchase", idempotencyKey, hash({ shopId, listingId }));
+      if (prior) { await client.query("COMMIT"); return prior as ListingPromotion; }
+      const listing = (await client.query<{ status: string; shop_status: string }>(
+        `SELECT l.status,s.status AS shop_status FROM listings l JOIN shops s ON s.id=l.shop_id
+         WHERE l.id=$1 AND l.shop_id=$2 FOR UPDATE OF l,s`, [listingId, shopId]
+      )).rows[0];
+      if (!listing) throw new DomainError("RESOURCE_NOT_FOUND", 404, "Listing not found");
+      if (listing.status !== "ACTIVE" || listing.shop_status !== "ACTIVE") {
+        throw new DomainError("PROMOTION_LISTING_UNAVAILABLE", 409, "Only an active listing can be sponsored");
+      }
+      await client.query("UPDATE listing_promotions SET status='ENDED',ended_at=ends_at WHERE status='ACTIVE' AND ends_at<=now()");
+      if ((await client.query("SELECT 1 FROM listing_promotions WHERE listing_id=$1 AND status='ACTIVE'", [listingId])).rowCount) {
+        throw new DomainError("PROMOTION_ALREADY_ACTIVE", 409, "Listing is already sponsored");
+      }
+      // ponytail: six fixed slots avoid a ranking auction; add fair rotation when paid demand exceeds homepage capacity.
+      if (Number((await client.query<{ count: string }>("SELECT count(*)::text AS count FROM listing_promotions WHERE status='ACTIVE' AND ends_at>now()" )).rows[0]!.count) >= 6) {
+        throw new DomainError("PROMOTION_SLOTS_FULL", 409, "Sponsored slots are full");
+      }
+      if (await this.accountBalance(client, `shop:${shopId}:promotion_credit`) < promotionFeeVnd) {
+        throw new DomainError("INSUFFICIENT_PROMOTION_CREDIT", 409, "Promotion credit is insufficient");
+      }
+      const id = `RBX-PROMO-${ulid()}`;
+      const endsAt = new Date(Date.now() + promotionDurationMs);
+      const row = (await client.query<PromotionRow>(
+        `INSERT INTO listing_promotions(id,listing_id,shop_id,fee_vnd,ends_at)
+         VALUES($1,$2,$3,$4,$5) RETURNING id,listing_id,fee_vnd,starts_at,ends_at`,
+        [id, listingId, shopId, promotionFeeVnd, endsAt]
+      )).rows[0]!;
+      await this.post(client, "PROMOTION_PURCHASE", id, [
+        [`shop:${shopId}:promotion_credit`, -promotionFeeVnd], ["platform:promotion_revenue", promotionFeeVnd]
+      ]);
+      const response = presentPromotion(row);
+      await this.saveIdempotency(client, actorId, "promotion.purchase", idempotencyKey, response);
+      await client.query("COMMIT");
+      return response;
+    } catch (error) {
+      await client.query("ROLLBACK"); throw error;
     } finally { client.release(); }
   }
 
@@ -160,6 +249,7 @@ export class CommerceModule {
       await client.query("UPDATE orders SET status='CONFIRMED',payment_method='SANDBOX_COD',confirmed_at=now(),updated_at=now() WHERE id=$1", [orderId]);
       await client.query("UPDATE sub_orders SET status='CONFIRMED' WHERE order_id=$1", [orderId]);
       await client.query("UPDATE listings SET status='SOLD' WHERE id=$1", [row.listing_id]);
+      await this.endPromotionAfterSale(client, row.listing_id, row.shop_id);
       await client.query("UPDATE return_packages SET inventory_status='SOLD',reserved_until=NULL WHERE id=$1", [row.return_package_id]);
       await this.addOrderEvent(client, orderId, "RESERVED", "CONFIRMED", `pay:${idempotencyKey}`);
       await client.query(`INSERT INTO outbox_events(id,topic,aggregate_id,payload) VALUES($1,'commerce.order_confirmed',$2,$3::jsonb)`,
@@ -260,6 +350,30 @@ export class CommerceModule {
     };
   }
 
+  private async endPromotionAfterSale(client: PoolClient, listingId: string, shopId: string): Promise<void> {
+    const campaign = (await client.query<PromotionRow>(
+      "SELECT id,listing_id,fee_vnd,starts_at,ends_at FROM listing_promotions WHERE listing_id=$1 AND status='ACTIVE' FOR UPDATE",
+      [listingId]
+    )).rows[0];
+    if (!campaign) return;
+    const remainingDays = Math.max(0, Math.floor((campaign.ends_at.getTime() - Date.now()) / 86_400_000));
+    const refundVnd = Math.floor(Number(campaign.fee_vnd) * remainingDays / 7);
+    await client.query(
+      "UPDATE listing_promotions SET status='ENDED',ended_at=now(),refunded_vnd=$2 WHERE id=$1",
+      [campaign.id, refundVnd]
+    );
+    if (refundVnd) await this.post(client, "PROMOTION_REFUND", campaign.id, [
+      [`shop:${shopId}:promotion_credit`, refundVnd], ["platform:promotion_revenue", -refundVnd]
+    ]);
+  }
+
+  private async requirePromotionManager(client: Pick<Pool, "query"> | Pick<PoolClient, "query">, actorId: string, shopId: string): Promise<void> {
+    if (!(await client.query(
+      "SELECT 1 FROM shop_memberships WHERE user_id=$1 AND shop_id=$2 AND status='ACTIVE' AND role IN ('OWNER','MANAGER')",
+      [actorId, shopId]
+    )).rowCount) throw new DomainError("RESOURCE_NOT_FOUND", 404, "Shop not found");
+  }
+
   private async post(client: PoolClient, kind: string, referenceId: string, postings: Array<[string, number]>): Promise<void> {
     const existing = await client.query("SELECT 1 FROM ledger_transactions WHERE kind=$1 AND reference_id=$2", [kind, referenceId]);
     if (existing.rowCount) return;
@@ -309,3 +423,13 @@ export class CommerceModule {
 }
 
 function hash(value: unknown): string { return createHash("sha256").update(JSON.stringify(value)).digest("hex"); }
+
+function presentPromotion(row: PromotionRow): ListingPromotion {
+  return {
+    id: row.id,
+    listingId: row.listing_id,
+    feeVnd: Number(row.fee_vnd),
+    startsAt: row.starts_at.toISOString(),
+    endsAt: row.ends_at.toISOString()
+  };
+}

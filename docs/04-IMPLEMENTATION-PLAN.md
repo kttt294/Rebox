@@ -284,7 +284,7 @@ Chỉ làm khi GĐ2 đạt chỉ số. Thứ tự ưu tiên:
 | 2       | **AI Triage tầng 1**             | 6                | Khi >50 khiếu nại/tháng (dưới mức này xử lý tay rẻ hơn)  |
 | 3       | **Phân tích hàng hoàn theo SKU** | 3                | Khi dữ liệu đủ sạch và seller xác nhận nhu cầu báo cáo   |
 | 4       | **Tích hợp Shopee Open API**     | 4 + rủi ro duyệt | Sau khi có pháp nhân và lượng shop đủ để thuyết phục     |
-| 5       | Gói quảng bá sản phẩm 20k/tuần   | 2                | Khi traffic đủ giá trị và Legal duyệt nhãn quảng cáo     |
+| 5       | Thanh toán thật cho gói quảng bá | 2                | Sandbox đã có credit giả lập; production cần traffic, Legal và PSP |
 
 **Về AI Triage - lộ trình 3 bước, không làm một lần:**
 

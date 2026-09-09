@@ -117,6 +117,7 @@ export const publicListingsQuerySchema = z.object({
 export type PublicListingsQuery = z.infer<typeof publicListingsQuerySchema>;
 
 export const publicListingPageSchema = z.object({
+  sponsored: z.array(publicListingSchema),
   items: z.array(publicListingSchema),
   nextCursor: z.string().nullable()
 });

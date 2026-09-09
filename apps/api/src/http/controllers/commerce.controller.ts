@@ -38,4 +38,28 @@ export class CommerceController {
   finance(@CurrentActor() actor: Actor, @Param("shopId") shopId: string) {
     return this.commerce.financeProjection(actor.id, shopId);
   }
+
+  @Get("shops/:shopId/promotions")
+  promotions(@CurrentActor() actor: Actor, @Param("shopId") shopId: string) {
+    return this.commerce.getPromotionOverview(actor.id, shopId);
+  }
+
+  @Post("shops/:shopId/promotions/credit")
+  seedPromotionCredit(
+    @CurrentActor() actor: Actor,
+    @Param("shopId") shopId: string,
+    @Headers("idempotency-key") key: string
+  ) {
+    return this.commerce.seedPromotionCredit(actor.id, shopId, key);
+  }
+
+  @Post("shops/:shopId/listings/:listingId/promotions")
+  sponsorListing(
+    @CurrentActor() actor: Actor,
+    @Param("shopId") shopId: string,
+    @Param("listingId") listingId: string,
+    @Headers("idempotency-key") key: string
+  ) {
+    return this.commerce.sponsorListing(actor.id, shopId, listingId, key);
+  }
 }

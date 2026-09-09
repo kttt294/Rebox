@@ -24,6 +24,14 @@ _Avoid_: ingest method `SCAN`
 Card công khai bán đúng một kiện hoàn; số lượng khả dụng chỉ có thể là 1 hoặc 0.
 _Avoid_: listing SKU, listing từng dòng, listing nhiều unit
 
+**Chiến dịch tài trợ (`ListingPromotion`)**:
+Quyền hiển thị có thời hạn của một listing đang bán trong khu vực quảng cáo có nhãn “Tài trợ”; không thay đổi thứ tự tự nhiên và không bảo đảm lượt bán.
+_Avoid_: listing ưu tiên tự nhiên, cam kết vị trí số 1
+
+**Số dư quảng bá (`PromotionCredit`)**:
+Khoản trả trước chỉ dùng mua chiến dịch tài trợ, tách khỏi tiền bán hàng và ký quỹ của shop.
+_Avoid_: số dư khả dụng, tiền ký quỹ
+
 **Chưa mở kiểm tra (`UNOPENED_UNINSPECTED`)**:
 Công bố rằng REBOXE và seller không mở kiện, không xác nhận nội dung hoặc tình trạng sản phẩm bên trong.
 _Avoid_: mới 99%, như mới, đã kiểm định

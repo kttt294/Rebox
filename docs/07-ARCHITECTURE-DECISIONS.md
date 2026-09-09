@@ -368,7 +368,7 @@ Tham chiếu kỹ thuật chính thức:
 | Kubernetes/Meilisearch | Khi tải thực tế vượt khả năng topology hiện tại |
 | Loyalty/voucher | Sau khi luồng giao dịch, thuế và hóa đơn ổn định |
 | Phân tích hàng hoàn theo SKU | GĐ3, sau khi có dữ liệu và nhu cầu seller đủ lớn |
-| Paid promotion/ranking | GĐ3, sau khi có traffic thật và Legal duyệt cơ chế quảng cáo/nhãn “Tài trợ” |
+| Paid promotion/ranking | Sandbox dùng sáu slot cố định và credit giả lập; production chờ traffic thật, Legal và PSP |
 
 ## 19. A16 — Grain kho hàng hoàn và storefront
 

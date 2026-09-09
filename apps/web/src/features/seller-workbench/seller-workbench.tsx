@@ -268,8 +268,8 @@ export function SellerWorkbench() {
       : left.createdAt.localeCompare(right.createdAt));
 
   return (
-    <div className="grid gap-6">
-      <section id="inventory" className="flex min-h-[calc(100vh-100px)] flex-col overflow-hidden rounded-xl border border-[var(--line)] bg-white p-5">
+    <div className="grid gap-6 xl:h-full xl:min-h-0">
+      <section id="inventory" className="flex min-h-[calc(100vh-100px)] flex-col overflow-hidden rounded-xl border border-[var(--line)] bg-white p-5 xl:h-full xl:min-h-0">
         <h1 className="text-[22px] font-bold leading-normal text-[var(--ink)]">Quản Lý Kho Hàng REBOXE</h1>
 
         <div className="mt-1 flex h-11 items-end gap-1 overflow-x-auto border-b border-[var(--line)]" aria-label="Lọc trạng thái kho hàng">
@@ -335,17 +335,17 @@ export function SellerWorkbench() {
           </select>
         </div>
 
-        <div className="flex flex-1 flex-col overflow-x-auto" role="table" aria-label="Danh sách kho hàng">
+        <div className="flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-hidden" role="table" aria-label="Danh sách kho hàng">
           <div className="grid min-w-[920px] grid-cols-[minmax(320px,1fr)_170px_120px_230px_152px] rounded-t-[5px] bg-[var(--paper)] px-3 py-2 text-[11px] text-[var(--muted)]" role="row">
             <span role="columnheader">Sản phẩm</span><span role="columnheader">Giá xả kho</span><span role="columnheader">Tồn kho</span><span role="columnheader">Trạng thái</span><span role="columnheader">Thao tác</span>
           </div>
-          <div className="mt-2 flex flex-1 flex-col gap-2" role="rowgroup">
+          <div className="mt-2 flex min-h-0 min-w-[920px] flex-1 flex-col gap-2 overflow-y-auto overscroll-contain" role="rowgroup">
             {filteredItems.length === 0 ? (
               <div className="grid flex-1 place-items-center rounded-[5px] border border-[var(--line)] text-center" role="row">
                 <div role="cell"><p className="font-bold">Không có kiện hàng phù hợp</p><p className="mt-1 text-xs text-[var(--muted)]">Thử đổi bộ lọc hoặc tạo sản phẩm mới ở mục Thêm Sản Phẩm.</p></div>
               </div>
             ) : filteredItems.map((item) => (
-              <article className="min-w-[920px] overflow-hidden rounded-[5px] border border-[var(--line)]" key={`${item.listing ? "listing" : "package"}-${item.id}`} role="row">
+              <article className="min-w-[920px] shrink-0 overflow-hidden rounded-[5px] border border-[var(--line)]" key={`${item.listing ? "listing" : "package"}-${item.id}`} role="row">
                 <div className="flex h-[30px] items-center justify-between bg-[var(--paper)] px-3 text-[11px] text-[var(--muted)]">
                   <span className="flex items-center gap-2 font-medium"><span className="grid size-[18px] place-items-center rounded-full bg-[var(--accent-soft)] text-[9px] font-bold text-[var(--accent)]">R</span>{item.sourceLabel}</span>
                   <span>Mã đơn hàng: {item.orderRef}</span>

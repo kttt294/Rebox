@@ -105,7 +105,7 @@ Supabase Realtime, nếu bật, chỉ invalidate query rồi client refetch Nest
 - Package listing phải hiển thị nổi bật **`UNOPENED_UNINSPECTED`**; listing thủ công cũ mới dùng `condition_grade`. Không được hiển thị condition của sản phẩm cho kiện chưa mở.
 - Không hiển thị "còn X sản phẩm" - luôn là 1, hiển thị chỉ gây rối.
 
-**GĐ3 — khu vực quảng bá:** khi paid promotion được mở lại, listing trả phí phải gắn nhãn "Tài trợ" và qua Legal review (`05-PHAP-LY` §8). GĐ1 không có gói 20.000đ/tuần hoặc ranking trả phí.
+**Khu vực quảng bá:** sandbox dùng gói 20.000đ/7 ngày từ số dư quảng bá giả lập. Mỗi card trả phí phải gắn nhãn "Tài trợ"; thu tiền thật chỉ bật sau Legal review (`05-PHAP-LY` §8) và khi PSP được chốt.
 
 **Quy tắc hiển thị giá theo `price_source` (`01-SPEC` §4.2.2) - áp dụng ở MỌI nơi có giá, không chỉ trang chi tiết:**
 

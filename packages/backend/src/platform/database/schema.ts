@@ -411,6 +411,22 @@ export const listingReviews = pgTable("listing_reviews", {
   check("listing_reviews_decision_check", sql`${table.decision} IN ('APPROVE', 'REJECT')`)
 ]);
 
+export const listingPromotions = pgTable("listing_promotions", {
+  id: text("id").primaryKey(),
+  listingId: text("listing_id").notNull().references(() => listings.id),
+  shopId: text("shop_id").notNull().references(() => shops.id),
+  status: text("status").notNull().default("ACTIVE"),
+  feeVnd: bigint("fee_vnd", { mode: "number" }).notNull(),
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull().defaultNow(),
+  endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+  endedAt: timestamp("ended_at", { withTimezone: true }),
+  refundedVnd: bigint("refunded_vnd", { mode: "number" }).notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+}, (table) => [
+  uniqueIndex("listing_promotions_one_active").on(table.listingId).where(sql`${table.status} = 'ACTIVE'`),
+  index("listing_promotions_home").on(table.status, table.endsAt, table.startsAt)
+]);
+
 export const idempotencyRecords = pgTable("idempotency_records", {
   actorId: uuid("actor_id").notNull().references(() => profiles.id), scope: text("scope").notNull(),
   idempotencyKey: text("idempotency_key").notNull(), requestHash: text("request_hash").notNull(),

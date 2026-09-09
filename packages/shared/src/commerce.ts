@@ -28,6 +28,19 @@ export type SellerFinanceProjection = {
   unmatchedReserveVnd: 0; debtVnd: 0; simulated: true;
 };
 
+export type ListingPromotion = {
+  id: string;
+  listingId: string;
+  feeVnd: number;
+  startsAt: string;
+  endsAt: string;
+};
+
+export type PromotionOverview = {
+  creditVnd: number;
+  campaigns: ListingPromotion[];
+};
+
 export const fakeCarrierEventSchema = z.object({
   eventId: z.string().min(1).max(200),
   status: z.enum(["PICKED_UP", "IN_TRANSIT", "DELIVERED", "DELIVERY_FAILED", "CANCELLED_BY_PICKUP_FAILURE"])

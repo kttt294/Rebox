@@ -1093,6 +1093,20 @@ export class InventoryModule {
     const orderBy = input.sort === "newest"
       ? "l.created_at DESC, l.id DESC"
       : `l.price ${input.sort === "price_asc" ? "ASC" : "DESC"}, l.id ${input.sort === "price_asc" ? "ASC" : "DESC"}`;
+    const homepage = !input.cursor && !input.q && !input.category && !input.shopId && input.sort === "newest";
+    const sponsoredRows = homepage
+      ? (await this.pool.query<ListingRow>(
+        `${listingSelect}
+         JOIN listing_promotions promo ON promo.listing_id=l.id
+           AND promo.status='ACTIVE' AND promo.starts_at<=now() AND promo.ends_at>now()
+         WHERE ${conditions.join(" AND ")}
+         ORDER BY promo.starts_at, promo.id
+         LIMIT 6`, values
+      )).rows
+      : [];
+    if (sponsoredRows.length) {
+      conditions.push(`l.id <> ALL(${parameter(sponsoredRows.map((row) => row.id))}::text[])`);
+    }
     const result = await this.pool.query<ListingRow>(
       `${listingSelect}
        WHERE ${conditions.join(" AND ")}
@@ -1103,6 +1117,7 @@ export class InventoryModule {
     const pageRows = result.rows.slice(0, publicListingPageSize);
     const last = pageRows.at(-1);
     return {
+      sponsored: sponsoredRows.map((row) => presentPublicListing(row, this.mediaStorage)),
       items: pageRows.map((row) => presentPublicListing(row, this.mediaStorage)),
       nextCursor: result.rows.length > publicListingPageSize && last
         ? encodeCatalogCursor(last, input.sort)

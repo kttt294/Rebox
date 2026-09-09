@@ -120,6 +120,13 @@
       "when": 1788876000000,
       "tag": "0016_reboxe_schema_names",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1788937200000,
+      "tag": "0017_listing_promotions",
+      "breakpoints": true
     }
   ]
 }

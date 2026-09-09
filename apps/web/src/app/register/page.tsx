@@ -86,7 +86,7 @@ export default function RegisterPage() {
     <div className="bg-white">
       <AuthHeader title="Đăng ký" />
       <AuthBody>
-        <form className="absolute left-1/2 top-[115px] flex min-h-[586px] w-full max-w-[400px] -translate-x-1/2 flex-col gap-3.5 overflow-hidden rounded bg-white px-[30px] pb-6 pt-[26px] lg:left-[746px] lg:translate-x-0" onSubmit={pendingEmail ? verifyOtp : register}>
+        <form className="absolute left-1/2 top-[115px] flex min-h-[586px] w-full max-w-[400px] -translate-x-1/2 flex-col gap-3.5 overflow-hidden rounded bg-white px-[30px] pb-6 pt-[26px] lg:left-auto lg:right-0 lg:translate-x-0" onSubmit={pendingEmail ? verifyOtp : register}>
           <div className="flex h-11 items-center"><h2 className="text-[22px] font-normal">{pendingEmail ? "Xác thực email" : "Đăng ký"}</h2></div>
           {pendingEmail ? (
             <>

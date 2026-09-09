@@ -35,7 +35,7 @@ describe("synthetic marketplace critical journey", () => {
   const fulfillment = new FulfillmentModule(pool, new FakeCarrierAdapter(), true);
   const claims = new ClaimsModule(pool, true);
   const buyerIds = ["10000000-0000-4000-8000-000000000002", staffId];
-  const created = { batchId: "", packageId: "", listingId: "", orderId: "", caseId: "", extraPackageId: "", extraListingId: "", extraOrderId: "", releaseBatchId: "", releasePackageIds: [] as string[], releaseListingIds: [] as string[], releaseOrderIds: [] as string[] };
+  const created = { batchId: "", packageId: "", listingId: "", promotionId: "", orderId: "", caseId: "", extraPackageId: "", extraListingId: "", extraOrderId: "", releaseBatchId: "", releasePackageIds: [] as string[], releaseListingIds: [] as string[], releaseOrderIds: [] as string[] };
 
   beforeAll(async () => {
     await pool.query("SELECT 1");
@@ -89,6 +89,7 @@ describe("synthetic marketplace critical journey", () => {
       await pool.query("DELETE FROM return_packages WHERE id=ANY($1::text[])", [created.releasePackageIds]);
     }
     if (created.releaseBatchId) await pool.query("DELETE FROM return_import_batches WHERE id=$1", [created.releaseBatchId]);
+    if (created.promotionId) await pool.query("DELETE FROM listing_promotions WHERE id=$1", [created.promotionId]);
     if (created.listingId) await pool.query("DELETE FROM listings WHERE id=$1", [created.listingId]);
     if (created.extraListingId) await pool.query("DELETE FROM listings WHERE id=$1", [created.extraListingId]);
     if (created.packageId) {
@@ -130,6 +131,10 @@ describe("synthetic marketplace critical journey", () => {
     created.packageId = first.packageId;
     expect(retry.listing.id).toBe(first.listing.id);
     await inventory.publish(sellerId, shopId, first.listing.id);
+    const promotionCredit = (await commerce.seedPromotionCredit(sellerId, shopId, randomUUID())).creditVnd;
+    const promotion = await commerce.sponsorListing(sellerId, shopId, first.listing.id, randomUUID());
+    created.promotionId = promotion.id;
+    expect((await inventory.listPublicListings({ sort: "newest" })).sponsored.map((item) => item.id)).toContain(first.listing.id);
     const publicJson = JSON.stringify(await inventory.getPublicListing(first.listing.id));
     expect(publicJson).toContain("UNOPENED_UNINSPECTED");
     expect(publicJson).not.toMatch(/tracking|sourceOrder|sourceReturn|returnPackageId/i);
@@ -145,6 +150,7 @@ describe("synthetic marketplace critical journey", () => {
     const buyerId = order.buyerId;
     const paid = await commerce.payCheckout(buyerId, order.id, randomUUID());
     expect(paid).toMatchObject({ status: "CONFIRMED", paymentMethod: "SANDBOX_COD", mode: "SANDBOX" });
+    expect(await commerce.getPromotionOverview(sellerId, shopId)).toMatchObject({ creditVnd: promotionCredit - 2_858, campaigns: [] });
     const ledger = await pool.query<{ total: string }>(
       "SELECT sum(p.amount_vnd)::text AS total FROM ledger_postings p JOIN ledger_transactions t ON t.id=p.transaction_id WHERE t.reference_id=$1 GROUP BY t.id", [order.id]
     );
