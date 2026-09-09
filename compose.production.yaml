@@ -1,0 +1,50 @@
+name: reboxe
+
+services:
+  api:
+    image: ghcr.io/kttt294/reboxe-api:${IMAGE_TAG:-latest}
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: development
+      NODE_EXTRA_CA_CERTS: /run/certs/supabase-ca.crt
+    volumes:
+      - ./supabase-ca.crt:/run/certs/supabase-ca.crt:ro
+    ports:
+      - "127.0.0.1:3001:3001"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:3001/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  worker:
+    image: ghcr.io/kttt294/reboxe-worker:${IMAGE_TAG:-latest}
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: development
+      NODE_EXTRA_CA_CERTS: /run/certs/supabase-ca.crt
+    volumes:
+      - ./supabase-ca.crt:/run/certs/supabase-ca.crt:ro
+    restart: unless-stopped
+
+  web:
+    image: ghcr.io/kttt294/reboxe-web:${IMAGE_TAG:-latest}
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      API_URL: http://api:3001
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3000:3000"
+    restart: unless-stopped
