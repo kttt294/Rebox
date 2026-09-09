@@ -57,8 +57,8 @@ jobs:
             NEXT_PUBLIC_SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
             NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
           tags: |
-            ghcr.io/kttt294/reboxe-api:${{ env.IMAGE_TAG }}
-            ghcr.io/kttt294/reboxe-api:latest
+            ghcr.io/zesyc/reboxe-api:${{ env.IMAGE_TAG }}
+            ghcr.io/zesyc/reboxe-api:latest
           cache-from: type=gha,scope=reboxe
 
       - name: Build and push worker
@@ -72,8 +72,8 @@ jobs:
             NEXT_PUBLIC_SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
             NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
           tags: |
-            ghcr.io/kttt294/reboxe-worker:${{ env.IMAGE_TAG }}
-            ghcr.io/kttt294/reboxe-worker:latest
+            ghcr.io/zesyc/reboxe-worker:${{ env.IMAGE_TAG }}
+            ghcr.io/zesyc/reboxe-worker:latest
           cache-from: type=gha,scope=reboxe
 
       - name: Build and push web
@@ -87,8 +87,8 @@ jobs:
             NEXT_PUBLIC_SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
             NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
           tags: |
-            ghcr.io/kttt294/reboxe-web:${{ env.IMAGE_TAG }}
-            ghcr.io/kttt294/reboxe-web:latest
+            ghcr.io/zesyc/reboxe-web:${{ env.IMAGE_TAG }}
+            ghcr.io/zesyc/reboxe-web:latest
           cache-from: type=gha,scope=reboxe
           cache-to: type=gha,mode=max,scope=reboxe
 
