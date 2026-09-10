@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -5,7 +6,9 @@ export function AuthHeader({ title }: { title: string }) {
   return (
     <header className="h-[84px] bg-white px-4 sm:px-6">
       <div className="mx-auto flex h-full w-full max-w-[880px] items-center gap-3">
-        <Link aria-label="Về trang chủ" className="grid size-9 shrink-0 place-items-center rounded bg-[var(--accent-header)] text-lg font-bold text-white" href="/">R</Link>
+        <Link aria-label="Về trang chủ" className="shrink-0" href="/">
+          <Image alt="" aria-hidden height={36} src="/reboxe/logo.png" width={36} />
+        </Link>
         <Link className="text-[28px] font-bold leading-none" href="/">REBOXE</Link>
         <span className="h-[26px] w-px bg-[var(--line)]" />
         <h1 className="whitespace-nowrap text-2xl font-normal">{title}</h1>

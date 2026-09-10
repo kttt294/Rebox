@@ -70,7 +70,7 @@ function UtilityNavigation({ compact = false }: { compact?: boolean }) {
 function ReboxeBrand({ section }: { section?: string | undefined }) {
   return (
     <Link className={`flex h-12 shrink-0 items-center gap-2.5 text-white ${section ? "w-[300px] gap-3" : "w-[210px]"}`} href="/">
-      <Image alt="" aria-hidden height={38} src="/reboxe/logo-mark.svg" width={38} />
+      <Image alt="" aria-hidden height={38} src="/reboxe/logo.png" width={38} />
       <strong className="text-[30px] leading-none">REBOXE</strong>
       {section ? <span className="h-8 w-px bg-white/90" /> : null}
       {section ? <span className="whitespace-nowrap text-[22px] leading-[30px]">{section}</span> : null}
@@ -113,7 +113,7 @@ function CheckoutHeader() {
       <div className="h-24 bg-white px-4 sm:px-6 xl:px-0">
         <div className="reboxe-container flex h-full items-center">
           <Link className="flex items-center gap-3" href="/">
-            <span className="grid size-[38px] place-items-center rounded-lg bg-[var(--accent-header)] text-[22px] font-bold text-white">R</span>
+            <Image alt="" aria-hidden height={38} src="/reboxe/logo.png" width={38} />
             <strong className="text-[30px] leading-none text-[var(--accent)]">REBOXE</strong>
           </Link>
           <span className="mx-[18px] h-[34px] w-px bg-[var(--line)]" />
@@ -145,7 +145,9 @@ function SellerHeader() {
   return (
     <header className="relative z-40 h-[52px] border-b border-[#eef2f7] bg-white">
       <div className="flex h-full items-center px-4">
-        <Link aria-label="REBOXE" className="ml-10 grid size-7 shrink-0 place-items-center rounded-[5px] bg-[var(--accent)] text-[13px] font-bold text-white" href="/">R</Link>
+        <Link aria-label="REBOXE" className="ml-10 shrink-0" href="/">
+          <Image alt="" aria-hidden height={28} src="/reboxe/logo.png" width={28} />
+        </Link>
         <Link className="ml-3 text-[13px] text-[var(--muted)]" href="/">Trang chủ</Link>
         <span className="mx-1.5 text-[17px] text-[var(--muted)]">›</span>
         <span className="text-[13px] font-medium text-[var(--ink)]">Kênh người bán</span>
