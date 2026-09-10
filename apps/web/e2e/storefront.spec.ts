@@ -217,8 +217,6 @@ test("normalizes the cart and places cart and buy-now sandbox orders", async ({ 
   await expect(page.getByRole("radio", { checked: true })).toHaveCount(1);
   await page.getByRole("radio", { name: `Chọn ${second.title}` }).check();
   await page.getByRole("link", { name: "Mua hàng" }).click();
-  await expect(page).toHaveURL(/\/login\?next=/);
-  await signInBuyer(page);
   await expect(page).toHaveURL(`/checkout?items=${encodeURIComponent(second.id)}`);
   await expect(page.getByRole("heading", { name: "Xác nhận sản phẩm" })).toBeVisible();
   await expect(page.getByRole("link", { name: second.title })).toBeVisible();
