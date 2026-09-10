@@ -192,6 +192,10 @@ test("normalizes the cart and places cart and buy-now sandbox orders", async ({ 
 
   await page.goto(`/listings/${first.id}`);
   await page.getByRole("button", { name: "Thêm vào giỏ hàng" }).click();
+  await expect(page).toHaveURL(`/login?next=${encodeURIComponent(`/listings/${first.id}`)}`);
+  await signInBuyer(page);
+  await expect(page).toHaveURL(`/listings/${first.id}`);
+  await page.getByRole("button", { name: "Thêm vào giỏ hàng" }).click();
   await expect(page.getByRole("button", { name: "Đã thêm vào giỏ" })).toBeVisible();
   await page.reload();
   await page.getByRole("button", { name: "Thêm vào giỏ hàng" }).click();
