@@ -175,7 +175,7 @@ test("renders only an active listing through the public NestJS endpoint", async 
   await page.goto("/listings/RBX-01JTESTPUBLICLISTING00000");
   const detail = page.locator("section").filter({ has: page.getByRole("heading", { name: "Áo khoác gió unisex chống nước" }) });
   await expect(detail.getByRole("heading", { name: "Áo khoác gió unisex chống nước" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "REBOXE Select", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "REBOXE Shop", exact: true })).toBeVisible();
   await expect(detail.getByText("120.000đ")).toBeVisible();
   await expect(detail.getByText("Bao bì ngoài có vết cấn nhẹ, chưa mở kiểm tra nội dung")).toBeVisible();
 });

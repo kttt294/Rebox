@@ -169,7 +169,7 @@ ON CONFLICT (category_id, policy_version) DO UPDATE SET
 
 INSERT INTO shops (id, display_name, legal_type, kyc_status, kyc_verified_at, status)
 VALUES
-  ('RBX-01JTESTVERIFIED0000000000', 'REBOXE Select', 'INDIVIDUAL', 'VERIFIED', now(), 'ACTIVE'),
+  ('RBX-01JTESTVERIFIED0000000000', 'REBOXE Shop', 'INDIVIDUAL', 'VERIFIED', now(), 'ACTIVE'),
   ('RBX-01JTESTPENDING00000000000', 'REBOXE Pending Fixture', 'INDIVIDUAL', 'PENDING', NULL, 'ONBOARDING')
 ON CONFLICT (id) DO UPDATE SET
   display_name = EXCLUDED.display_name,
