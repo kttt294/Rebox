@@ -28,7 +28,7 @@ export function SellerShell({ children }: { children: ReactNode }) {
             <SellerNavItem active={pathname === "/seller/products/new"} href="/seller/products/new">Thêm Sản Phẩm</SellerNavItem>
             <SellerNavItem active={pathname === "/seller/inventory"} href="/seller/inventory">Quản Lý Kho Hàng</SellerNavItem>
             <SellerNavItem active={pathname === "/seller/promotions"} href="/seller/promotions">Quảng Bá Sản Phẩm</SellerNavItem>
-            <SellerNavItem active={pathname === "/seller/orders"} href="/seller/orders">Đơn hàng thử nghiệm</SellerNavItem>
+            <SellerNavItem active={pathname === "/seller/orders"} href="/seller/orders">Quản Lý Đơn Hàng</SellerNavItem>
             <SellerNavItem active={pathname === "/seller/kyc"} href="/seller/kyc">Trạng thái xác minh</SellerNavItem>
             <SellerNavItem active={pathname === "/seller/returns"} href="/seller/returns">Khiếu nại / Hoàn trả</SellerNavItem>
           </div>

@@ -28,7 +28,7 @@ export function AdminSupportQueue() {
   const [error, setError] = useState<string>();
   useEffect(() => { void api.listSupportQueue().then(setItems).catch(() => setError("Cần quyền SUPPORT và MFA/AAL2.")); }, []);
   async function resolve(id: string) {
-    await api.replySupportTicket(id, "Đã xử lý ticket synthetic theo quy trình hỗ trợ.", "RESOLVED");
+    await api.replySupportTicket(id, "Yêu cầu đã được xử lý theo quy trình hỗ trợ.", "RESOLVED");
     setItems((rows) => rows.map((row) => row.id === id ? { ...row, status: "RESOLVED" } : row));
   }
   return <main className="mx-auto max-w-4xl p-6"><h1 className="text-2xl font-bold">Hàng đợi hỗ trợ</h1>{error ? <p className="mt-4 text-red-700">{error}</p> : <div className="mt-6 space-y-3">{items.map((item) => <article className="border bg-white p-4" key={item.id}><strong>{item.id}</strong><span className="float-right">{item.status}</span><p className="mt-2 text-sm">{item.category}</p>{item.status !== "RESOLVED" ? <button className="mt-3 rounded bg-[var(--accent)] px-3 py-2 text-sm font-bold text-white" onClick={() => void resolve(item.id)}>Phản hồi và đóng</button> : null}</article>)}</div>}</main>;

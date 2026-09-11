@@ -22,7 +22,9 @@ function localSupabaseEnvironment(): Record<string, string> {
     NEXT_PUBLIC_SUPABASE_URL: values.API_URL,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: values.PUBLISHABLE_KEY,
     API_URL: "http://127.0.0.1:3001",
-    NEXT_PUBLIC_API_URL: "http://127.0.0.1:3001"
+    NEXT_PUBLIC_API_URL: "http://127.0.0.1:3001",
+    PGSSLMODE: "disable",
+    WEB_ORIGIN: "http://localhost:3000"
   };
 }
 

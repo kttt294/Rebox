@@ -51,7 +51,7 @@ export function CheckoutPreview({ listingIds }: { listingIds: string[] }) {
       setOrder(confirmed);
       writeCart(readCart().filter((line) => line.listingId !== item.id));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Không thể đặt đơn sandbox.");
+      setError(caught instanceof Error ? caught.message : "Không thể đặt hàng. Vui lòng thử lại.");
     } finally { setSubmitting(false); }
   }
 
@@ -85,18 +85,18 @@ export function CheckoutPreview({ listingIds }: { listingIds: string[] }) {
             </section>
 
             <section className="mt-4 rounded-lg border border-[var(--line)] bg-white p-6 text-right">
-              <p className="text-sm text-[var(--muted)]">Tạm tính từ dữ liệu listing hiện tại</p>
+              <p className="text-sm text-[var(--muted)]">Tạm tính</p>
               <strong className="mt-2 block text-2xl text-[var(--accent)]">{formatPrice(subtotal)}</strong>
-              {order ? <div className="mt-6 rounded-md bg-emerald-50 p-4 text-left text-sm text-emerald-800" role="status"><strong>Đơn {order.id} đã xác nhận SANDBOX_COD.</strong><br />Đây là giao dịch mô phỏng, không phải thanh toán thật. <Link className="underline" href={`/account/orders/${order.id}`}>Xem chi tiết</Link></div> : <>
+              {order ? <div className="mt-6 rounded-md bg-emerald-50 p-4 text-left text-sm text-emerald-800" role="status"><strong>Đơn hàng {order.id} đã được xác nhận.</strong><br />Bạn có thể theo dõi trạng thái giao hàng trong mục Đơn mua. <Link className="underline" href={`/account/orders/${order.id}`}>Xem chi tiết</Link></div> : <>
                 <label className="mt-6 block text-left text-sm font-bold">Địa chỉ nhận hàng
                   <select className="mt-2 h-11 w-full rounded border border-[var(--line)] px-3 font-normal" onChange={(event) => setAddressId(event.target.value)} value={addressId}>
                     <option value="">Chọn địa chỉ</option>{addresses.map((address) => <option key={address.id} value={address.id}>{address.label} · {address.district}, {address.province}</option>)}
                   </select>
                 </label>
                 {addresses.length === 0 ? <p className="mt-3 text-left text-sm"><Link className="text-[var(--accent)] underline" href="/account/address">Thêm địa chỉ trước khi đặt hàng</Link></p> : null}
-                <p className="mt-4 rounded-md bg-amber-50 p-4 text-left text-sm text-amber-800">SANDBOX_COD chỉ tạo dữ liệu mô phỏng; không thu hoặc chuyển tiền thật.</p>
+                <p className="mt-4 rounded-md bg-[var(--paper)] p-4 text-left text-sm text-[var(--muted)]">Phương thức thanh toán: <strong className="text-[var(--ink)]">Thanh toán khi nhận hàng (COD)</strong></p>
                 {error ? <p className="mt-3 text-left text-sm text-red-700" role="alert">{error}</p> : null}
-                <button className="mt-4 h-12 w-52 rounded-md bg-[var(--accent)] font-medium text-white disabled:opacity-50" disabled={!addressId || items.length !== 1 || submitting} onClick={() => void placeOrder()} type="button">{submitting ? "Đang đặt..." : "Đặt đơn SANDBOX_COD"}</button>
+                <button className="mt-4 h-12 w-52 rounded-md bg-[var(--accent)] font-medium text-white disabled:opacity-50" disabled={!addressId || items.length !== 1 || submitting} onClick={() => void placeOrder()} type="button">{submitting ? "Đang đặt hàng..." : "Đặt hàng"}</button>
               </>}
             </section>
           </>

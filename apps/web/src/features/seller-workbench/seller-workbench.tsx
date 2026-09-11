@@ -217,7 +217,7 @@ export function SellerWorkbench() {
       <section className="mt-6 max-w-2xl rounded-[18px] border border-[var(--line)] bg-white p-6 shadow-[0_12px_35px_rgba(35,63,101,0.06)] sm:p-8">
         <p className="text-sm font-bold text-[var(--accent)]">Bạn chưa có shop</p>
         <h2 className="mt-1 text-2xl font-black tracking-tight">Đăng ký trở thành người bán</h2>
-        <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Hoàn thành hồ sơ shop, địa chỉ lấy hàng, eKYC và cấu hình vận chuyển trước khi vào Seller Center.</p>
+        <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Hoàn thành hồ sơ shop, địa chỉ lấy hàng, eKYC và cấu hình vận chuyển trước khi vào Kênh người bán.</p>
         <Link className="mt-6 inline-flex rounded-xl bg-[var(--accent)] px-5 py-3 font-bold text-white" href="/seller/onboarding">Bắt đầu đăng ký</Link>
       </section>
     );

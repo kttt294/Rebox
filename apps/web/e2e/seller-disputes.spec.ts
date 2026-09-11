@@ -48,7 +48,7 @@ test("shows Vietnamese labels for seller orders", async ({ page }) => {
 
   await page.goto("/seller/orders");
 
-  await expect(page.getByRole("heading", { name: "Đơn hàng thử nghiệm" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Quản lý đơn hàng" })).toBeVisible();
   await expect(page.getByText("Đang vận chuyển", { exact: true })).toBeVisible();
   await expect(page.getByText("IN_TRANSIT", { exact: true })).toHaveCount(0);
 });

@@ -204,7 +204,7 @@ export function AddProductWorkbench() {
       <section className="mt-6 max-w-2xl rounded-[18px] border border-[var(--line)] bg-white p-6 shadow-[0_12px_35px_rgba(35,63,101,0.06)] sm:p-8">
         <p className="text-sm font-bold text-[var(--accent)]">Bạn chưa có shop</p>
         <h2 className="mt-1 text-2xl font-black tracking-tight">Đăng ký trở thành người bán</h2>
-        <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Hoàn thành hồ sơ shop, địa chỉ lấy hàng, eKYC và cấu hình vận chuyển trước khi vào Seller Center.</p>
+        <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Hoàn thành hồ sơ shop, địa chỉ lấy hàng, eKYC và cấu hình vận chuyển trước khi vào Kênh người bán.</p>
         <Link className="mt-6 inline-flex rounded-xl bg-[var(--accent)] px-5 py-3 font-bold text-white" href="/seller/onboarding">Bắt đầu đăng ký</Link>
       </section>
     );
@@ -218,7 +218,7 @@ export function AddProductWorkbench() {
 
       <section className="rounded-[18px] border border-[var(--line)] bg-white p-5 shadow-[0_12px_35px_rgba(35,63,101,0.06)] sm:p-7">
         <h2 className="text-xl font-black tracking-tight">Nhập bản kê hàng hoàn</h2>
-        <p className="mt-1 text-sm leading-6 text-[var(--muted)]">Chọn một nguồn. Cả hai nguồn dùng chung màn preview trước khi tạo kiện.</p>
+        <p className="mt-1 text-sm leading-6 text-[var(--muted)]">Chọn một nguồn. Cả hai nguồn dùng chung màn xem trước khi tạo kiện.</p>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <button className="rounded-xl border border-[var(--line-strong)] bg-slate-100 px-5 py-4 text-left font-bold text-slate-500 disabled:cursor-not-allowed" disabled type="button">
             Import trực tiếp từ Shopee/TikTok <span className="block text-xs font-semibold">Sắp có</span>
@@ -248,7 +248,7 @@ export function AddProductWorkbench() {
           <div className="mt-6 border-t border-[var(--line)] pt-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h3 className="font-black">Preview {manifestFileName}</h3>
+                <h3 className="font-black">Xem trước {manifestFileName}</h3>
                 <p className="mt-1 text-sm text-[var(--muted)]">{manifestPreview.drafts.length} kiện · {manifestPreview.rows.length} dòng</p>
               </div>
               <button
@@ -257,7 +257,7 @@ export function AddProductWorkbench() {
                 onClick={() => void commitManifest()}
                 type="button"
               >
-                {manifestCommitted ? "Đã commit" : action === "commit-manifest" ? "Đang commit..." : "Commit bản kê"}
+                {manifestCommitted ? "Đã nhập" : action === "commit-manifest" ? "Đang nhập..." : "Xác nhận nhập"}
               </button>
             </div>
             <div className="mt-4 overflow-x-auto">

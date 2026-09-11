@@ -37,8 +37,8 @@ export function SellerPromotions() {
     setAction("credit"); setError(undefined); setMessage(undefined);
     try {
       setOverview(await api.seedPromotionCredit(shop.id, crypto.randomUUID()));
-      setMessage("Đã nạp thử 100.000đ vào số dư quảng bá.");
-    } catch { setError("Không thể nạp số dư quảng bá thử."); }
+      setMessage("Đã nạp 100.000đ vào số dư quảng bá.");
+    } catch { setError("Không thể nạp số dư quảng bá."); }
     finally { setAction(undefined); }
   }
 
@@ -51,7 +51,7 @@ export function SellerPromotions() {
       setMessage("Sản phẩm đã được đưa vào hàng đầu của Gợi ý hôm nay.");
     } catch (caught) {
       setError(caught instanceof ApiClientError && caught.code === "INSUFFICIENT_PROMOTION_CREDIT"
-        ? "Số dư quảng bá không đủ. Hãy nạp thử trước khi tài trợ."
+        ? "Số dư quảng bá không đủ. Hãy nạp thêm trước khi tài trợ."
         : caught instanceof ApiClientError && caught.code === "PROMOTION_SLOTS_FULL"
           ? "Sáu vị trí tài trợ hiện đã kín. Vui lòng thử lại sau."
           : "Không thể tài trợ sản phẩm này.");
@@ -64,8 +64,8 @@ export function SellerPromotions() {
   return (
     <section className="min-h-[calc(100vh-100px)] rounded-xl border border-[var(--line)] bg-white p-5">
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--line)] pb-5">
-        <div><h1 className="text-[22px] font-bold text-[var(--ink)]">Quảng Bá Sản Phẩm</h1><p className="mt-1 text-sm text-[var(--muted)]">Đưa listing vào hàng đầu của Gợi ý hôm nay trong 7 ngày.</p></div>
-        <div className="text-right"><p className="text-xs text-[var(--muted)]">Số dư quảng bá</p><strong className="text-xl text-[var(--accent)]">{overview.creditVnd.toLocaleString("vi-VN")}đ</strong><button className="ml-4 rounded-lg bg-[var(--accent)] px-4 py-2 text-xs font-bold text-white disabled:opacity-50" disabled={action === "credit"} onClick={() => void addCredit()} type="button">{action === "credit" ? "Đang nạp..." : "Nạp thử 100.000đ"}</button></div>
+        <div><h1 className="text-[22px] font-bold text-[var(--ink)]">Quảng Bá Sản Phẩm</h1><p className="mt-1 text-sm text-[var(--muted)]">Đưa sản phẩm vào hàng đầu của Gợi ý hôm nay trong 7 ngày.</p></div>
+        <div className="text-right"><p className="text-xs text-[var(--muted)]">Số dư quảng bá</p><strong className="text-xl text-[var(--accent)]">{overview.creditVnd.toLocaleString("vi-VN")}đ</strong><button className="ml-4 rounded-lg bg-[var(--accent)] px-4 py-2 text-xs font-bold text-white disabled:opacity-50" disabled={action === "credit"} onClick={() => void addCredit()} type="button">{action === "credit" ? "Đang nạp..." : "Nạp"}</button></div>
       </div>
 
       {error ? <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800" role="alert">{error}</p> : null}

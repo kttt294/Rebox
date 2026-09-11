@@ -182,7 +182,7 @@ test("renders only an active listing through the public NestJS endpoint", async 
 
 test("does not expose a draft listing", async ({ page }) => {
   await page.goto("/listings/RBX-01JTESTDRAFTLISTING000000");
-  await expect(page.getByRole("heading", { name: "Không tìm thấy listing" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Không tìm thấy sản phẩm" })).toBeVisible();
 });
 
 test("normalizes the cart and places cart and buy-now sandbox orders", async ({ page, request }) => {
@@ -221,8 +221,8 @@ test("normalizes the cart and places cart and buy-now sandbox orders", async ({ 
   await expect(page.getByRole("heading", { name: "Xác nhận sản phẩm" })).toBeVisible();
   await expect(page.getByRole("link", { name: second.title })).toBeVisible();
   await expect(page.getByRole("link", { name: first.title })).toHaveCount(0);
-  await page.getByRole("button", { name: "Đặt đơn SANDBOX_COD" }).click();
-  await expect(page.getByRole("status")).toContainText("đã xác nhận SANDBOX_COD");
+  await page.getByRole("button", { name: "Đặt hàng" }).click();
+  await expect(page.getByRole("status")).toContainText("đã được xác nhận");
   await expect.poll(() => page.evaluate(() => localStorage.getItem("reboxe.cart.v1"))).toBe(
     JSON.stringify([{ listingId: first.id, quantity: 1 }])
   );
@@ -231,8 +231,8 @@ test("normalizes the cart and places cart and buy-now sandbox orders", async ({ 
   await page.getByRole("link", { name: "Mua ngay" }).click();
   await expect(page).toHaveURL(`/checkout?items=${encodeURIComponent(first.id)}`);
   await expect(page.getByRole("link", { name: first.title })).toBeVisible();
-  await page.getByRole("button", { name: "Đặt đơn SANDBOX_COD" }).click();
-  await expect(page.getByRole("status")).toContainText("đã xác nhận SANDBOX_COD");
+  await page.getByRole("button", { name: "Đặt hàng" }).click();
+  await expect(page.getByRole("status")).toContainText("đã được xác nhận");
 });
 
 test("shows the review form only to an eligible buyer", async ({ page }) => {

@@ -304,9 +304,9 @@ test("shows two manifest sources and previews the spreadsheet source only", asyn
   const chooser = await chooserPromise;
   await chooser.setFiles({ name: "manifest.csv", mimeType: "text/csv", buffer: Buffer.from("fixture") });
 
-  await expect(page.getByRole("heading", { name: "Preview manifest.csv" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Xem trước manifest.csv" })).toBeVisible();
   await expect(page.getByRole("row", { name: /SHOPEE:TRACK-001/ })).toContainText("Hợp lệ");
-  await page.getByRole("button", { name: "Commit bản kê" }).click();
+  await page.getByRole("button", { name: "Xác nhận nhập" }).click();
   await expect(page.getByRole("status")).toHaveText("Đã nhập 1 kiện và 1 dòng khai báo.");
   await page.goto("/seller/inventory");
   await expect(page.getByRole("row", { name: /Áo thun cotton/ })).toContainText("600.000đ");
