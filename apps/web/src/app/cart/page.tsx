@@ -74,7 +74,6 @@ export default function CartPage() {
                   <Link className="font-medium hover:text-[var(--accent)]" href={`/shops/${listing.shopId}`}>{listing.shopDisplayName}</Link>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-[96px_1fr_auto] sm:items-center">
-                  <ProductVisual className="size-24 bg-[var(--accent-header)] text-sm" label={listing.categoryId.toUpperCase()} />
                   <ProductVisual className="size-24 bg-[var(--accent-header)] text-sm" label={listing.categoryId.toUpperCase()} src={listing.images[0]?.url} />
                   <div>
                     <Link className="font-medium hover:text-[var(--accent)]" href={`/listings/${listing.id}`}>{listing.title}</Link>

@@ -19,7 +19,7 @@ export function ProductVisual({
   gradient?: string;
   label: string;
   labelClassName?: string;
-  src?: string;
+  src?: string | undefined;
 }) {
   return (
     <div
