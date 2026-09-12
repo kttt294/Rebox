@@ -38,7 +38,7 @@ export function SellerShell({ children }: { children: ReactNode }) {
           <SellerNavItem active={pathname === "/seller/reports"} href="/seller/reports">Báo Cáo Hiệu Suất</SellerNavItem>
         </nav>
       </aside>
-      <main className={`min-w-0 flex-1 overscroll-contain p-4 sm:p-6 ${pathname === "/seller/inventory" ? "xl:overflow-hidden" : "xl:overflow-y-auto"}`}>{children}</main>
+      <main className={`min-w-0 flex-1 overscroll-contain p-4 sm:p-6 ${pathname === "/seller/inventory" ? "xl:overflow-hidden" : "xl:overflow-y-auto"}`}><div className="mx-auto h-full max-w-[1200px]">{children}</div></main>
     </div>
   );
 }
