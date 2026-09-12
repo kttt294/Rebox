@@ -62,7 +62,7 @@ function RevenueByProduct({ finance }: { finance: SellerFinanceSnapshot }) {
   const maxRevenue = Math.max(1, ...finance.productRevenue.map((item) => item.amountVnd));
   const products = finance.productRevenue.slice(0, 4).map((item) => ({ ...item, height: item.amountVnd / maxRevenue * 106.4 }));
   return (
-    <article className="relative min-h-[280px] min-w-[320px] flex-1 rounded-xl ring-1 ring-inset ring-[var(--line)] lg:min-w-[450px]">
+    <article className="relative min-h-[280px] min-w-0 rounded-xl ring-1 ring-inset ring-[var(--line)]">
       <h2 className="absolute left-[19px] top-[17px] text-lg font-bold">Doanh thu theo sản phẩm</h2>
       <p className="absolute left-[19px] top-[43px] text-xs text-[var(--muted)]">So sánh nhóm sản phẩm nổi bật</p>
       {[83, 124.33, 165.67, 207].map((top) => <span className="absolute left-[53px] right-[51px] h-px bg-[var(--line)]" key={top} style={{ top }} />)}
@@ -84,7 +84,7 @@ function FinancialComposition({ finance }: { finance: SellerFinanceSnapshot }) {
   const availablePercent = total ? Math.round(finance.availableBalanceVnd / total * 100) : 0;
   const heldPercent = total ? 100 - availablePercent : 0;
   return (
-    <article className="relative min-h-[280px] w-full min-w-[320px] rounded-xl ring-1 ring-inset ring-[var(--line)] lg:min-w-[450px]">
+    <article className="relative min-h-[280px] min-w-0 rounded-xl ring-1 ring-inset ring-[var(--line)]">
       <h2 className="absolute left-[19px] top-[17px] text-lg font-bold">Cơ cấu tài chính</h2>
       <p className="absolute left-[19px] top-[43px] text-xs text-[var(--muted)]">Số dư khả dụng và khoản tạm khóa</p>
       <div
@@ -124,7 +124,7 @@ export default function SellerFinancePage() {
         <MetricCards finance={finance} />
         <div className="flex min-h-0 flex-1 flex-col gap-3">
           <RevenueTrend finance={finance} />
-          <div className="flex min-h-[280px] flex-1 flex-wrap gap-3 overflow-x-auto lg:flex-nowrap">
+          <div className="grid min-h-[280px] flex-1 grid-cols-1 gap-3 lg:grid-cols-2">
             <RevenueByProduct finance={finance} />
             <FinancialComposition finance={finance} />
           </div>
