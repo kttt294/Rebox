@@ -17,6 +17,7 @@ function MetricCards({ finance }: { finance: SellerFinanceSnapshot }) {
   ];
   return (
     <div className="grid shrink-0 gap-3 lg:grid-cols-3 xl:grid-cols-[repeat(3,350px)] xl:gap-3">
+    <div className="grid shrink-0 gap-3 lg:grid-cols-3 xl:gap-3">
       {metrics.map((metric) => (
         <article className="flex h-[104px] flex-col gap-2 rounded-xl bg-white px-[18px] py-4 ring-1 ring-inset ring-[var(--line)]" key={metric.label}>
           <p className="text-[11px] font-medium text-[var(--muted)]">{metric.label}</p>

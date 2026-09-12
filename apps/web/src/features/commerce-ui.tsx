@@ -13,11 +13,14 @@ export function ProductVisual({
   gradient,
   label,
   labelClassName = ""
+  labelClassName = "",
+  src
 }: {
   className?: string;
   gradient?: string;
   label: string;
   labelClassName?: string;
+  src?: string;
 }) {
   return (
     <div
@@ -25,6 +28,12 @@ export function ProductVisual({
       style={gradient ? ({ backgroundImage: gradient } as CSSProperties) : undefined}
     >
       <strong className={`font-bold leading-5 ${labelClassName}`}>{label}</strong>
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img alt={label} className="size-full object-cover" src={src} />
+      ) : (
+        <strong className={`font-bold leading-5 ${labelClassName}`}>{label}</strong>
+      )}
     </div>
   );
 }
