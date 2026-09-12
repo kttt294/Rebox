@@ -63,6 +63,7 @@ function RevenueByProduct({ finance }: { finance: SellerFinanceSnapshot }) {
   const products = finance.productRevenue.slice(0, 4).map((item) => ({ ...item, height: item.amountVnd / maxRevenue * 106.4 }));
   return (
     <article className="relative h-full min-w-[556px] flex-1 rounded-xl ring-1 ring-inset ring-[var(--line)]">
+    <article className="relative min-h-[280px] min-w-[320px] flex-1 rounded-xl ring-1 ring-inset ring-[var(--line)] lg:min-w-[450px]">
       <h2 className="absolute left-[19px] top-[17px] text-lg font-bold">Doanh thu theo sản phẩm</h2>
       <p className="absolute left-[19px] top-[43px] text-xs text-[var(--muted)]">So sánh nhóm sản phẩm nổi bật</p>
       {[83, 124.33, 165.67, 207].map((top) => <span className="absolute left-[53px] right-[51px] h-px bg-[var(--line)]" key={top} style={{ top }} />)}
@@ -85,6 +86,7 @@ function FinancialComposition({ finance }: { finance: SellerFinanceSnapshot }) {
   const heldPercent = total ? 100 - availablePercent : 0;
   return (
     <article className="relative h-full w-[556px] shrink-0 rounded-xl ring-1 ring-inset ring-[var(--line)]">
+    <article className="relative min-h-[280px] w-full min-w-[320px] rounded-xl ring-1 ring-inset ring-[var(--line)] lg:min-w-[450px]">
       <h2 className="absolute left-[19px] top-[17px] text-lg font-bold">Cơ cấu tài chính</h2>
       <p className="absolute left-[19px] top-[43px] text-xs text-[var(--muted)]">Số dư khả dụng và khoản tạm khóa</p>
       <div
@@ -123,8 +125,10 @@ export default function SellerFinancePage() {
         {error ? <div className="grid min-h-[420px] place-items-center text-sm text-red-600" role="alert">{error}</div> : !finance ? <div className="grid min-h-[420px] place-items-center text-sm text-[var(--muted)]">Đang tải dữ liệu tài chính...</div> : <>
         <MetricCards finance={finance} />
         <div className="flex h-[562px] max-h-[562px] min-h-0 flex-1 flex-col gap-3">
+        <div className="flex min-h-0 flex-1 flex-col gap-3">
           <RevenueTrend finance={finance} />
           <div className="flex h-[280px] min-h-0 flex-1 gap-3 overflow-x-auto overflow-y-hidden">
+          <div className="flex min-h-[280px] flex-1 flex-wrap gap-3 overflow-x-auto lg:flex-nowrap">
             <RevenueByProduct finance={finance} />
             <FinancialComposition finance={finance} />
           </div>
