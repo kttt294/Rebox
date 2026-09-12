@@ -45,7 +45,6 @@ export function SellerShell({ children }: { children: ReactNode }) {
 
 export function FinanceWorkspace({ active, children }: { active: FinanceTab; children: ReactNode }) {
   return (
-    <section className="flex min-h-[900px] w-full flex-col gap-3 overflow-hidden rounded-[18px] bg-white p-4 shadow-[0_3px_10px_rgba(16,40,69,0.08)] ring-1 ring-inset ring-[var(--line)] sm:p-6 xl:h-full xl:min-h-[679px]">
     <section className="flex min-h-[900px] w-full flex-col gap-3 overflow-y-auto rounded-[18px] bg-white p-4 shadow-[0_3px_10px_rgba(16,40,69,0.08)] ring-1 ring-inset ring-[var(--line)] sm:p-6 xl:h-full xl:min-h-[679px]">
       <h1 className="h-[33px] text-[24px] font-bold leading-[33px] text-[var(--ink)] sm:text-[28px]">Đối Soát Tài Chính &amp; Ví Ký Quỹ</h1>
       <nav className="flex h-11 shrink-0 items-end gap-2" aria-label="Đối soát tài chính">

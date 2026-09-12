@@ -12,7 +12,6 @@ export function ProductVisual({
   className = "",
   gradient,
   label,
-  labelClassName = ""
   labelClassName = "",
   src
 }: {
@@ -27,9 +26,7 @@ export function ProductVisual({
       className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg text-white ${className}`}
       style={gradient ? ({ backgroundImage: gradient } as CSSProperties) : undefined}
     >
-      <strong className={`font-bold leading-5 ${labelClassName}`}>{label}</strong>
       {src ? (
-        // eslint-disable-next-line @next/next/no-img-element
         <img alt={label} className="size-full object-cover" src={src} />
       ) : (
         <strong className={`font-bold leading-5 ${labelClassName}`}>{label}</strong>
